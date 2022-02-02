@@ -5,17 +5,12 @@ program latt_wann_mpi
    use mpi
    use Mdebug
    use Mdef,only: dp,zero
-   use Mtime,only:&
-      Timer_Act => TAct,&
-      Timer_SetName => SetName,&
-      Timer_Run => TRun,&
-      Timer_stop => Tstop,&
-      Timer_DTShow => DTShow
+   use Mtime,only: Timer_Act, Timer_SetName, Timer_Run, Timer_stop, Timer_DTShow
    use Mlaserpulse,only: LaserPulse_spline_t
    use Mham_w90,only: wann90_tb_t
-   use Mlatt_wann_mpi,only: latt2d_wann_t
+   use Mlatt_wann_mpi,only: latt_wann_t
    implicit none
-   include 'formats.h'
+   include '../formats.h'
 !--------------------------------------------------------------------------------------
    ! -- constants --
    character(len=*),parameter :: fmt_time='(a,"/",a,"/",a," at ",a,":",a,":",a)'
@@ -57,7 +52,7 @@ program latt_wann_mpi
    real(dp),allocatable :: Jcurr_kpt(:,:,:)
    type(LaserPulse_spline_t) :: pulse_x,pulse_y,pulse_z
    type(wann90_tb_t)         :: Ham
-   type(latt2d_wann_t)       :: lattsys
+   type(latt_wann_t)         :: lattsys
    ! -- parallelization --
    logical  :: on_root
    integer  :: taskid,ntasks,nthreads,threadid,ierr
@@ -107,7 +102,7 @@ program latt_wann_mpi
       read(unit_inp,nml=FIELDPARAMS)
       close(unit_inp)
    else
-      write(output_unit,fmt900) 'Please provide a namelist input file.'
+      if(on_root) write(output_unit,fmt900) 'Please provide a namelist input file.'
       call MPI_Finalize(ierr); stop
    end if
 
@@ -255,8 +250,6 @@ program latt_wann_mpi
                   Jdia(:,step),Jintra(:,step),Dip(:,step),BandOcc(:,step))
          end if
 
-         if(Output_kpt) call lattsys%CalcCurrentKPT(tstp+1,dt,Jcurr_kpt(:,:,step))
-
          if(on_root) write(output_unit,fmt145) "tstp",tstp+1
 
       end if
@@ -272,7 +265,6 @@ program latt_wann_mpi
 !--------------------------------------------------------------------------------------
    if(on_root .and. PrintToFile) then
       call SaveObservables(FlOutPref)
-      if(Output_kpt) call SaveCurrentKPT(FlOutPref)
    end if
 
    if(Output_Dens) call lattsys%SaveDensM(trim(FlOutPref)//'_densm.h5')
@@ -344,7 +336,7 @@ contains
          call hdf_write_dataset(file_id,'current_intra',Jintra)
       end if
 
-      if(ApplyField .or. ApplyProbe) then
+      if(ApplyField) then
          allocate(EF(3,0:Nsteps))
          do tstp=0,Nsteps
             call external_field(ts(tstp),AF,EF(:,tstp))

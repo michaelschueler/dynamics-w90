@@ -1,15 +1,17 @@
-module MLATT_WANN_MPI
+module MLATT_WANN
 !======================================================================================
    use mpi
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
    use Mdef,only: dp,iu,one,zero,nfermi
    use Munits,only: DPi
+   use Mlinalg,only: util_rotate
+   use Mrungekutta,only: ODE_step_rk5
    use Mlatt,only: latt3d_t
    use Mham_w90,only: wann90_tb_t
    use Mwann_dyn
    implicit none
-   include 'formats.h'
+   include '../formats.h'
 !--------------------------------------------------------------------------------------
    ! .. external vector potential ..
    procedure(vecpot_efield_func),pointer :: field => null()
@@ -25,7 +27,6 @@ module MLATT_WANN_MPI
       integer  :: gauge
       integer  :: Nk,nbnd
       real(dp) :: Beta,MuChem
-      real(dp),allocatable :: kcoord_loc(:,:)
       complex(dp),allocatable,dimension(:,:,:)  :: Hk,Udt,wan_rot
       complex(dp),allocatable,dimension(:,:,:,:) :: grad_Hk,Dk,velok
       ! .. lattice class ..
@@ -69,26 +70,16 @@ contains
 
       me%gauge = gauge
 
-      call me%latt%Init(Nk1,Nk2,Nk3)
+      call me%latt%Init(Nk1,Nk2,Nk3,ham%recip_lattice)
       me%Nk = me%latt%Nk
 
       call me%Ham%Set(Ham)
 
       me%nbnd = me%ham%num_wann
-
-      call kdist%Init(ntasks,taskid,me%Nk)
-      me%Nk_loc = kdist%N_loc(taskid)
-
-      allocate(me%kcoord_loc(me%Nk_loc,3))
-      do ik=1,me%Nk_loc
-         ik_glob = kdist%Indx_Loc2Glob(taskid,ik)
-         me%kcoord_loc(ik,:) = me%latt%kcoord(ik_glob,:)
-      end do
-
       me%Beta = Beta
       me%MuChem = MuChem
 
-      allocate(me%Rhok(me%nbnd,me%nbnd,me%Nk_loc))
+      allocate(me%Rhok(me%nbnd,me%nbnd,me%Nk))
 
       large_size = me%nbnd >= 8
 
@@ -116,10 +107,10 @@ contains
       call hdf_write_attribute(file_id,'','nbnd', me%nbnd)
 
       allocate(rdata(me%nbnd,me%nbnd,me%Nk))
-      rdata = dble(Rhok)
+      rdata = dble(me%Rhok)
       call hdf_write_dataset(file_id,'real',rdata)
 
-      rdata = aimag(Rhok)
+      rdata = aimag(me%Rhok)
       call hdf_write_dataset(file_id,'imag',rdata)
 
       call hdf_close_file(file_id)
@@ -131,6 +122,7 @@ contains
       use Mhdf5_utils
       class(latt_wann_t)        :: me
       character(len=*),intent(in) :: fname
+      integer :: nk1,nk2,nk3,nbnd
       real(dp),allocatable :: rdata(:,:,:)
       integer(HID_t) :: file_id
 
@@ -147,9 +139,9 @@ contains
 
       allocate(rdata(me%nbnd,me%nbnd,me%Nk))
       call hdf_read_dataset(file_id,'real',rdata)
-      Rhok = rdata
+      me%Rhok = rdata
       call hdf_read_dataset(file_id,'imag',rdata)
-      Rhok = Rhok + iu * rdata
+      me%Rhok = me%Rhok + iu * rdata
 
       call hdf_close_file(file_id)
       deallocate(rdata)
@@ -171,50 +163,50 @@ contains
 
       calc_mu = present(filling)
 
-      allocate(Hk(me%nbnd,me%nbnd,me%Nk_loc),Ek(me%nbnd,me%Nk_loc))
-      allocate(me%wan_rot(me%nbnd,me%nbnd,me%Nk_loc))
-      allocate(me%Rhok_eq(me%nbnd,me%nbnd,me%Nk_loc))
+      allocate(Hk(me%nbnd,me%nbnd,me%Nk),Ek(me%nbnd,me%Nk))
+      allocate(me%wan_rot(me%nbnd,me%nbnd,me%Nk))
+      allocate(me%Rhok_eq(me%nbnd,me%nbnd,me%Nk))
 
-      call Wann_GenHk(me%ham,me%Nk_loc,me%kcoord_loc,Hk)
+      call Wann_GenHk(me%ham,me%Nk,me%latt%kcoord,Hk)
       do ik=1,me%Nk
          call EigHE(Hk(:,:,ik),Ek(:,ik),me%wan_rot(:,:,ik))
-         Ek(:,ik) = me%ham%get_eig(me%kcoord_loc(ik,:))
+         Ek(:,ik) = me%ham%get_eig(me%latt%kcoord(ik,:))
       end do
 
       if(calc_mu) then
-         npart_target = me%nbnd * filling
+         npart_target = filling
          Emin = minval(Ek); Emax = maxval(Ek)
          me%MuChem = brent(part_func,Emin,Emax,mu_tol)
       end if
 
       allocate(me%Hk(me%nbnd,me%nbnd,me%Nk))
       if(me%gauge == velocity_gauge .or. me%gauge == velo_emp_gauge) then
-         allocate(me%velok(me%nbnd,me%nbnd,me%Nk_loc,3))
+         allocate(me%velok(me%nbnd,me%nbnd,me%Nk,3))
       end if
 
       select case(me%gauge)
       case(velocity_gauge)
-         call Wann_GenRhok_eq(me%ham,me%Nk,me%kcoord_loc,me%MuChem,me%Beta,me%Rhok,&
+         call Wann_GenRhok_eq(me%ham,me%Nk,me%latt%kcoord,me%MuChem,me%Beta,me%Rhok,&
             band_basis=.true.)
          
          do ik=1,me%Nk
-            kpt = me%kcoord_loc(ik,:)
+            kpt = me%latt%kcoord(ik,:)
             me%Hk(:,:,ik) = me%ham%get_ham_diag(kpt)
             me%velok(:,:,ik,1:3) = me%ham%get_velocity(kpt)
          end do
       case(velo_emp_gauge)
-         call Wann_GenRhok_eq(me%ham,me%Nk,me%kcoord_loc,me%MuChem,me%Beta,me%Rhok,&
+         call Wann_GenRhok_eq(me%ham,me%Nk,me%latt%kcoord,me%MuChem,me%Beta,me%Rhok,&
             band_basis=.true.)   
          do ik=1,me%Nk
-            kpt = me%kcoord_loc(ik,:)
+            kpt = me%latt%kcoord(ik,:)
             me%Hk(:,:,ik) = me%ham%get_ham_diag(kpt)
             me%velok(:,:,ik,1:3) = me%ham%get_emp_velocity(kpt)
          end do
       case(dipole_gauge)
-         call Wann_GenRhok_eq(me%ham,me%Nk,me%kcoord_loc,me%MuChem,me%Beta,me%Rhok,&
+         call Wann_GenRhok_eq(me%ham,me%Nk,me%latt%kcoord,me%MuChem,me%Beta,me%Rhok,&
             band_basis=.false.)
       case(dip_emp_gauge)
-         call Wann_GenRhok_eq(me%ham,me%Nk,me%kcoord_loc,me%MuChem,me%Beta,me%Rhok,&
+         call Wann_GenRhok_eq(me%ham,me%Nk,me%latt%kcoord,me%MuChem,me%Beta,me%Rhok,&
             band_basis=.false.)
       end select
 
@@ -244,7 +236,6 @@ contains
    end subroutine SolveEquilibrium
 !--------------------------------------------------------------------------------------
    subroutine Timestep_RelaxTime(me,tau,tstp,dt)
-      use kbkit_integration
       integer,parameter :: qc=1
       class(latt_wann_t)      :: me
       real(dp),intent(in)       :: tau
@@ -257,7 +248,7 @@ contains
       allocate(Rhok_eq(me%nbnd,me%nbnd),Rhok_old(me%nbnd,me%nbnd))
 
       do ik=1,me%Nk
-         kpt = me%kcoord_loc(ik,:)
+         kpt = me%latt%kcoord(ik,:)
          Rhok_eq = me%Rhok_eq(:,:,ik)
          Rhok_old = me%Rhok(:,:,ik)
 
@@ -299,7 +290,7 @@ contains
          complex(dp),intent(in) :: yt(:,:)
          complex(dp) :: dydt(nst,nst)
          complex(dp) :: ht(nst,nst)
-         real(dp) :: AF(2),EF(2)
+         real(dp) :: AF(3),EF(3)
 
          AF = 0.0_dp; EF = 0.0_dp
          if(associated(field)) call field(t,AF,EF)
@@ -354,15 +345,12 @@ contains
       if((tstp * dt < field_Tmax_) .or. tstp == 0) then
          select case(me%gauge)
          case(dipole_gauge)
-            call Wann_Rhok_timestep_dip(me%ham,me%Nk,me%kcoord_loc,tstp,dt,&
+            call Wann_Rhok_timestep_dip(me%ham,me%Nk,me%latt%kcoord,tstp,dt,&
                field,me%Rhok)
          case(dip_emp_gauge)
-            call Wann_Rhok_timestep_dip(me%ham,me%Nk,me%kcoord_loc,tstp,dt,&
+            call Wann_Rhok_timestep_dip(me%ham,me%Nk,me%latt%kcoord,tstp,dt,&
                field,me%Rhok,Peierls_only=.true.)
-         case(velocity_gauge)
-            call Wann_Rhok_timestep_velo_calc(me%nbnd,me%Nk,me%Hk,me%velok,tstp,dt,&
-               field,me%Rhok)
-         case(velo_emp_gauge)
+         case(velocity_gauge,velo_emp_gauge)
             call Wann_Rhok_timestep_velo_calc(me%nbnd,me%Nk,me%Hk,me%velok,tstp,dt,&
                field,me%Rhok)
          end select
@@ -371,9 +359,7 @@ contains
          if(.not. me%free_evol) then
             ! compute time-evolution operator
 
-            if(on_root) then
-               write(output_unit,*) "---> Switching to free evolution"
-            end if
+            write(output_unit,*) "---> Switching to free evolution"
 
             allocate(me%Udt(me%nbnd,me%nbnd,me%Nk))
             allocate(me%Dk(me%nbnd,me%nbnd,me%Nk,3)); me%Dk = zero
@@ -381,7 +367,7 @@ contains
 
             call field(field_Tmax_,AF,EF)
             do ik=1,me%Nk
-               kpt = me%kcoords(ik,:)
+               kpt = me%latt%kcoord(ik,:)
                select case(me%gauge)
                case(dipole_gauge)
                   me%Hk(:,:,ik) = Wann_GetHk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
@@ -429,43 +415,29 @@ contains
       real(dp),intent(out) :: Dip(3)
       real(dp),intent(out) :: BandOcc(me%nbnd)
       integer :: ik
-      real(dp) :: Ekin_loc,Etot_loc,Jp_loc(3),Jd_loc(3),Ji_loc(3)
-      real(dp) :: dip_loc(3)
       real(dp) :: AF(3),EF(3)
-      real(dp) :: occ(me%nbnd)
-      complex(dp),dimension(me%nbnd,me%nbnd) :: rhok_bnd,rot_cc
 
       AF = 0.0_dp; EF = 0.0_dp
       if(associated(field)) call field(tstp*dt,AF,EF)
 
-      Occ = 0.0_dp
-
-      Ekin_loc = Wann_KineticEn_calc(me%nbnd,me%Nk,me%Hk,me%Rhok)
-      Etot_loc = Wann_TotalEn_velo_calc(me%nbnd,me%Nk,me%Hk,me%velok,AF,me%Rhok)
-      Jp_loc = Wann_Current_para_velo_calc(me%nbnd,me%Nk,me%velok,me%Rhok) 
-      Jd_loc = Wann_Current_dia_velo(me%Nk,AF,me%Rhok) 
-      Ji_loc = Wann_Current_Intra_velo_calc(me%nbnd,me%Nk,me%velok,me%Rhok) 
-
-      call MPI_ALLREDUCE(Ekin_loc,Ekin,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-      call MPI_ALLREDUCE(Etot_loc,Etot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-      call MPI_ALLREDUCE(Jp_loc,Jpara,3,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-      call MPI_ALLREDUCE(Jd_loc,Jdia,3,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-      call MPI_ALLREDUCE(Ji_loc,Jintra,3,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
+      Ekin = Wann_KineticEn_calc(me%nbnd,me%Nk,me%Hk,me%Rhok)
+      Etot = Wann_TotalEn_velo_calc(me%nbnd,me%Nk,me%Hk,me%velok,AF,me%Rhok)
+      Jpara = Wann_Current_para_velo_calc(me%nbnd,me%Nk,me%velok,me%Rhok) 
+      Jdia = Wann_Current_dia_velo(me%Nk,AF,me%Rhok) 
+      Jintra = Wann_Current_Intra_velo_calc(me%nbnd,me%Nk,me%velok,me%Rhok) 
       Jcurr = Jpara + Jdia
 
       if(me%free_evol) then
-         Dip_loc = Wann_Pol_dip_calc(me%nbnd,me%Nk,me%Dk,me%Rhok)
+         Dip = Wann_Pol_dip_calc(me%nbnd,me%Nk,me%Dk,me%Rhok)
       else
-         Dip_loc = Wann_Pol_velo(me%ham,me%Nk,me%kcoord_loc,me%Rhok,band_basis=.true.) 
+         Dip = Wann_Pol_velo(me%ham,me%Nk,me%latt%kcoord,me%Rhok,band_basis=.true.) 
       end if
-      call MPI_ALLREDUCE(Dip_loc,Dip,3,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-
-      !$OMP PARALLEL DO REDUCTION(+:Occ)
+    
+      BandOcc = 0.0_dp
       do ik=1,me%Nk
-         Occ = Occ + dble(GetDiag(me%nbnd,me%Rhok(:,:,ik))) / me%Nk
+         BandOcc = BandOcc + dble(GetDiag(me%nbnd,me%Rhok(:,:,ik))) / me%Nk
       end do
-      call MPI_ALLREDUCE(Occ,BandOcc,me%nbnd,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-      
+            
    end subroutine CalcObservables_velo
 !--------------------------------------------------------------------------------------
    subroutine CalcObservables_dip(me,tstp,dt,Ekin,Etot,Jcurr,Jhk,Jpol,Dip,BandOcc)
@@ -480,63 +452,51 @@ contains
       real(dp),intent(out) :: Dip(3)
       real(dp),intent(out) :: BandOcc(me%nbnd)
       integer :: ik
-      real(dp) :: Ekin_loc,Etot_loc,J_loc(3)
-      real(dp) :: dip_loc(3),JHk_loc(3)
       real(dp) :: AF(3),EF(3)
-      real(dp) :: occ(me%nbnd)
       complex(dp),dimension(me%nbnd,me%nbnd) :: rhok_bnd
 
       AF = 0.0_dp; EF = 0.0_dp
       if(associated(field)) call field(tstp*dt,AF,EF)
 
-      Occ = 0.0_dp
-
       if(me%free_evol) then
-         Etot_loc = ck * Wann_DTRAB_kpts(me%nbnd,me%Nk,me%Hk,me%Rhok)
+         Etot = Wann_DTRAB_kpts(me%nbnd,me%Nk,me%Hk,me%Rhok)
 
          if(me%gauge == dipole_gauge) then
-            J_loc = Wann_Current_dip_calc(me%nbnd,me%Nk,me%Hk,me%grad_Hk,me%Dk,me%Rhok)
-            JHk_loc = ck * Wann_Current_dip_calc(me%nbnd,me%Nk,me%Hk,me%grad_Hk,me%Dk,me%Rhok,&
+            Jcurr = Wann_Current_dip_calc(me%nbnd,me%Nk,me%Hk,me%grad_Hk,me%Dk,me%Rhok)
+            JHk = Wann_Current_dip_calc(me%nbnd,me%Nk,me%Hk,me%grad_Hk,me%Dk,me%Rhok,&
                dipole_current=.false.)
          else
-            J_loc = Wann_Current_dip_calc(me%nbnd,me%Nk,me%Hk,me%grad_Hk,me%Dk,me%Rhok,&
+            Jcurr = Wann_Current_dip_calc(me%nbnd,me%Nk,me%Hk,me%grad_Hk,me%Dk,me%Rhok,&
                dipole_current=.false.)
-            JHk_loc = J_loc
+            JHk = Jcurr
          end if
 
-         Dip_loc = Wann_Pol_dip_calc(me%nbnd,me%Nk,me%Dk,me%Rhok)
+         Dip = Wann_Pol_dip_calc(me%nbnd,me%Nk,me%Dk,me%Rhok)
       else
-         Etot_loc = Wann_TotalEn_dip(me%ham,me%Nk,me%kcoord_loc,AF,EF,me%Rhok)
+         Etot = Wann_TotalEn_dip(me%ham,me%Nk,me%latt%kcoord,AF,EF,me%Rhok)
 
          if(me%gauge == dipole_gauge) then
-            J_loc = Wann_Current_dip(me%ham,me%Nk,me%kcoord_loc,AF,EF,me%Rhok)
-            JHk_loc = ck * Wann_Current_dip(me%ham,me%Nk,me%kcoord_loc,AF,EF,me%Rhok,&
+            Jcurr = Wann_Current_dip(me%ham,me%Nk,me%latt%kcoord,AF,EF,me%Rhok)
+            JHk = Wann_Current_dip(me%ham,me%Nk,me%latt%kcoord,AF,EF,me%Rhok,&
                dipole_current=.false.)
          else
-            J_loc = Wann_Current_dip(me%ham,me%Nk,me%kcoord_loc,AF,EF,me%Rhok,&
+            Jcurr = Wann_Current_dip(me%ham,me%Nk,me%latt%kcoord,AF,EF,me%Rhok,&
                dipole_current=.false.)
-            JHk_loc = J_loc
+            JHk = Jcurr
          end if
 
-         Dip_loc = ck * Wann_Pol_dip(me%ham,me%Nk,me%kcoord_loc,AF,me%Rhok)
+         Dip = Wann_Pol_dip(me%ham,me%Nk,me%latt%kcoord,AF,me%Rhok)
       end if
 
-      Ekin_loc = ck * Wann_KineticEn(me%ham,me%Nk,me%kcoord_loc,me%Rhok,&
+      Ekin = Wann_KineticEn(me%ham,me%Nk,me%latt%kcoord,me%Rhok,&
          band_basis=.false.)
       
-      !$OMP PARALLEL DO REDUCTION(+:Occ) PRIVATE(rhok_bnd,rot_cc)
+      BandOcc = 0.0_dp
       do ik=1,me%Nk
          rhok_bnd = util_rotate(me%nbnd,me%wan_rot(:,:,ik),me%Rhok(:,:,ik),large_size=large_size)
-         Occ = Occ + dble(GetDiag(me%nbnd,rhok_bnd)) / me%Nk
+         BandOcc = BandOcc + dble(GetDiag(me%nbnd,rhok_bnd)) / me%Nk
       end do
       
-      call MPI_ALLREDUCE(JHk_loc,Jhk,3,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-      call MPI_ALLREDUCE(Ekin_loc,Ekin,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-      call MPI_ALLREDUCE(Etot_loc,Etot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-      call MPI_ALLREDUCE(J_loc,Jcurr,3,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-      call MPI_ALLREDUCE(Dip_loc,Dip,3,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-      call MPI_ALLREDUCE(Occ,BandOcc,me%nbnd,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-
       if(me%gauge == dipole_gauge) then
          Jpol = Jcurr - JHk 
       else
@@ -559,4 +519,4 @@ contains
 !--------------------------------------------------------------------------------------
 
 !======================================================================================
-end module MLATT_WANN_MPI
+end module MLATT_WANN

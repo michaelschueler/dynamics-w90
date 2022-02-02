@@ -33,18 +33,32 @@ contains
       me%Nk = me%Nk1 * me%Nk2 * me%Nk3
 
       allocate(me%kindex(me%Nk,3),me%kcoord(me%Nk,3),me%kpts(me%Nk,3))
-      ik = 0
-      do i1=1,me%Nk1
-         do i2=1,me%Nk2
-            do i3=1,me%Nk3
+
+      if(me%Nk3 > 1) then
+         ik = 0
+         do i1=1,me%Nk1
+            do i2=1,me%Nk2
+               do i3=1,me%Nk3
+                  ik = ik + 1
+                  me%kcoord(ik,1) = (i1-1)/dble(me%Nk1) - 0.5_dp
+                  me%kcoord(ik,2) = (i2-1)/dble(me%Nk2) - 0.5_dp
+                  me%kcoord(ik,3) = (i3-1)/dble(me%Nk3) - 0.5_dp
+                  me%kindex(ik,1:3) = [i1,i2,i3]
+               end do
+            end do
+         end do
+      else
+         me%kcoord = 0.0_dp
+         ik = 0
+         do i1=1,me%Nk1
+            do i2=1,me%Nk2
                ik = ik + 1
                me%kcoord(ik,1) = (i1-1)/dble(me%Nk1) - 0.5_dp
                me%kcoord(ik,2) = (i2-1)/dble(me%Nk2) - 0.5_dp
-               me%kcoord(ik,3) = (i3-1)/dble(me%Nk3) - 0.5_dp
-               me%kindex(ik,1:3) = [i1,i2,i3]
+               me%kindex(ik,1:3) = [i1,i2,1]
             end do
          end do
-      end do
+      end if
 
       do ik=1,me%Nk
          me%kpts(ik,1) = me%kcoord(ik,1) * recip_lat(1,1) &

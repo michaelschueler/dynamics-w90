@@ -1,8 +1,7 @@
 module Mlinalg
   use Mdebug
-  use Mdef, only: dp, one, zero
+  use Mdef, only: dp, one, zero, iu
   use Mutils, only: stop_error
-  use Mconstants, only: i_
   implicit none
   private
   public eig, eighe, eigvals, eigvalshe, eigh, inv, solve, eye, det, lstsq, diag, trace, &
@@ -244,15 +243,15 @@ contains
        call stop_error('eig: dgeev error')
     end if
 
-    lam = wr + i_*wi
+    lam = wr + iu*wi
     ! as DGEEV has a rather complicated way of returning the eigenvectors,
     ! it is necessary to build the complex array of eigenvectors from
     ! two real arrays:
     do i = 1,n
        if(wi(i) > 0.0) then  ! first of two conjugate eigenvalues
-          c(:, i) = vr(:, i) + i_*vr(:, i+1)
+          c(:, i) = vr(:, i) + iu*vr(:, i+1)
        elseif(wi(i) < 0.0_dp) then  ! second of two conjugate eigenvalues
-          c(:, i) = vr(:, i-1) - i_*vr(:, i)
+          c(:, i) = vr(:, i-1) - iu*vr(:, i)
        else
           c(:, i) = vr(:, i)
        end if
@@ -394,7 +393,7 @@ contains
        call stop_error('eigvals: dgeev error')
     end if
 
-    lam = wr + i_*wi
+    lam = wr + iu*wi
   end function deigvals
 
   function zeigvals(A) result(lam)
@@ -824,7 +823,7 @@ contains
     end if
 
     ! for details on the computation, compare the comment in ddet().
-    x = 1.0_dp + 0*i_
+    x = 1.0_dp + 0*iu
     do i = 1,n
        if(ipiv(i) /= i) then  ! additional sign change
           x = -x*At(i,i)
@@ -923,7 +922,7 @@ contains
 
     n = size(x)
     allocate(A(n,n))
-    A(:,:) = 0*i_
+    A(:,:) = 0*iu
     forall(i=1:n) A(i,i) = x(i)
   end function zdiag
 
@@ -946,7 +945,7 @@ contains
     complex(dp) :: t
     integer :: i
 
-    t = 0*i_
+    t = 0*iu
     do i = 1,minval(shape(A))
        t = t + A(i,i)
     end do

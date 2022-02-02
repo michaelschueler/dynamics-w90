@@ -1,0 +1,22 @@
+&SYSPARAMS
+	MuChem=0.0d0
+	FixMuChem=.false.
+	Filling=7.0d0
+	Beta=1.0d3
+	Nk1=16
+	Nk2=16
+	Nk3=1
+	file_ham="data/WSe2_nosoc/wse2_11bnd_proj_tb.dat"
+	gauge=0
+	Output_Dens=.false.
+/
+&TIMEPARAMS
+	Nt=4000
+	Tmax=400.0d0
+	output_step=10
+/
+&FIELDPARAMS
+	ApplyField=.true.
+	file_field="inp/sin2_pulse_F0.001_w1.5_nc6_t0.0.dat"
+/
+

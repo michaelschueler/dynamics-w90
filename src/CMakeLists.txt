@@ -1,0 +1,5 @@
+add_subdirectory(math)
+add_subdirectory(tools)
+add_subdirectory(evol)
+add_subdirectory(wannier)
+add_subdirectory(programs)

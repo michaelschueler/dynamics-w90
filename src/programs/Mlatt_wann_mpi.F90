@@ -5,12 +5,13 @@ module MLATT_WANN_MPI
    use Mdebug
    use Mdef,only: dp,iu,one,zero,nfermi
    use Munits,only: DPi
+   use Mrungekutta,only: ODE_step_rk5
    use Mlatt,only: latt3d_t
    use Mham_w90,only: wann90_tb_t
    use Mwann_dyn
    use Marray1d_dist,only: dist_array1d_t
    implicit none
-   include 'formats.h'
+   include '../formats.h'
 !--------------------------------------------------------------------------------------
    ! .. external vector potential ..
    procedure(vecpot_efield_func),pointer :: field => null()
@@ -79,7 +80,7 @@ contains
 
       me%gauge = gauge
 
-      call me%latt%Init(Nk1,Nk2,Nk3)
+      call me%latt%Init(Nk1,Nk2,Nk3,ham%recip_lattice)
       me%Nk = me%latt%Nk
 
       call me%Ham%Set(Ham)
@@ -160,7 +161,7 @@ contains
       class(latt_wann_t)        :: me
       character(len=*),intent(in) :: fname
       integer :: n2,iwork
-      integer :: nk1,nk2,nbnd
+      integer :: nk1,nk2,nk3,nbnd
       integer,allocatable :: displ(:)
       real(dp),allocatable :: rdata(:,:,:)
       complex(dp),allocatable :: Rhok(:,:,:)
@@ -231,7 +232,7 @@ contains
       end do
 
       if(calc_mu) then
-         npart_target = me%nbnd * filling
+         npart_target = filling
          Emin_loc = minval(Ek); Emax_loc = maxval(Ek)
          call MPI_ALLREDUCE(Emin_loc,Emin,1,MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD, ierr)
          call MPI_ALLREDUCE(Emax_loc,Emax,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD, ierr)
@@ -296,7 +297,6 @@ contains
    end subroutine SolveEquilibrium
 !--------------------------------------------------------------------------------------
    subroutine Timestep_RelaxTime(me,tau,tstp,dt)
-      use kbkit_integration
       integer,parameter :: qc=1
       class(latt_wann_t)      :: me
       real(dp),intent(in)       :: tau
@@ -351,7 +351,7 @@ contains
          complex(dp),intent(in) :: yt(:,:)
          complex(dp) :: dydt(nst,nst)
          complex(dp) :: ht(nst,nst)
-         real(dp) :: AF(2),EF(2)
+         real(dp) :: AF(3),EF(3)
 
          AF = 0.0_dp; EF = 0.0_dp
          if(associated(field)) call field(t,AF,EF)
