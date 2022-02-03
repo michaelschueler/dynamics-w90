@@ -62,7 +62,7 @@ contains
       real(dp),allocatable,intent(out) :: kpts(:,:)
       logical  :: file_there
       integer  :: iunit
-      integer  :: num_points,ndim,end_flag,Nk,i,j,k
+      integer  :: num_points,Nk,i,j,k
       real(dp) :: x
       integer,allocatable  :: num_seg_points(:)
       real(dp),allocatable :: points(:,:)
@@ -75,21 +75,16 @@ contains
       end if
 
       open(newunit=iunit,file=trim(Flname),status='OLD',action='READ')
-      read(iunit,*) num_points,ndim
+      read(iunit,*) num_points
       allocate(num_seg_points(num_points-1))
       read(iunit,*) num_seg_points
-      read(iunit,*) end_flag
-      allocate(points(ndim,num_points))
+      allocate(points(3,num_points))
       do i=1,num_points
          read(iunit,*) points(:,i)
       end do
 
-      if(end_flag == 1) then
-         Nk = sum(num_seg_points)+1
-      else
-         Nk = sum(num_seg_points)
-      end if
-      allocate(kpts(Nk,ndim))
+      Nk = sum(num_seg_points)+1
+      allocate(kpts(Nk,3))
 
       k = 0
       do i=1,num_points-1
@@ -100,7 +95,7 @@ contains
          end do
       end do
 
-      if(end_flag == 1) kpts(Nk,:) = points(:,num_points)
+      kpts(Nk,:) = points(:,num_points)
 
       deallocate(num_seg_points,points)
 
