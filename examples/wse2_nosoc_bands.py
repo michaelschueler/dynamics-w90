@@ -32,25 +32,30 @@ def main(argv):
 	print("---> Plotting orbital weight: dz2")
 	orb_weight = ReadOrbWeight(fname)
 	iorb = 0
-	Plot_bandstructure_orbweight(epsk,orb_weight,klabel,iorb=iorb)
+	fout = output_file(out_prefix,"weight_dz2")
+	Plot_bandstructure_orbweight(epsk,orb_weight,klabel,iorb=iorb,fout=fout)
 
 	print("---> Plotting orbital weight: dx2y2")
 	orb_weight = ReadOrbWeight(fname)
 	iorb = 3
-	Plot_bandstructure_orbweight(epsk,orb_weight,klabel,iorb=iorb)
+	fout = output_file(out_prefix,"weight_dx2y2")
+	Plot_bandstructure_orbweight(epsk,orb_weight,klabel,iorb=iorb,fout=fout)
 
 	print("---> Plotting orbital weight: dxy")
 	orb_weight = ReadOrbWeight(fname)
 	iorb = 4
-	Plot_bandstructure_orbweight(epsk,orb_weight,klabel,iorb=iorb)
+	fout = output_file(out_prefix,"weight_xy")
+	Plot_bandstructure_orbweight(epsk,orb_weight,klabel,iorb=iorb,fout=fout)
 
 	print("---> Plotting Berry curvature")
 	berry = ReadBerry(fname)
-	Plot_bandstructure_berry(epsk,berry,klabel,Bmax=40.0)
+	fout = output_file(out_prefix,"berry_z")
+	Plot_bandstructure_berry(epsk,berry,klabel,Bmax=40.0,fout=fout)
 
 	print("---> Plotting OAM (Lz)")
 	oam = ReadOAM(fname)
-	Plot_bandstructure_oam(epsk,oam,klabel,Lmax=4.0)
+	fout = output_file(out_prefix,"oam_z")
+	Plot_bandstructure_oam(epsk,oam,klabel,Lmax=4.0,fout=fout)
 #----------------------------------------------------------------------
 if __name__ == '__main__':
 	main(sys.argv[1:])
