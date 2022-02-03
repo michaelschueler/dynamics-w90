@@ -39,8 +39,8 @@ Output files in hdf5 format will be stored here.
 ## Installation ##
 
 ### Dependencies ###
-* [CMake][https://cmake.org]
-* [HDF5][https://www.hdfgroup.org]
+* [CMake](https://cmake.org)
+* [HDF5](https://www.hdfgroup.org)
 * A version of BLAS/LAPACK
 * For the MPI version of the time-evolution code (`wann_evol_mpi.x`): `mpi`. This is optional. 
 * For the interface and plotting scripts, we use `numpy`, `scipy`, `matplotlib`, `h5py`
@@ -115,8 +115,7 @@ Run
 
 The input file is a Fortran namelist file with the following input variables:
 
-SYSPARAMS
-==========
+#### SYSPARAMS ####
 
 * `MuChem`: the chemical potential (a.u.)
 * `FixMuChem`: if `.true.`, the input chemical potential will be used. Otherwise the chemical potential will be recalculated to match the given filling.
@@ -127,15 +126,13 @@ SYSPARAMS
 * `gauge`: Velocity gauge (`gauge=0`), dipole gauge (`gauge=1`), empirical velocity gauge (`gauge=3`), Peierls substitution (`gauge=4`)
 * `Output_Dens`: if `.true.`, the momentum-resolved density matrix will be written to file. Can be used to restart the calculation.
 
-TIMEPARAMS
-===========
+#### TIMEPARAMS ####
 
 * `Nt`: The number of time steps.
 * `Tmax`: The propagation time (a.u.)
 * `output_step`: Calculate observables every `output_step` time steps.
 
-FIELDPARAMS
-===========
+#### FIELDPARAMS ####
 
 * `ApplyField`: If `.true.`, the laser field will be read from file. Otherwise the field-free evolution will be computed.
 * `file_field`: Data file with three-dimensional electric field. The following format is expected: time (1st column), Ex (2nd column), Ey (3rd column), Ez (4th column). The time and field strength is expected in atomic units.
@@ -155,8 +152,7 @@ This program computes band properties. Run
 
 The input file is a Fortran namelist file with the following input variables:
 
-CALCOPT
-=======
+#### CALCOPT ####
 
 This namelist controls which properties will be computed and store to file. 
 
@@ -167,14 +163,12 @@ This namelist controls which properties will be computed and store to file.
 * `calc_evecs`: If `.true.`, the complex eigenvectors will be written to file.
 * `gauge`: Velocity gauge (`gauge=0`) or dipole gauge (`gauge=1`) for the calculation of Berry curvature or OAM.
 
-HAMILTONIAN
-===========
+#### HAMILTONIAN ####
 
 * `file_ham`: File with the Wannier Hamiltonian. This is the `_tb.dat` file obtained from `Wannier90`.
 * `w90_with_soc`: Tells the program that the Hamiltonian has been obtained with SOC.
 
-KPOINTS
-=======
+#### KPOINTS ####
 
 * `kpoints_type`: Controls the format of the k-points input. Options are 1) `"path"`, 2) `"list"`, or 3) `"grid"`
 * `file_kpts`: The input file specifying the k-points. Used if `kpoints_type="path"` or `kpoints_type="list"`. 
