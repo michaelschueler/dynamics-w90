@@ -1,0 +1,16 @@
+&CALCOPT
+	calc_orbweight=.true.
+	calc_berry=.true.
+	calc_oam=.true.
+	calc_evecs=.true.
+	gauge=0
+/
+&HAMILTONIAN
+	file_ham="data/WSe2_nosoc/wse2_11bnd_proj_tb.dat"
+	w90_with_soc=.false.
+/
+&KPOINTS
+	kpoints_type="path"
+	file_kpts="inp/path_MKGKM.dat"
+/
+

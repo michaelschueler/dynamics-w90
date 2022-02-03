@@ -5,6 +5,7 @@ include_directories(
 set(OBJECT_FILES
 		Mmatrixexp.F90
 		Mevol.F90
+		Mlaserpulse.F90
 )
 
 add_library(evol STATIC ${OBJECT_FILES})

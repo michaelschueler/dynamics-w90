@@ -5,17 +5,19 @@ include_directories(
 
 # A list of executables to build
 set( project_EXECUTABLES
-     latt_wann.x
+     wann_evol.x
+     wann_calc.x
 )
 
 # mpi excecutables
 if(mpi)
 	set(mpi_EXECUTABLES
-        latt_wann_mpi.x
+        wann_evol_mpi.x
 	)
 endif(mpi)
 
-set( EXE_latt_wann.x_SOURCES Mlatt_wann.F90 latt_wann.F90)
+set( EXE_wann_evol.x_SOURCES Mwann_evol.F90 wann_evol.F90)
+set( EXE_wann_calc.x_SOURCES wann_calc.F90)
 
 foreach( exe ${project_EXECUTABLES} )
     # declare the target...
@@ -25,7 +27,7 @@ foreach( exe ${project_EXECUTABLES} )
 endforeach()
 
 # ---- MPI programs ----
-set( EXE_latt_wann_mpi.x_SOURCES Mlatt_wann_mpi.F90 latt_wann_mpi.F90)
+set( EXE_wann_evol_mpi.x_SOURCES Mwann_evol_mpi.F90 wann_evol_mpi.F90)
 
 foreach( exe ${mpi_EXECUTABLES} )
     # declare the target...

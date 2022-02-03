@@ -31,7 +31,9 @@ module Mham_w90
       procedure,public  :: get_velocity
       procedure,public  :: get_emp_velocity
       procedure,public  :: get_berrycurv
-      procedure,public  :: berrycurv_dip
+      procedure,public  :: get_berrycurv_dip
+      procedure,public  :: get_oam
+      procedure,public  :: get_oam_dip
    end type wann90_tb_t
 !--------------------------------------------------------------------------------------
 contains
@@ -278,7 +280,7 @@ contains
 
    end function get_berrycurv
 !--------------------------------------------------------------------------------------
-   subroutine berrycurv_dip(me, kpt, Bhk, Bdip) 
+   subroutine get_berrycurv_dip(me, kpt, Bhk, Bdip) 
       class(wann90_tb_t)   :: me
       real(dp),intent(in)  :: kpt(3)
       real(dp),intent(out) :: Bhk(me%num_wann,3)
@@ -326,7 +328,98 @@ contains
 
       Bdip = 2.0_dp * Bdip
 
-   end subroutine berrycurv_dip
+   end subroutine get_berrycurv_dip
+!--------------------------------------------------------------------------------------
+   function get_oam(me, kpt) result(Lk)
+      class(wann90_tb_t)  :: me
+      real(dp),intent(in) :: kpt(3)
+      real(dp)            :: Lk(me%num_wann,3)
+
+      integer :: i,j,idir
+      real(dp) :: eig(me%num_wann)
+      real(dp) :: del_eig(me%num_wann,3)
+      complex(dp),allocatable :: HH(:,:)
+      complex(dp),allocatable :: delHH(:,:,:)
+      complex(dp),allocatable :: UU(:,:)
+      complex(dp),allocatable :: D_h(:,:,:)
+      complex(dp),allocatable :: AA(:,:,:)
+
+      allocate(HH(me%num_wann, me%num_wann))
+      allocate(delHH(me%num_wann, me%num_wann, 3))
+      allocate(UU(me%num_wann, me%num_wann))
+      allocate(D_h(me%num_wann, me%num_wann, 3))
+      allocate(AA(me%num_wann, me%num_wann, 3))
+
+      call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU)
+
+      call wham_get_D_h(me%num_wann, delHH, UU, eig, D_h)
+
+      call fourier_R_to_k_vec(kpt, me, me%pos_r, OO_true=AA)
+      do idir = 1, 3
+         AA(:, :, idir) = utility_rotate(AA(:, :, idir), UU, me%num_wann)
+      end do
+      AA = AA + iu*D_h ! Eq.(25) WYSV06
+
+      Lk = 0.0_dp
+      do i=1,me%num_wann
+         do j=1,me%num_wann
+            if(i == j) cycle
+            Lk(i,3) = Lk(i,3) + 2.0_dp * (eig(i) - eig(j))*aimag(AA(i,j,1)*AA(j,i,2))
+            Lk(i,1) = Lk(i,1) + 2.0_dp * (eig(i) - eig(j))*aimag(AA(i,j,2)*AA(j,i,3))
+            Lk(i,2) = Lk(i,2) + 2.0_dp * (eig(i) - eig(j))*aimag(AA(i,j,3)*AA(j,i,1))
+         end do
+      end do
+
+   end function get_oam
+!--------------------------------------------------------------------------------------
+   function get_oam_dip(me, kpt) result(Lk)
+      class(wann90_tb_t)   :: me
+      real(dp),intent(in)  :: kpt(3)
+      real(dp)             :: Lk(me%num_wann,3)
+
+      integer :: i,j,idir
+      real(dp) :: ediff
+      real(dp) :: eig(me%num_wann)
+      real(dp),dimension(me%num_wann,3) :: Lk_disp,Lk_dip
+      complex(dp),dimension(me%num_wann,me%num_wann) :: Hk,UU
+      complex(dp),dimension(me%num_wann,me%num_wann,3) :: grad_Hk,Dk
+
+      Hk = me%get_ham(kpt)
+      grad_Hk = me%get_gradk_ham(kpt)
+      Dk = me%get_dipole(kpt)
+
+      call utility_diagonalize(Hk, me%num_wann, eig, UU)
+
+      do idir=1,3
+         grad_Hk(:,:,idir) = utility_rotate(grad_Hk(:,:,idir), UU, me%num_wann)
+         Dk(:,:,idir) = utility_rotate(Dk(:,:,idir), UU, me%num_wann)
+      end do
+
+      Lk_disp = 0.0_dp; Lk_dip = 0.0_dp
+      do i=1,me%num_wann
+         do j=1,me%num_wann
+            if(i == j) cycle
+            ediff = eig(i) - eig(j)
+            if(abs(ediff) < 1.0e-7_dp) cycle
+
+            Lk_disp(i,3) = Lk_disp(i,3) - aimag(grad_Hk(i,j,1) * grad_Hk(j,i,2) - grad_Hk(i,j,2) * grad_Hk(j,i,1)) / &
+               ediff
+            Lk_disp(i,1) = Lk_disp(i,1) - aimag(grad_Hk(i,j,2) * grad_Hk(j,i,3) - grad_Hk(i,j,3) * grad_Hk(j,i,2)) / &
+               ediff
+            Lk_disp(i,2) = Lk_disp(i,2) - aimag(grad_Hk(i,j,3) * grad_Hk(j,i,1) - grad_Hk(i,j,1) * grad_Hk(j,i,3)) / &
+               ediff
+
+            Lk_dip(i,3) = Lk_dip(i,3) + dble(grad_Hk(i,j,1) * Dk(j,i,2) - grad_Hk(i,j,2) * Dk(j,i,1))
+            Lk_dip(i,1) = Lk_dip(i,1) + dble(grad_Hk(i,j,2) * Dk(j,i,3) - grad_Hk(i,j,3) * Dk(j,i,2))
+            Lk_dip(i,2) = Lk_dip(i,2) + dble(grad_Hk(i,j,3) * Dk(j,i,1) - grad_Hk(i,j,1) * Dk(j,i,3))
+         end do
+      end do 
+
+      Lk_dip = 2.0_dp * Lk_dip
+
+      Lk = Lk_disp + Lk_dip
+
+   end function get_oam_dip
 !--------------------------------------------------------------------------------------
    subroutine ReadFromW90(me,fname)
       class(wann90_tb_t)  :: me

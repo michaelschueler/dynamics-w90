@@ -11,7 +11,6 @@ set(OBJECT_FILES
 		Munits.f90
 		Mutils.f90
 		Msorting.f90
-		Mlaserpulse.F90
 )
 
 if(mpi)

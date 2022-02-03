@@ -1,4 +1,4 @@
-program latt_wann
+program wann_evol_mpi
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use omp_lib
@@ -8,7 +8,7 @@ program latt_wann
    use Mtime,only: Timer_Act, Timer_SetName, Timer_Run, Timer_stop, Timer_DTShow
    use Mlaserpulse,only: LaserPulse_spline_t
    use Mham_w90,only: wann90_tb_t
-   use Mlatt_wann,only: latt_wann_t
+   use Mwann_evol_mpi,only: wann_evol_t
    implicit none
    include '../formats.h'
 !--------------------------------------------------------------------------------------
@@ -52,36 +52,46 @@ program latt_wann
    real(dp),allocatable :: Jcurr_kpt(:,:,:)
    type(LaserPulse_spline_t) :: pulse_x,pulse_y,pulse_z
    type(wann90_tb_t)         :: Ham
-   type(latt_wann_t)         :: lattsys
+   type(wann_evol_t)         :: lattsys
    ! -- parallelization --
-   integer  :: nthreads,threadid
+   logical  :: on_root
+   integer  :: taskid,ntasks,nthreads,threadid,ierr
+   real(dp) :: tic,toc
 !--------------------------------------------------------------------------------------
-   write(output_unit,'(A)') '+------------------------------------------------------+'
-   write(output_unit,'(A)') '|       Lattice dynamics in 3D: free evolution         |'
-   write(output_unit,'(A)') '+------------------------------------------------------+'
-   write(output_unit,*)
-
-   call date_and_time(date=date,time=time)
-   write(output_unit,'(a)',advance='no') '  Calculation started on '
-   write(output_unit,fmt_time) date(1:4),date(5:6),date(7:8),time(1:2),time(3:4),time(5:6)
-   write(output_unit,*)
-
-   call Timer_Act
-   call Timer_SetName('total',1)
-   call Timer_Run(N=1)
-
-   !$OMP PARALLEL PRIVATE(nthreads,threadid)
-   threadid = omp_get_thread_num()
-   if(threadid == 0) then
-      nthreads = omp_get_num_threads()
-      write(output_unit,fmt148) 'number of threads',nthreads
+   call MPI_INIT(ierr)
+   call MPI_COMM_RANK(MPI_COMM_WORLD, taskid, ierr)
+   call MPI_COMM_SIZE(MPI_COMM_WORLD, ntasks, ierr)
+   on_root = (taskid == 0)   
+!--------------------------------------------------------------------------------------
+   if(on_root) then
+      write(output_unit,'(A)') '+------------------------------------------------------+'
+      write(output_unit,'(A)') '|       Lattice dynamics in 3D: free evolution         |'
+      write(output_unit,'(A)') '+------------------------------------------------------+'
       write(output_unit,*)
+
+      call date_and_time(date=date,time=time)
+      write(output_unit,'(a)',advance='no') '  Calculation started on '
+      write(output_unit,fmt_time) date(1:4),date(5:6),date(7:8),time(1:2),time(3:4),time(5:6)
+      write(output_unit,*)
+
+      call Timer_Act
+      call Timer_SetName('total',1)
+      call Timer_Run(N=1)
+
+      !$OMP PARALLEL PRIVATE(nthreads,threadid)
+      threadid = omp_get_thread_num()
+      if(threadid == 0) then
+         nthreads = omp_get_num_threads()
+         write(output_unit,fmt148) 'number of ranks',ntasks
+         write(output_unit,fmt148) 'number of threads',nthreads
+         write(output_unit,*)
+      end if
+      !$OMP END PARALLEL
    end if
-   !$OMP END PARALLEL
 !--------------------------------------------------------------------------------------
 !                               ++  Read input ++
 !--------------------------------------------------------------------------------------
-   call Timer_SetName('Reading input', 2); call Timer_Run(N=2)
+   tic = MPI_Wtime()
 
    Narg=command_argument_count()
    if(Narg>=1) then
@@ -92,24 +102,24 @@ program latt_wann
       read(unit_inp,nml=FIELDPARAMS)
       close(unit_inp)
    else
-      write(output_unit,fmt900) 'Please provide a namelist input file.'
-      stop
+      if(on_root) write(output_unit,fmt900) 'Please provide a namelist input file.'
+      call MPI_Finalize(ierr); stop
    end if
 
    if(Narg>=2) then
       call get_command_argument(2,FlOutPref)
       PrintToFile=.true.
    end if
-   if(.not.PrintToFile) then
+   if((.not.PrintToFile) .and. on_root) then
       write(output_unit,fmt_info) 'No output prefix given. No output will be produced.'
    end if
 
    inquire(file=trim(file_ham),exist=file_ok)
    if(.not.file_ok) then
-      write(error_unit,fmt900) 'Input file does not exist: '//trim(file_ham)
-      stop
+      if(on_root) write(error_unit,fmt900) 'Input file does not exist: '//trim(file_ham)
+      call MPI_Finalize(ierr); stop
    end if
-   write(output_unit,fmt_input) 'Hamiltionian from file: '//trim(file_ham)
+   if(on_root) write(output_unit,fmt_input) 'Hamiltionian from file: '//trim(file_ham)
    ppos = scan(trim(file_ham),".", BACK= .true.)
    if(trim(file_ham(ppos+1:)) == "h5") then
       call Ham%ReadFromHDF5(file_ham)
@@ -120,26 +130,31 @@ program latt_wann
    if(ApplyField) then
       inquire(file=trim(file_field),exist=file_ok)
       if(.not.file_ok) then
-         write(error_unit,fmt900) 'Input file does not exist: '//trim(file_field)
-         stop
+         if(on_root) write(error_unit,fmt900) 'Input file does not exist: '//trim(file_field)
+         call MPI_Finalize(ierr); stop
       end if
-      write(output_unit,fmt_input) 'External field from file: '//trim(file_field)
+      if(on_root) write(output_unit,fmt_input) 'External field from file: '//trim(file_field)
       call pulse_x%Load_ElectricField(file_field,usecol=2,CalcAfield=.true.)
       call pulse_y%Load_ElectricField(file_field,usecol=3,CalcAfield=.true.)
       call pulse_z%Load_ElectricField(file_field,usecol=4,CalcAfield=.true.)
    end if
 
-   write(output_unit,*)
-   call Timer_Stop(N=2); call Timer_DTShow(N=2)
+   toc = MPI_Wtime()
+
+   if(on_root) then
+      write(output_unit,*)
+      write(output_unit,fmt555) "Reading input",toc-tic
+   end if
 !--------------------------------------------------------------------------------------
 !                               ++  Equilibrium ++
 !--------------------------------------------------------------------------------------
-   write(output_unit,fmt50)
-   write(output_unit,'(A)') '         Equilibrium'
-   write(output_unit,fmt50)
+   if(on_root) then
+      write(output_unit,fmt50)
+      write(output_unit,'(A)') '         Equilibrium'
+      write(output_unit,fmt50)
+   end if
 
-
-   call Timer_SetName('equilibrium', 2); call Timer_Run(N=2)
+   tic = MPI_Wtime()
 
    call lattsys%Init(Beta,MuChem,ham,Nk1,Nk2,Nk3,gauge)
 
@@ -150,42 +165,47 @@ program latt_wann
    else
       call lattsys%SolveEquilibrium(Filling)
    end if
+   toc = MPI_Wtime()
 
-   write(output_unit,*)
-   call Timer_Stop(N=2); call Timer_DTShow(N=2)
-   write(output_unit,*)
-   select case(gauge)
-   case(dipole_gauge)
-      write(output_unit,*) "gauge: length"
-   case(dip_emp_gauge)
-      write(output_unit,*) "gauge: Peierls substitution"
-   case(velocity_gauge)
-      write(output_unit,*) "gauge: velocity"
-   case(velo_emp_gauge)
-      write(output_unit,*) "gauge: empirical velocity"
-   case default
-      write(error_unit,fmt900) "unrecognized gauge"
-   end select
+   if(on_root) then
+      write(output_unit,*)
+      write(output_unit,fmt555) "equilibrium",toc-tic
+      write(output_unit,*)
+      select case(gauge)
+      case(dipole_gauge)
+         write(output_unit,*) "gauge: length"
+      case(dip_emp_gauge)
+         write(output_unit,*) "gauge: Peierls substitution"
+      case(velocity_gauge)
+         write(output_unit,*) "gauge: velocity"
+      case(velo_emp_gauge)
+         write(output_unit,*) "gauge: empirical velocity"
+      case default
+         write(error_unit,fmt900) "unrecognized gauge"
+      end select
+   end if
 
    ReadDens = len_trim(file_dens) > 0
 
    if(ReadDens) then
       inquire(file=trim(file_dens),exist=file_ok)
       if(.not.file_ok) then
-         write(error_unit,fmt900) 'Input file does not exist: '//trim(file_dens)
-         stop
+         if(on_root) write(error_unit,fmt900) 'Input file does not exist: '//trim(file_dens)
+         call MPI_Finalize(ierr); stop
       end if
-      write(output_unit,fmt_input) 'Density matrix from file: '//trim(file_dens)
+      if(on_root) write(output_unit,fmt_input) 'Density matrix from file: '//trim(file_dens)
       call lattsys%ReadDensM(file_dens)
    end if
 !--------------------------------------------------------------------------------------
 !                         ++  Time propagation ++
 !--------------------------------------------------------------------------------------
-   write(output_unit,fmt50)
-   write(output_unit,'(A)') '         Time propagation'
-   write(output_unit,fmt50)
+   if(on_root) then
+      write(output_unit,fmt50)
+      write(output_unit,'(A)') '         Time propagation'
+      write(output_unit,fmt50)
+   end if
 
-   call Timer_SetName('propagation', 2); call Timer_Run(N=2)
+   tic = MPI_Wtime()
 
    Nsteps = ceiling((Nt+1)/dble(output_step)) - 1
 
@@ -230,23 +250,32 @@ program latt_wann
                   Jdia(:,step),Jintra(:,step),Dip(:,step),BandOcc(:,step))
          end if
 
-         write(output_unit,fmt145) "tstp",tstp+1
+         if(on_root) write(output_unit,fmt145) "tstp",tstp+1
 
       end if
 
    end do
 
-   write(output_unit,fmt50)
-   write(output_unit,*)
-   call Timer_Stop(N=2); call Timer_DTShow(N=2)
+   toc = MPI_Wtime()
+   if(on_root) then
+      write(output_unit,fmt50)
+      write(output_unit,*)
+      write(output_unit,fmt555) 'propagation',toc-tic
+   end if
 !--------------------------------------------------------------------------------------
-   if(PrintToFile) call SaveObservables(FlOutPref)
+   if(on_root .and. PrintToFile) then
+      call SaveObservables(FlOutPref)
+   end if
+
    if(Output_Dens) call lattsys%SaveDensM(trim(FlOutPref)//'_densm.h5')
 !--------------------------------------------------------------------------------------
-   write(output_unit,*)
-   call Timer_Stop(N=1)
-   call Timer_DTShow(N=1)
-   write(output_unit,'(A)') '+------------------------------------------------------+'
+   if(on_root) then
+      write(output_unit,*)
+      call Timer_Stop(N=1)
+      call Timer_DTShow(N=1)
+      write(output_unit,'(A)') '+------------------------------------------------------+'
+   end if
+   call MPI_Finalize(ierr)
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
@@ -322,4 +351,4 @@ contains
 !--------------------------------------------------------------------------------------
 
 !======================================================================================
-end program latt_wann
+end program wann_evol_mpi

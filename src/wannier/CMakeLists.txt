@@ -9,6 +9,7 @@ set(OBJECT_FILES
 	Mlatt_kpts.F90
 	Mwannier_soc.F90
 	Mwann_dyn.F90
+	Mwannier_calc.F90
 )
 
 # ~~ Installation targets ~~

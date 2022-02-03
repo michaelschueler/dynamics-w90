@@ -1,6 +1,5 @@
-module MLATT_WANN
+module Mwann_evol
 !======================================================================================
-   use mpi
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
    use Mdef,only: dp,iu,one,zero,nfermi
@@ -20,9 +19,9 @@ module MLATT_WANN
    integer,parameter :: velocity_gauge=0,dipole_gauge=1,velo_emp_gauge=2,dip_emp_gauge=3
 !--------------------------------------------------------------------------------------
    private
-   public :: latt_wann_t
+   public :: wann_evol_t
 !--------------------------------------------------------------------------------------
-   type latt_wann_t
+   type wann_evol_t
       logical  :: free_evol=.false.
       integer  :: gauge
       integer  :: Nk,nbnd
@@ -45,7 +44,7 @@ module MLATT_WANN
       procedure,public  :: Timestep
       procedure,public  :: CalcObservables_velo
       procedure,public  :: CalcObservables_dip
-   end type latt_wann_t
+   end type wann_evol_t
 !--------------------------------------------------------------------------------------
    abstract interface
       subroutine vecpot_efield_func(t,A,E)
@@ -59,7 +58,7 @@ module MLATT_WANN
 contains
 !--------------------------------------------------------------------------------------
    subroutine Init(me,Beta,MuChem,ham,Nk1,Nk2,Nk3,gauge)
-      class(latt_wann_t)           :: me
+      class(wann_evol_t)           :: me
       real(dp),intent(in)          :: Beta
       real(dp),intent(in)          :: MuChem
       type(wann90_tb_t),intent(in) :: ham
@@ -86,7 +85,7 @@ contains
    end subroutine Init
 !--------------------------------------------------------------------------------------
    subroutine SetLaserpulse(me,Laserfield)
-      class(latt_wann_t)      :: me
+      class(wann_evol_t)      :: me
       procedure(vecpot_efield_func) :: Laserfield
 
       field => Laserfield
@@ -95,7 +94,7 @@ contains
 !--------------------------------------------------------------------------------------
    subroutine SaveDensM(me,fname)
       use Mhdf5_utils
-      class(latt_wann_t)        :: me
+      class(wann_evol_t)        :: me
       character(len=*),intent(in) :: fname
       real(dp),allocatable :: rdata(:,:,:)
       integer(HID_t) :: file_id
@@ -120,7 +119,7 @@ contains
 !--------------------------------------------------------------------------------------
    subroutine ReadDensM(me,fname)
       use Mhdf5_utils
-      class(latt_wann_t)        :: me
+      class(wann_evol_t)        :: me
       character(len=*),intent(in) :: fname
       integer :: nk1,nk2,nk3,nbnd
       real(dp),allocatable :: rdata(:,:,:)
@@ -152,7 +151,7 @@ contains
       use Mlinalg,only: EigHE,TRace
       use Mroot,only: brent
       real(dp),parameter :: mu_tol=1.0e-8_dp
-      class(latt_wann_t)      :: me
+      class(wann_evol_t)      :: me
       real(dp),intent(in),optional  :: filling
       logical :: calc_mu=.false.
       integer :: ik,j
@@ -237,7 +236,7 @@ contains
 !--------------------------------------------------------------------------------------
    subroutine Timestep_RelaxTime(me,tau,tstp,dt)
       integer,parameter :: qc=1
-      class(latt_wann_t)      :: me
+      class(wann_evol_t)      :: me
       real(dp),intent(in)       :: tau
       integer,intent(in)        :: tstp
       real(dp),intent(in)       :: dt
@@ -330,7 +329,7 @@ contains
       use Mlinalg,only: Eye,trace
       use Mevol,only: GenU_CF2,UnitaryStepFBW 
       integer,parameter :: qc=1
-      class(latt_wann_t) :: me
+      class(wann_evol_t) :: me
       integer,intent(in)   :: tstp
       real(dp),intent(in)  :: dt
       real(dp),intent(in),optional :: field_Tmax
@@ -403,7 +402,7 @@ contains
    end subroutine Timestep
 !--------------------------------------------------------------------------------------
    subroutine CalcObservables_velo(me,tstp,dt,Ekin,Etot,Jcurr,Jpara,Jdia,Jintra,Dip,BandOcc)
-      class(latt_wann_t),intent(in) :: me
+      class(wann_evol_t),intent(in) :: me
       integer,intent(in)   :: tstp
       real(dp),intent(in)  :: dt
       real(dp),intent(out) :: Ekin
@@ -441,7 +440,7 @@ contains
    end subroutine CalcObservables_velo
 !--------------------------------------------------------------------------------------
    subroutine CalcObservables_dip(me,tstp,dt,Ekin,Etot,Jcurr,Jhk,Jpol,Dip,BandOcc)
-      class(latt_wann_t),intent(in) :: me
+      class(wann_evol_t),intent(in) :: me
       integer,intent(in)   :: tstp
       real(dp),intent(in)  :: dt
       real(dp),intent(out) :: Ekin
@@ -519,4 +518,4 @@ contains
 !--------------------------------------------------------------------------------------
 
 !======================================================================================
-end module MLATT_WANN
+end module Mwann_evol
