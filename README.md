@@ -40,10 +40,10 @@ Output files in hdf5 format will be stored here.
 
 ### Dependencies ###
 * [CMake](https://cmake.org)
-* [HDF5](https://www.hdfgroup.org)
+* [HDF5](https://www.hdfgroup.org). This is optional if HDF5 support is requested.
 * A version of BLAS/LAPACK
 * For the MPI version of the time-evolution code (`wann_evol_mpi.x`): `mpi`. This is optional. 
-* For the interface and plotting scripts, we use `numpy`, `scipy`, `matplotlib`, `h5py`
+* For the interface and plotting scripts, we use `numpy`, `matplotlib`. For reading `hdf5` output, `h5py` is required.
 
 ### Compilation ###
 
@@ -72,11 +72,11 @@ After commpleted compilation, the `exe` directory will be created and the execut
 HDF5
 ====
 
-To enable hdf5 support use the `hdf5` option in cmake
+To enable HDF5 support use the `hdf5` option in cmake
 
     -Dhdf5=ON
 
-The installation will fail without `hdf5`.
+Without HDF5 support the programs will write output to txt files.
 
 BLAS/LAPACK
 ===========
@@ -85,7 +85,7 @@ Specify your version of BLAS/LAPACK by
 
     -Dlapackblas_libraries="lib"
 
-For instance, to link against [OpenBlas][https://github.com/xianyi/OpenBLAS], use
+For instance, to link against [OpenBlas](https://github.com/xianyi/OpenBLAS), use
 
     -Dlapackblas_libraries="-lopenblas"
 
@@ -124,7 +124,6 @@ The input file is a Fortran namelist file with the following input variables:
 * `Nk1,Nk2,Nk3`: Discretization of the Brillouin zone in the three directions. Set `Nk3=1` for 2D systems.
 * `file_ham`: File with the Wannier Hamiltonian. This is the `_tb.dat` file obtained from `Wannier90`.
 * `gauge`: Velocity gauge (`gauge=0`), dipole gauge (`gauge=1`), empirical velocity gauge (`gauge=3`), Peierls substitution (`gauge=4`)
-* `Output_Dens`: if `.true.`, the momentum-resolved density matrix will be written to file. Can be used to restart the calculation.
 
 #### TIMEPARAMS ####
 
@@ -137,8 +136,8 @@ The input file is a Fortran namelist file with the following input variables:
 * `ApplyField`: If `.true.`, the laser field will be read from file. Otherwise the field-free evolution will be computed.
 * `file_field`: Data file with three-dimensional electric field. The following format is expected: time (1st column), Ex (2nd column), Ey (3rd column), Ez (4th column). The time and field strength is expected in atomic units.
 
-
-After running the code the `hdf5` file `out/prefix_observables.h5` will be produced. The observables can be plotted by using the script `python_utils/plot_obs.h5`.
+If compiled with HDF5 support, after running the code the `hdf5` file `out/prefix_observables.h5` will be produced. The observables can be plotted by using the script `python_utils/plot_obs.h5`.
+Without HDF5 support there will be several output files `out/prefix_etot.txt`, `out/prefix_curr.txt` etc. that can directly be plotted or read by numpy's `loadtxt`.
 
 ### wann_evol_mpi.x ###
 
@@ -188,7 +187,7 @@ Here, `npoints` is the number of points to pass through, while `nseg1` is the nu
 
 ## Plotting ##
 
-Check the scripts in the `examples` directory. 
+Check the scripts in the `examples` directory. Scripts ending with `_txt.py` do not require HDF5 support and directly read txt-based output.
 
 
 
