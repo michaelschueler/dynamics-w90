@@ -58,18 +58,6 @@ if (hdf5)
   list(APPEND COMMON_LIBS ${HDF5FOR_LIB})
 endif (hdf5)
 
-# ~~ Add FFTW3 ~~
-if(fftw3_library)
-   list(APPEND COMMON_LIBS ${fftw3_library})
-   message(STATUS FFTW3: ${fftw3_library})
-else(fftw3_library)
-  find_library(FFTW_LIB fftw3)
-  find_path (FFTW_INCLUDES fftw3.h)
-  message(STATUS FFTW found: ${FFTW_LIB} )
-  message(STATUS FFTW path: ${FFTW_INCLUDES} )
-  list(APPEND COMMON_LIBS ${FFTW_LIB})
-endif(fftw3_library)
-
 # ~~ Add BLAS/LAPACK ~~
 if(lapackblas_libraries)
    list(APPEND COMMON_LIBS ${lapackblas_libraries})
