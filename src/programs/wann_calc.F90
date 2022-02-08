@@ -104,7 +104,7 @@ program wann_calc
       call Timer_Stop(N=2); call Timer_DTShow(N=2)
    end if
 
-   if(PrintToFile) call SaveOutput(trim(FlOutPref)//'_wann_calc.h5')
+   if(PrintToFile) call SaveOutput(FlOutPref)
 !--------------------------------------------------------------------------------------
    write(output_unit,*)
    call Timer_Stop(N=1)
@@ -113,7 +113,71 @@ program wann_calc
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine SaveOutput(fname)
+   subroutine SaveOutput(pref)
+      character(len=*),intent(in) :: pref
+
+#ifdef WITHHDF5
+      call SaveOutput_hdf5(trim(pref)//'_wann_calc.h5')
+#else
+      call SaveOutput_txt(pref)
+#endif
+
+   end subroutine SaveOutput
+!--------------------------------------------------------------------------------------
+   subroutine SaveOutput_txt(fname)
+      use Mutils,only: savetxt,str
+      character(len=*),intent(in) :: fname
+      character(len=256) :: fout
+      integer :: i
+      real(dp),allocatable :: rdata(:,:)
+
+      call savetxt(trim(fname)//'_epsk.txt', wann%epsk, transp=.true.)
+      if(write_kpts) call savetxt(trim(fname)//'_kpts.txt', wann%kpts)
+      if(calc_orbweight) then
+         do i=1,wann%nwan
+            fout = trim(fname)//'_orbweight_'//str(i)//'.txt'
+            call savetxt(trim(fout), orb_weight(i,:,:), transp=.true.)
+         end do
+      end if
+      if(calc_spin) then
+         fout = trim(fname)//'_spin_x.txt'
+         call savetxt(trim(fout), spin(1,:,:), transp=.true.)
+         fout = trim(fname)//'_spin_y.txt'
+         call savetxt(trim(fout), spin(2,:,:), transp=.true.)
+         fout = trim(fname)//'_spin_z.txt'
+         call savetxt(trim(fout), spin(3,:,:), transp=.true.)
+      end if
+      if(calc_berry) then
+         fout = trim(fname)//'_berry_x.txt'
+         call savetxt(trim(fout), berry(:,1,:), transp=.true.)
+         fout = trim(fname)//'_berry_y.txt'
+         call savetxt(trim(fout), berry(:,2,:), transp=.true.)
+         fout = trim(fname)//'_berry_z.txt'
+         call savetxt(trim(fout), berry(:,3,:), transp=.true.)         
+      end if
+      if(calc_oam) then
+         fout = trim(fname)//'_oam_x.txt'
+         call savetxt(trim(fout), oam(:,1,:), transp=.true.)
+         fout = trim(fname)//'_oam_y.txt'
+         call savetxt(trim(fout), oam(:,2,:), transp=.true.)
+         fout = trim(fname)//'_oam_z.txt'
+         call savetxt(trim(fout), oam(:,3,:), transp=.true.)         
+      end if
+      if(calc_evecs) then
+         allocate(rdata(2*wann%nbnd,wann%Nk))
+         do i=1,wann%nbnd
+            fout = trim(fname)//'_evec_bnd_'//str(i)//'.txt' 
+            rdata(1:wann%nbnd,1:wann%Nk) = dble(wann%vectk(1:wann%nbnd,i,1:wann%Nk))
+            rdata(wann%nbnd+1:,1:wann%Nk) = aimag(wann%vectk(1:wann%nbnd,i,1:wann%Nk))
+            call savetxt(trim(fout), rdata, transp=.true.)     
+         end do
+         deallocate(rdata)
+      end if
+
+   end subroutine SaveOutput_txt
+!--------------------------------------------------------------------------------------
+#ifdef WITHHDF5
+   subroutine SaveOutput_hdf5(fname)
       use Mhdf5_utils
       character(len=*),intent(in) :: fname
       integer(HID_t) :: file_id
@@ -143,7 +207,8 @@ contains
 
       call hdf_close_file(file_id)
 
-   end subroutine SaveOutput
+   end subroutine SaveOutput_hdf5
+#endif
 !--------------------------------------------------------------------------------------
 
 !======================================================================================

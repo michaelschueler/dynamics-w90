@@ -20,7 +20,8 @@ module Mutils
   end interface load_griddata
 
   interface save_griddata
-     module procedure save_griddata_real, save_griddata_complex
+     module procedure save_griddata_real_1d, save_griddata_complex_1d, &
+         save_griddata_real_2d, save_griddata_complex_2d
   end interface save_griddata
   
 contains
@@ -340,7 +341,7 @@ contains
     close(s)
   end subroutine loadtxt
 
-  subroutine savetxt(filename, d, fmt)
+  subroutine savetxt(filename, d, fmt, transp)
     ! Saves a 2D array into a textfile.
     !
     ! Arguments
@@ -349,53 +350,121 @@ contains
     character(len=*), intent(in) :: filename  ! File to save the array to
     real(dp), intent(in) :: d(:, :)           ! The 2D array to save
     character(len=*), intent(in), optional  :: fmt
+    logical, intent(in), optional :: transp
     !
     ! Example
     ! -------
     !
     ! real(dp) :: data(3, 2)
     ! call savetxt("log.txt", data)
-
+    logical :: transp_
     integer :: s, i
+
+
+    transp_ = .false.
+    if(present(transp)) transp_ = transp
+
     open(newunit=s, file=filename, status="replace")
-    if(present(fmt)) then
-       do i = 1, size(d, 1)
-          write(s, fmt) d(i, :)
-       end do
+
+    if(transp_) then
+       if(present(fmt)) then
+          do i = 1, size(d, 2)
+             write(s, fmt) d(:, i)
+          end do
+       else
+          do i = 1, size(d, 2)
+             write(s, *) d(:, i)
+          end do
+       end if
     else
-       do i = 1, size(d, 1)
-          write(s, *) d(i, :)
-       end do
+       if(present(fmt)) then
+          do i = 1, size(d, 1)
+             write(s, fmt) d(i, :)
+          end do
+       else
+          do i = 1, size(d, 1)
+             write(s, *) d(i, :)
+          end do
+       end if
     end if
     close(s)
   end subroutine savetxt
 
-  subroutine save_griddata_real(filename, grid, d)
+   subroutine save_griddata_real_1d(filename, grid, d)
     character(len=*), intent(in) :: filename
-    real(dp), intent(in) :: grid(:), d(:,:)
+    real(dp), intent(in) :: grid(:), d(:)
     integer :: s, i
     
     open(newunit=s, file=filename, status="replace")
     do i = 1, size(d, 1)
-       write(s, *) grid(i), d(i, :)
+       write(s, *) grid(i), d(i)
     end do
     close(s)
     
-  end subroutine save_griddata_real
+  end subroutine save_griddata_real_1d
 
-  subroutine save_griddata_complex(filename, grid, d)
+  subroutine save_griddata_complex_1d(filename, grid, d)
+    character(len=*), intent(in) :: filename
+    real(dp), intent(in) :: grid(:)
+    complex(dp), intent(in) :: d(:)
+    integer :: s, i
+    
+    open(newunit=s, file=filename, status="replace")
+    do i = 1, size(d, 1)
+       write(s, *) grid(i), dble(d(i)), aimag(d(i))
+    end do
+    close(s)
+    
+  end subroutine save_griddata_complex_1d
+
+  subroutine save_griddata_real_2d(filename, grid, d, transp)
+    character(len=*), intent(in) :: filename
+    real(dp), intent(in) :: grid(:), d(:,:)
+    logical, intent(in), optional :: transp
+    logical :: transp_
+    integer :: s, i
+
+    transp_ = .false.
+    if(present(transp)) transp_ = transp
+    
+    open(newunit=s, file=filename, status="replace")
+    if(transp_) then
+       do i = 1, size(d, 2)
+          write(s, *) grid(i), d(:, i)
+       end do
+    else
+       do i = 1, size(d, 1)
+          write(s, *) grid(i), d(i, :)
+       end do
+    end if
+    close(s)
+    
+  end subroutine save_griddata_real_2d
+
+  subroutine save_griddata_complex_2d(filename, grid, d, transp)
     character(len=*), intent(in) :: filename
     real(dp), intent(in) :: grid(:)
     complex(dp), intent(in) :: d(:,:)
+    logical, intent(in), optional :: transp
+    logical :: transp_
     integer :: s, i
+
+    transp_ = .false.
+    if(present(transp)) transp_ = transp
     
     open(newunit=s, file=filename, status="replace")
-    do i = 1, size(d, 1)
-       write(s, *) grid(i), dble(d(i, :)), aimag(d(i,:))
-    end do
+    if(transp_) then
+       do i = 1, size(d, 2)
+          write(s, *) grid(i), dble(d(:,i)), aimag(d(:,i))
+       end do
+    else
+       do i = 1, size(d, 1)
+          write(s, *) grid(i), dble(d(i, :)), aimag(d(i,:))
+       end do
+    end if
     close(s)
     
-  end subroutine save_griddata_complex
+  end subroutine save_griddata_complex_2d
 
   subroutine load_griddata_real(filename, grid, d)
     character(len=*), intent(in) :: filename

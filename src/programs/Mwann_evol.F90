@@ -38,8 +38,6 @@ module Mwann_evol
       procedure,public  :: Init
       procedure,public  :: SetLaserpulse
       procedure,public  :: SolveEquilibrium
-      procedure,public  :: SaveDensM
-      procedure,public  :: ReadDensM
       procedure,public  :: Timestep_RelaxTime
       procedure,public  :: Timestep
       procedure,public  :: CalcObservables_velo
@@ -91,61 +89,6 @@ contains
       field => Laserfield
 
    end subroutine SetLaserpulse
-!--------------------------------------------------------------------------------------
-   subroutine SaveDensM(me,fname)
-      use Mhdf5_utils
-      class(wann_evol_t)        :: me
-      character(len=*),intent(in) :: fname
-      real(dp),allocatable :: rdata(:,:,:)
-      integer(HID_t) :: file_id
-
-      call hdf_open_file(file_id, trim(fname), STATUS='NEW')
-      call hdf_write_attribute(file_id,'','nk1', me%latt%Nk1)
-      call hdf_write_attribute(file_id,'','nk2', me%latt%Nk2)
-      call hdf_write_attribute(file_id,'','nk3', me%latt%Nk3)
-      call hdf_write_attribute(file_id,'','nbnd', me%nbnd)
-
-      allocate(rdata(me%nbnd,me%nbnd,me%Nk))
-      rdata = dble(me%Rhok)
-      call hdf_write_dataset(file_id,'real',rdata)
-
-      rdata = aimag(me%Rhok)
-      call hdf_write_dataset(file_id,'imag',rdata)
-
-      call hdf_close_file(file_id)
-      deallocate(rdata)
-
-   end subroutine SaveDensM
-!--------------------------------------------------------------------------------------
-   subroutine ReadDensM(me,fname)
-      use Mhdf5_utils
-      class(wann_evol_t)        :: me
-      character(len=*),intent(in) :: fname
-      integer :: nk1,nk2,nk3,nbnd
-      real(dp),allocatable :: rdata(:,:,:)
-      integer(HID_t) :: file_id
-
-      call hdf_open_file(file_id, trim(fname), STATUS='OLD', ACTION='READ')
-      call hdf_read_attribute(file_id,'','nk1', nk1)
-      call hdf_read_attribute(file_id,'','nk2', nk2)
-      call hdf_read_attribute(file_id,'','nk3', nk3)
-      call hdf_read_attribute(file_id,'','nbnd', nbnd)
-
-      call assert(nk1 == me%latt%Nk1)
-      call assert(nk2 == me%latt%Nk2)
-      call assert(nk3 == me%latt%Nk3)
-      call assert(nbnd == me%nbnd)
-
-      allocate(rdata(me%nbnd,me%nbnd,me%Nk))
-      call hdf_read_dataset(file_id,'real',rdata)
-      me%Rhok = rdata
-      call hdf_read_dataset(file_id,'imag',rdata)
-      me%Rhok = me%Rhok + iu * rdata
-
-      call hdf_close_file(file_id)
-      deallocate(rdata)
-
-   end subroutine ReadDensM
 !--------------------------------------------------------------------------------------
    subroutine SolveEquilibrium(me,filling)
       use Mlinalg,only: EigHE,TRace

@@ -24,14 +24,13 @@ program wann_evol
    integer :: Narg,unit_inp
    character(len=255) :: FlIn,FlOutPref
    ! -- input variables --
-   logical            :: Output_Dens=.false.
    logical            :: FixMuChem=.true.
    integer            :: gauge
    integer            :: Nk1,Nk2,Nk3
    real(dp)           :: MuChem,Beta,Filling
-   character(len=255) :: file_ham,file_dens=''
+   character(len=255) :: file_ham
    namelist/SYSPARAMS/MuChem,FixMuChem,Filling,Beta,Nk1,Nk2,Nk3,&
-      file_ham,gauge,Output_Dens,file_dens
+      file_ham,gauge
    !......................................
    logical  :: relaxation_dynamics=.false.
    integer  :: Nt,output_step=1
@@ -43,8 +42,8 @@ program wann_evol
    namelist/FIELDPARAMS/ApplyField,file_field
    !......................................
    ! -- internal variables --
-   logical  :: file_ok,ReadDens
-   integer  :: Nsteps,tstp,ppos,tstp_max,step
+   logical  :: file_ok
+   integer  :: Nsteps,tstp,tstp_max,step
    real(dp) :: dt,pulse_tmin,pulse_tmax
    real(dp),allocatable :: Etot(:),Ekin(:),BandOcc(:,:),Jcurr(:,:),Dip(:,:)
    real(dp),allocatable :: Jpara(:,:),Jdia(:,:),JHk(:,:),Jpol(:,:),Jintra(:,:)
@@ -109,12 +108,7 @@ program wann_evol
       stop
    end if
    write(output_unit,fmt_input) 'Hamiltionian from file: '//trim(file_ham)
-   ppos = scan(trim(file_ham),".", BACK= .true.)
-   if(trim(file_ham(ppos+1:)) == "h5") then
-      call Ham%ReadFromHDF5(file_ham)
-   else
-      call Ham%ReadFromW90(file_ham)
-   end if
+   call Ham%ReadFromW90(file_ham)
 
    if(ApplyField) then
       inquire(file=trim(file_field),exist=file_ok)
@@ -165,18 +159,6 @@ program wann_evol
    case default
       write(error_unit,fmt900) "unrecognized gauge"
    end select
-
-   ReadDens = len_trim(file_dens) > 0
-
-   if(ReadDens) then
-      inquire(file=trim(file_dens),exist=file_ok)
-      if(.not.file_ok) then
-         write(error_unit,fmt900) 'Input file does not exist: '//trim(file_dens)
-         stop
-      end if
-      write(output_unit,fmt_input) 'Density matrix from file: '//trim(file_dens)
-      call lattsys%ReadDensM(file_dens)
-   end if
 !--------------------------------------------------------------------------------------
 !                         ++  Time propagation ++
 !--------------------------------------------------------------------------------------
@@ -240,7 +222,6 @@ program wann_evol
    call Timer_Stop(N=2); call Timer_DTShow(N=2)
 !--------------------------------------------------------------------------------------
    if(PrintToFile) call SaveObservables(FlOutPref)
-   if(Output_Dens) call lattsys%SaveDensM(trim(FlOutPref)//'_densm.h5')
 !--------------------------------------------------------------------------------------
    write(output_unit,*)
    call Timer_Stop(N=1)
@@ -267,6 +248,47 @@ contains
    end subroutine external_field
 !--------------------------------------------------------------------------------------
    subroutine SaveObservables(prefix)
+      character(len=*),intent(in) :: prefix
+
+#ifdef WITHHDF5
+      call SaveObservables_hdf5(prefix)
+#else
+      call SaveObservables_txt(prefix)
+#endif
+
+   end subroutine SaveObservables
+!--------------------------------------------------------------------------------------
+   subroutine SaveObservables_txt(prefix)
+      use Mutils,only: save_griddata
+      character(len=*),intent(in) :: prefix
+      character(len=256) :: fout
+      integer  :: tstp
+      real(dp),allocatable :: ts(:)
+
+      allocate(ts(0:Nsteps))
+      forall(tstp=0:Nsteps) ts(tstp) = dt * tstp * output_step
+
+      call save_griddata(trim(prefix)//'_etot.txt', ts, Etot)
+      call save_griddata(trim(prefix)//'_ekin.txt', ts, Ekin)
+      call save_griddata(trim(prefix)//'_occ.txt', ts, BandOcc, transp=.true.)
+      call save_griddata(trim(prefix)//'_curr.txt', ts, Jcurr, transp=.true.)
+      call save_griddata(trim(prefix)//'_dip.txt', ts, Dip, transp=.true.)
+
+      if(gauge == dipole_gauge .or. gauge == dip_emp_gauge) then
+         call save_griddata(trim(prefix)//'_curr_hk.txt', ts, JHk, transp=.true.)
+         call save_griddata(trim(prefix)//'_curr_pol.txt', ts, Jpol, transp=.true.)
+      else
+         call save_griddata(trim(prefix)//'_curr_para.txt', ts, Jpara, transp=.true.)
+         call save_griddata(trim(prefix)//'_curr_dia.txt', ts, Jdia, transp=.true.)
+         call save_griddata(trim(prefix)//'_curr_intra.txt', ts, Jintra, transp=.true.)
+      end if
+
+      deallocate(ts)
+
+   end subroutine SaveObservables_txt
+!--------------------------------------------------------------------------------------
+#ifdef WITHHDF5
+   subroutine SaveObservables_hdf5(prefix)
       use Mhdf5_utils
       character(len=*),intent(in) :: prefix
       integer(HID_t) :: file_id
@@ -278,7 +300,6 @@ contains
 
       Flname = trim(prefix)//'_observables.h5'
       call hdf_open_file(file_id, trim(Flname), STATUS='NEW')
-      call hdf_write_attribute(file_id,'','method', 0)
       if(ApplyField) then
          call hdf_write_attribute(file_id,'','applyfield', 1)
       else
@@ -317,7 +338,8 @@ contains
 
       call hdf_close_file(file_id)
 
-   end subroutine SaveObservables
+   end subroutine SaveObservables_hdf5
+#endif
 !--------------------------------------------------------------------------------------
 
 !======================================================================================

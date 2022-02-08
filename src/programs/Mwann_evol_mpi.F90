@@ -45,8 +45,6 @@ module Mwann_evol_mpi
       procedure,public  :: Init
       procedure,public  :: SetLaserpulse
       procedure,public  :: SolveEquilibrium
-      procedure,public  :: SaveDensM
-      procedure,public  :: ReadDensM
       procedure,public  :: Timestep_RelaxTime
       procedure,public  :: Timestep
       procedure,public  :: CalcObservables_velo
@@ -110,101 +108,6 @@ contains
       field => Laserfield
 
    end subroutine SetLaserpulse
-!--------------------------------------------------------------------------------------
-   subroutine SaveDensM(me,fname)
-      use Mhdf5_utils
-      class(wann_evol_t)        :: me
-      character(len=*),intent(in) :: fname
-      integer :: n2,iwork
-      integer,allocatable :: displ(:)
-      real(dp),allocatable :: rdata(:,:,:)
-      complex(dp),allocatable :: Rhok(:,:,:)
-      integer(HID_t) :: file_id
-
-      n2 = me%nbnd**2
-
-      allocate(displ(0:ntasks-1)); displ = 0
-      do iwork=1,ntasks-1
-         displ(iwork) = displ(iwork-1) + n2 * kdist%N_loc(iwork-1)
-      end do
-
-      allocate(Rhok(me%nbnd,me%nbnd,me%Nk))
-
-      call MPI_GATHERV(me%Rhok,n2*me%Nk_loc,MPI_DOUBLE_COMPLEX,Rhok,n2*kdist%N_loc,displ,&
-         MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD, ierr)
-
-      if(on_root) then
-         call hdf_open_file(file_id, trim(fname), STATUS='NEW')
-         call hdf_write_attribute(file_id,'','nk1', me%latt%Nk1)
-         call hdf_write_attribute(file_id,'','nk2', me%latt%Nk2)
-         call hdf_write_attribute(file_id,'','nk3', me%latt%Nk3)
-         call hdf_write_attribute(file_id,'','nbnd', me%nbnd)
-
-         allocate(rdata(me%nbnd,me%nbnd,me%Nk))
-         rdata = dble(Rhok)
-         call hdf_write_dataset(file_id,'real',rdata)
-
-         rdata = aimag(Rhok)
-         call hdf_write_dataset(file_id,'imag',rdata)
-
-         call hdf_close_file(file_id)
-         deallocate(rdata)
-      end if
-
-      deallocate(Rhok)
-      deallocate(displ)
-
-   end subroutine SaveDensM
-!--------------------------------------------------------------------------------------
-   subroutine ReadDensM(me,fname)
-      use Mhdf5_utils
-      class(wann_evol_t)        :: me
-      character(len=*),intent(in) :: fname
-      integer :: n2,iwork
-      integer :: nk1,nk2,nk3,nbnd
-      integer,allocatable :: displ(:)
-      real(dp),allocatable :: rdata(:,:,:)
-      complex(dp),allocatable :: Rhok(:,:,:)
-      integer(HID_t) :: file_id
-
-      n2 = me%nbnd**2
-
-      allocate(displ(0:ntasks-1)); displ = 0
-      do iwork=1,ntasks-1
-         displ(iwork) = displ(iwork-1) + n2 * kdist%N_loc(iwork-1)
-      end do
-
-      allocate(Rhok(me%nbnd,me%nbnd,me%Nk))
-
-      if(on_root) then
-         call hdf_open_file(file_id, trim(fname), STATUS='OLD', ACTION='READ')
-         call hdf_read_attribute(file_id,'','nk1', nk1)
-         call hdf_read_attribute(file_id,'','nk2', nk2)
-         call hdf_read_attribute(file_id,'','nk3', nk3)
-         call hdf_read_attribute(file_id,'','nbnd', nbnd)
-
-         call assert(nk1 == me%latt%Nk1)
-         call assert(nk2 == me%latt%Nk2)
-         call assert(nk3 == me%latt%Nk3)
-         call assert(nbnd == me%nbnd)
-
-         allocate(rdata(me%nbnd,me%nbnd,me%Nk))
-         call hdf_read_dataset(file_id,'real',rdata)
-         Rhok = rdata
-         call hdf_read_dataset(file_id,'imag',rdata)
-         Rhok = Rhok + iu * rdata
-
-         call hdf_close_file(file_id)
-         deallocate(rdata)
-      end if
-
-      call MPI_SCATTERV(Rhok,n2*kdist%N_loc,displ,MPI_DOUBLE_COMPLEX,me%Rhok,n2*me%Nk_loc,&
-         MPI_DOUBLE_COMPLEX,master,MPI_COMM_WORLD,ierr)
-
-      deallocate(Rhok)
-      deallocate(displ)
-
-   end subroutine ReadDensM
 !--------------------------------------------------------------------------------------
    subroutine SolveEquilibrium(me,filling)
       use Mlinalg,only: EigHE,TRace

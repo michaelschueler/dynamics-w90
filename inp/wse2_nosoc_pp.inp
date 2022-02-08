@@ -2,7 +2,7 @@
 	calc_orbweight=.true.
 	calc_berry=.true.
 	calc_oam=.true.
-	calc_evecs=.true.
+	calc_evecs=.false.
 	gauge=0
 /
 &HAMILTONIAN

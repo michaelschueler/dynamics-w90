@@ -3,7 +3,6 @@ module Mham_w90
    use Mdef,only: dp,iu,zero,one
    use Munits,only: DPI,BohrAngstrom,HreV
    use Mlatt_utils,only: utility_recip_lattice, utility_recip_reduced
-   use Mhdf5_utils
    implicit none
 !--------------------------------------------------------------------------------------
    private
@@ -19,9 +18,7 @@ module Mham_w90
       complex(dp),allocatable,dimension(:,:,:,:) :: pos_r
    contains
       procedure,public  :: ReadFromW90
-      procedure,public  :: ReadFromHDF5
       procedure,public  :: Set
-      procedure,public  :: SaveToHDF5
       procedure,public  :: get_eig
       procedure,public  :: get_ham_diag
       procedure,public  :: get_ham
@@ -34,6 +31,10 @@ module Mham_w90
       procedure,public  :: get_berrycurv_dip
       procedure,public  :: get_oam
       procedure,public  :: get_oam_dip
+#if WITHHDF5
+      procedure,public  :: ReadFromHDF5
+      procedure,public  :: SaveToHDF5
+#endif
    end type wann90_tb_t
 !--------------------------------------------------------------------------------------
 contains
@@ -434,7 +435,9 @@ contains
 
    end subroutine ReadFromW90
 !--------------------------------------------------------------------------------------
+#ifdef WITHHDF5
    subroutine SaveToHDF5(me,fname,atomic_units)
+      use Mhdf5_utils
       class(wann90_tb_t)  :: me
       character(len=*),intent(in) :: fname
       logical,intent(in),optional :: atomic_units
@@ -488,8 +491,11 @@ contains
       call hdf_close_file(file_id)
 
    end subroutine SaveToHDF5
+#endif
 !--------------------------------------------------------------------------------------
+#if WITHHDF5
    subroutine ReadFromHDF5(me,fname)
+      use Mhdf5_utils
       class(wann90_tb_t)  :: me
       character(len=*),intent(in) :: fname
       integer(HID_t) :: file_id
@@ -546,6 +552,7 @@ contains
       call hdf_close_file(file_id)
 
    end subroutine ReadFromHDF5
+#endif
 !--------------------------------------------------------------------------------------
    subroutine ReadTB_from_w90(fname,real_lattice,num_wann,nrpts,ndegen,irvec,ham_r,pos_r)
       character(len=*),intent(in) :: fname

@@ -44,7 +44,12 @@ contains
 
       ppos = scan(trim(file_ham),".", BACK= .true.)
       if(trim(file_ham(ppos+1:)) == "h5") then
+#if WITHHDF5
          call me%Ham%ReadFromHDF5(file_ham)
+#else
+         write(error_unit,fmt900) "No HDF5 support. Can't read "//trim(file_ham)
+         stop
+#endif
       else
          call me%Ham%ReadFromW90(file_ham)
       end if
@@ -177,7 +182,7 @@ contains
 
    end subroutine GetOAM
 !--------------------------------------------------------------------------------------
- 
+
 
 !======================================================================================    
 end module Mwannier_calc
