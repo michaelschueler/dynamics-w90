@@ -5,7 +5,7 @@ The `dynamics-w90` package is a collection of codes for describing light-matter 
 The programs are written in modern Fortran, while interface and plotting scripts are written in python.
 
 ### Current features ###
-* Simulation time-dependent dynamics in the presence of electric fields, implementing the gauge-invariant formulation from [Phys. Rev. B 103, 1155409 (2021)](https://link.aps.org/doi/10.1103/PhysRevB.103.155409 
+* Simulation time-dependent dynamics in the presence of electric fields, implementing the gauge-invariant formulation from [Phys. Rev. B 103, 1155409 (2021)](https://link.aps.org/doi/10.1103/PhysRevB.103.155409) 
 * Calculation of band properties including orbital weights, spin texture, Berry curvature and orbital angular momentum (OAM). We implemented the modern theory of OAM to include all non-local contributions.
 
 ### Features in preparation ###
