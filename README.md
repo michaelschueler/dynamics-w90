@@ -10,6 +10,7 @@ The programs are written in modern Fortran, while interface and plotting scripts
 
 ### Features in preparation ###
 * Calculation of more Berry-phase related quantities such as the quantum metric.
+* Implementation of various gauge-invariant schemes of including light-matter coupling to separate interband and intraband currents, shift currents, and polarization.
 * Slab construction from the bulk Wannier Hamiltonian to study surfaces.
 * Full documentation of the source code and tutorial pages.
 
