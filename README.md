@@ -1,11 +1,22 @@
 # dynamics-w90: Time-dependent dynamics and band properties from Wannier functions #
 
-This is a small collection of programs for:
-
-* computing time-depndent dynamics in the presence of electric fields 
-* computing band properties including orbital weights, spin texture, Berry curvature and orbital angular momentum.
+The `dynamics-w90` package is a collection of codes for describing light-matter coupling and related properties from Wannier functions. The code is under active development by [Michael Schüler](https://sites.google.com/view/schueler-research-group/home) and collaborators.
 
 The programs are written in modern Fortran, while interface and plotting scripts are written in python.
+
+### Current features ###
+* Simulation time-dependent dynamics in the presence of electric fields, implementing the gauge-invariant formulation from [Phys. Rev. B 103, 1155409 (2021)](https://link.aps.org/doi/10.1103/PhysRevB.103.155409 
+* Calculation of band properties including orbital weights, spin texture, Berry curvature and orbital angular momentum (OAM). We implemented the modern theory of OAM to include all non-local contributions.
+
+### Features in preparation ###
+* Calculation of more Berry-phase related quantities such as the quantum metric.
+* Slab construction from the bulk Wannier Hamiltonian to study surfaces.
+* Full documentation of the source code and tutorial pages.
+
+### Planned future features ###
+* Calculation angle-resolved photoemission spectra in plane-wave approximation.
+* Electron-phonon scattering dynamics within the Boltzmann equation approach.
+* Implementation of the generalized Kadanoff-Baym ansatz.
 
 ## Directory structure ##
 
