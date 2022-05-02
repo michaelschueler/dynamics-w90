@@ -23,7 +23,7 @@ foreach( exe ${project_EXECUTABLES} )
     # declare the target...
     add_executable( ${exe} ${EXE_${exe}_SOURCES} )
     add_dependencies(${exe} tools math evol wannier)
-    target_link_libraries(${exe} tools tools math evol wannier ${COMMON_LIBS})
+    target_link_libraries(${exe} tools math evol wannier ${COMMON_LIBS})
 endforeach()
 
 # ---- MPI programs ----
@@ -33,5 +33,5 @@ foreach( exe ${mpi_EXECUTABLES} )
     # declare the target...
     add_executable( ${exe} ${EXE_${exe}_SOURCES} )
     add_dependencies(${exe} tools math evol wannier)
-    target_link_libraries(${exe} tools tools math evol wannier ${COMMON_LIBS})
+    target_link_libraries(${exe} tools math evol wannier ${COMMON_LIBS})
 endforeach()

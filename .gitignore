@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+exe/*
+out/*
+build/*
+*.pyc
+doc/*

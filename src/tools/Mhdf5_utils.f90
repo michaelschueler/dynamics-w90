@@ -1,32 +1,6 @@
-!>  \brief A set of high level wrapper subroutines for HDF5
-!>
-!>  \par \b Features:
-!>   - opening and closing files
-!>   - creating/opening/closing groups
-!>   - get rank and dimensions of dataset
-!>   - reading and writing dataset (integer, double)
-!>     - uses a generic interface to switch on rank and kind
-!>   - writing/reading attributes (integer, double, string)
-!>     - uses a generic interface to switch on rank and kind
-!>
-!>  \todo
-!>   - reading and writing ( real, strings )
-!>   - hdf_exists  (h5o_exist_by_name or h5l_exists)
-!>   - hdf_get_*
-!>     - hdf_get_obj_name  (h5iget_name_f)
-!>     - hdf_get_obj_type  (h5iget_type_f)
-!>     - hdf_get_dset_type   (H5Dget_type)
-!>     - hdf_get_obj_id (not needed)
-!>   - error checking,
-!>     - check dims when reading
-!>     - check dataset/attribute name when reading
-!>     - check group name when reading/writing
-!>     - stop on error vs return error flag vs global error flag
-!>
-!>  \note I might use H5T_STD_F64BE (or H5T_STD_F64LE) instead of H5T_NATIVE_DOUBLE when
-!>    creating a dataset. This would make the hdf5 file more portable.
-!>
 module MHDF5_utils
+  !! A set of high level wrapper subroutines for HDF5, taken directly from
+  !! https://github.com/jterwin/HDF5_utils
 
   use hdf5
   implicit none
@@ -42,19 +16,13 @@ module MHDF5_utils
   public :: hdf_write_vector_to_dataset, hdf_read_vector_from_dataset
   public :: HID_T, hdf_set_print_messages
 
-
-  !>  \brief Generic interface to write a dataset
-  !>
-  !>  Supported types
-  !>   - integers (scalar and 1d-6d arrays)
-  !>   - doubles (scalar and 1d-6d arrays)
-  !   - reals (scalar and 1d-6d arrays)
-  !   - string (scalar and 1d-6d arrays)
-  !>
-  !>  \param[in] loc_id     local id in file
-  !>  \param[in] dset_name name of dataset
-  !>  \param[in] data      data array to be written
   interface hdf_write_dataset
+      !! Generic interface to write a dataset
+      !!  Supported types
+      !!   - integers (scalar and 1d-6d arrays)
+      !!   - doubles (scalar and 1d-6d arrays)
+      !!   - reals (scalar and 1d-6d arrays)
+      !!  - string (scalar and 1d-6d arrays)
      module procedure hdf_write_dataset_integer_0
      module procedure hdf_write_dataset_integer_1
      module procedure hdf_write_dataset_integer_2

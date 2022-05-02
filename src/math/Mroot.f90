@@ -19,9 +19,10 @@ module Mroot
 contains
 
   real(dp) function bisect(f, a, b, tol) result(c)
-    ! Solves f(x) = 0 on the interval [a, b] using the bisection method
-    procedure(func) :: f
-    real(dp), intent(in) :: a, b, tol
+    !! Solves f(x) = 0 on the interval [a, b] using the bisection method
+    procedure(func) :: f !! the function whose zero is to be found
+    real(dp), intent(in) :: a, b !! the lower and upper bounds of the search interval
+    real(dp), intent(in) :: tol !! search tolerance
     real(dp) :: a_, b_, fa, fb, fc
     a_ = a; b_ = b
     fa = f(a_)
