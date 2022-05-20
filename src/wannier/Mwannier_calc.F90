@@ -14,10 +14,12 @@ module Mwannier_calc
 !--------------------------------------------------------------------------------------
    type wannier_calc_t
       logical :: soc_mode=.false.
+      logical :: slab_mode=.false.
       integer :: nbnd,nwan,Nk
       real(dp),allocatable,dimension(:,:) :: kpts,epsk
       complex(dp),allocatable,dimension(:,:,:) :: vectk
       type(wann90_tb_t) :: ham
+      type(wann90_tb_t) :: ham_s
    contains
       procedure,public  :: Init
       procedure,public  :: GetOrbitalWeight
@@ -138,12 +140,20 @@ contains
       select case(gauge_)
       case(0) 
          do ik=1,me%Nk
-            berry(:,:,ik) = me%Ham%get_berrycurv(me%kpts(ik,:))
+            if (me%slab_mode) then
+                berry(:,:,ik) = me%Ham_s%get_berrycurv(me%kpts(ik,:))
+            else
+                berry(:,:,ik) = me%Ham%get_berrycurv(me%kpts(ik,:))
+            end if
          end do
       case(1)
          allocate(berry_disp(me%nbnd,3),berry_dip(me%nbnd,3))
          do ik=1,me%Nk
-            call me%Ham%get_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip)
+            if (me%slab_mode) then
+                call me%Ham_s%get_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip)
+            else
+                call me%Ham%get_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip)
+            end if
             berry(:,:,ik) = berry_disp + berry_dip
          end do
          deallocate(berry_disp,berry_dip)
@@ -169,11 +179,19 @@ contains
       select case(gauge_)
       case(0) 
          do ik=1,me%Nk
-            oam(:,:,ik) = me%Ham%get_oam(me%kpts(ik,:))
+            if (me%slab_mode) then
+                oam(:,:,ik) = me%Ham_s%get_oam(me%kpts(ik,:))
+            else
+                oam(:,:,ik) = me%Ham%get_oam(me%kpts(ik,:))
+            end if
          end do
       case(1)
          do ik=1,me%Nk
-            oam(:,:,ik) = me%Ham%get_oam_dip(me%kpts(ik,:))
+            if (me%slab_mode) then
+                oam(:,:,ik) = me%Ham_s%get_oam_dip(me%kpts(ik,:))
+            else
+                oam(:,:,ik) = me%Ham%get_oam_dip(me%kpts(ik,:))
+            end if
          end do
       case default
          write(error_unit,fmt900) "GetOAM: unrecognized gauge!"
