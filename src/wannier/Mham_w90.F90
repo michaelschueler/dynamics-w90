@@ -9,7 +9,7 @@ module Mham_w90
    public :: wann90_tb_t,ReadTB_from_w90,utility_recip_lattice
 !--------------------------------------------------------------------------------------
    type :: wann90_tb_t
-      integer                                    :: num_wann,nrpts,Nk      
+      integer                                    :: num_wann,nrpts,Nk,nslab,ijmax
       integer,allocatable,dimension(:)           :: ndegen
       integer,allocatable,dimension(:,:)         :: irvec
       real(dp),dimension(3,3)                    :: real_lattice,recip_lattice
@@ -834,6 +834,41 @@ contains
 
   end subroutine wham_get_eig_deleig
 !--------------------------------------------------------------------------------------
+  !subroutine wham_get_eig_deleig_2D(kpt3, w90, eig, del_eig, HH, delHH, UU)
+    !! Given a k point, this function returns eigenvalues E and
+    !! derivatives of the eigenvalues dE/dk_a, using wham_get_deleig_a
+    !! Slab version
+    !! For output still generate 3D data
+
+    !real(kind=dp), dimension(3), intent(in)         :: kpt3
+    !! the three coordinates of the k point vector (in relative coordinates)
+    !real(kind=dp), dimension(2)                     :: kpt2
+    !! the first two coordinates of the k point vector (in relative coordinates)
+    !type(wann90_tb_t), intent(in)                   :: w90
+    !real(kind=dp), intent(out)                      :: eig(w90%num_wann)
+    !! the calculated eigenvalues at kpt
+    !real(kind=dp), intent(out)                      :: del_eig(w90%num_wann, 3)
+    !! the calculated derivatives of the eigenvalues at kpt [first component: band; second component: 1,2,3
+    !! for the derivatives along the three k directions]
+    !complex(kind=dp), dimension(:, :), intent(out)   :: HH
+    !! the Hamiltonian matrix at kpt
+    !complex(kind=dp), dimension(:, :, :), intent(out) :: delHH
+    !! the delHH matrix (derivative of H) at kpt
+    !complex(kind=dp), dimension(:, :), intent(out)   :: UU
+    !! the rotation matrix that gives the eigenvectors of HH
+    !integer :: ijmax = 10
+
+    !HH = w90%get_ham_slab(me,kpt3,w90%nslab)
+    !call utility_diagonalize(HH, w90%num_wann, eig, UU)
+    !call fourier_R_to_k_slab(ijmax, kpt,  w90, w90%ham_r, delHH(:, :, 1), 1)
+    !call fourier_R_to_k_slab(ijmax, kpt,  w90, w90%ham_r, delHH(:, :, 2), 2)
+    !call fourier_R_to_k_slab(ijmax, kpt,  w90, w90%ham_r, delHH(:, :, 3), 3)
+    !call wham_get_deleig_a(w90%num_wann, del_eig(:, 1), w90, eig, delHH(:, :, 1), UU)
+    !call wham_get_deleig_a(w90%num_wann, del_eig(:, 2), w90, eig, delHH(:, :, 2), UU)
+    !call wham_get_deleig_a(w90%num_wann, del_eig(:, 3), w90, eig, delHH(:, :, 3), UU)
+
+  !end subroutine wham_get_eig_deleig_2D
+!--------------------------------------------------------------------------------------
    subroutine wham_get_deleig_a(num_wann, deleig_a, w90, eig, delHH_a, UU, use_degen_pert, degen_thr)
       !==========================!
       !                          !
@@ -994,6 +1029,64 @@ contains
       if(allocated(crvec)) deallocate(crvec)
 
    end subroutine fourier_R_to_k
+!--------------------------------------------------------------------------------------
+   subroutine fourier_R_to_k_slab(ijmax, kpt, w90, OO_R, OO, alpha)
+      !=========================================================!
+      !
+      !! 2D Fourier Transformation for the slab calculation
+      !!
+      !! For alpha=0:
+      !! O_ij(R) --> O_ij(k) = sum_R e^{+ik.R}*O_ij(R)
+      !!
+      !! For alpha=1,2,3:
+      !! sum_R [cmplx_i*R_alpha*e^{+ik.R}*O_ij(R)]
+      !! where R_alpha is a Cartesian component of R
+      !! ***REMOVE EVENTUALLY*** (replace with pw90common_fourier_R_to_k_new)
+      !!
+      !! TO DO:
+      !! (1) transformation for random direction of irvec (U)
+      !! (2) slab(logic) --> input parameters into the type w90
+      !
+      !=========================================================!
+
+      ! Arguments
+      !
+      integer,intent(in)                                            :: ijmax
+      real(kind=dp)                                                 :: kpt(2)
+      type(wann90_tb_t),intent(in)                                  :: w90
+      complex(kind=dp), dimension(:, :, :), intent(in)              :: OO_R
+      complex(kind=dp), dimension(:, :, :), intent(inout)           :: OO
+      integer                                                       :: alpha
+
+      integer          :: ir, i, j, ideg, i3
+      real(kind=dp)    :: rdotk
+      complex(kind=dp) :: phase_fac
+      real(dp),allocatable :: crvec(:,:)
+
+      if(alpha > 0) call get_crvec(w90, crvec)
+
+      OO(:, :, :) = zero
+      do ir = 1, w90%nrpts
+         rdotk = DPI*dot_product(kpt(:), w90%irvec(ir, :))
+         phase_fac = cmplx(cos(rdotk), sin(rdotk), dp)/real(w90%ndegen(ir), dp)
+         i3 = w90%irvec(ir, 3)
+         if (abs(i3) < ijmax) then
+             if (alpha == 0) then
+                OO(:, :,i3+ijmax+1) = OO(:, :,i3+ijmax+1) + &
+                    phase_fac*OO_R(:, :, ir)
+             elseif (alpha == 1 .or. alpha == 2 .or. alpha == 3) then
+                OO(:, :,i3+ijmax+1) = OO(:, :,i3+ijmax+1) + &
+                   iu*crvec(alpha, ir)*phase_fac*OO_R(:, :, ir)
+             else
+                stop 'wrong value of alpha in fourier_R_to_k_2D'
+             end if
+         end if
+
+      end do
+
+      if(allocated(crvec)) deallocate(crvec)
+
+   end subroutine fourier_R_to_k_slab
 !--------------------------------------------------------------------------------------
    subroutine fourier_D2_R_to_k(kpt, w90, OO_R, OO, a, b)
       !=========================================================!
