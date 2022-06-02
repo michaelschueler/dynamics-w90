@@ -4,15 +4,17 @@ program wann_evol
    use omp_lib
    use Mdebug
    use Mdef,only: dp,zero
-   use Mtime,only: Timer_Act, Timer_SetName, Timer_Run, Timer_stop, Timer_DTShow
+   use Mtime,only: Timer_Act, Timer_Tic, Timer_Toc
+   use Mutils,only: print_title, print_header, get_file_ext, check_file_ext
    use Mlaserpulse,only: LaserPulse_spline_t
    use Mham_w90,only: wann90_tb_t
    use Mwann_evol,only: wann_evol_t
+   use Mio_hamiltonian,only: ReadHamiltonian
+   use Mio_obs,only: SaveTDObs
    implicit none
    include '../formats.h'
 !--------------------------------------------------------------------------------------
    ! -- constants --
-   character(len=*),parameter :: fmt_time='(a,"/",a,"/",a," at ",a,":",a,":",a)'
    character(len=*),parameter :: fmt_info='(" Info: ",a)'
    character(len=*),parameter :: fmt_input='(" Input: [",a,"]")'
    integer,parameter :: velocity_gauge=0,dipole_gauge=1,velo_emp_gauge=2,dip_emp_gauge=3
@@ -37,12 +39,12 @@ program wann_evol
    real(dp) :: Tmax,tstart=0.0_dp,tau_relax=1.0e10_dp
    namelist/TIMEPARAMS/Nt,Tmax,output_step,tstart,relaxation_dynamics,tau_relax
    !......................................
-   logical            :: ApplyField=.false.
-   character(len=255) :: file_field
-   namelist/FIELDPARAMS/ApplyField,file_field
+   character(len=255) :: file_field=""
+   namelist/FIELDPARAMS/file_field
    !......................................
    ! -- internal variables --
    logical  :: file_ok
+   logical  :: ApplyField=.false.
    integer  :: Nsteps,tstp,tstp_max,step
    real(dp) :: dt,pulse_tmin,pulse_tmax
    real(dp),allocatable :: Etot(:),Ekin(:),BandOcc(:,:),Jcurr(:,:),Dip(:,:)
@@ -54,19 +56,9 @@ program wann_evol
    ! -- parallelization --
    integer  :: nthreads,threadid
 !--------------------------------------------------------------------------------------
-   write(output_unit,'(A)') '+------------------------------------------------------+'
-   write(output_unit,'(A)') '|       Lattice dynamics in 3D: free evolution         |'
-   write(output_unit,'(A)') '+------------------------------------------------------+'
-   write(output_unit,*)
-
-   call date_and_time(date=date,time=time)
-   write(output_unit,'(a)',advance='no') '  Calculation started on '
-   write(output_unit,fmt_time) date(1:4),date(5:6),date(7:8),time(1:2),time(3:4),time(5:6)
-   write(output_unit,*)
-
-   call Timer_Act
-   call Timer_SetName('total',1)
-   call Timer_Run(N=1)
+   call Timer_Act()
+   call Timer_Tic('total',1)
+   call print_title(output_unit,"Wannier90 dynamics")  
 
    !$OMP PARALLEL PRIVATE(nthreads,threadid)
    threadid = omp_get_thread_num()
@@ -79,7 +71,7 @@ program wann_evol
 !--------------------------------------------------------------------------------------
 !                               ++  Read input ++
 !--------------------------------------------------------------------------------------
-   call Timer_SetName('Reading input', 2); call Timer_Run(N=2)
+   call Timer_Tic('Reading input', 2)
 
    Narg=command_argument_count()
    if(Narg>=1) then
@@ -108,8 +100,9 @@ program wann_evol
       stop
    end if
    write(output_unit,fmt_input) 'Hamiltionian from file: '//trim(file_ham)
-   call Ham%ReadFromW90(file_ham)
+   call ReadHamiltonian(file_ham,Ham)
 
+   ApplyField = len_trim(file_field) > 0
    if(ApplyField) then
       inquire(file=trim(file_field),exist=file_ok)
       if(.not.file_ok) then
@@ -123,19 +116,14 @@ program wann_evol
    end if
 
    write(output_unit,*)
-   call Timer_Stop(N=2); call Timer_DTShow(N=2)
+   call Timer_Toc(N=2)
 !--------------------------------------------------------------------------------------
 !                               ++  Equilibrium ++
 !--------------------------------------------------------------------------------------
-   write(output_unit,fmt50)
-   write(output_unit,'(A)') '         Equilibrium'
-   write(output_unit,fmt50)
-
-
-   call Timer_SetName('equilibrium', 2); call Timer_Run(N=2)
+   call print_header(output_unit,"Equilibrium","*")
+   call Timer_Tic('equilibrium', 2)
 
    call lattsys%Init(Beta,MuChem,ham,Nk1,Nk2,Nk3,gauge)
-
    call lattsys%SetLaserPulse(external_field)
 
    if(FixMuChem) then
@@ -145,8 +133,9 @@ program wann_evol
    end if
 
    write(output_unit,*)
-   call Timer_Stop(N=2); call Timer_DTShow(N=2)
+   call Timer_Toc(N=2)
    write(output_unit,*)
+
    select case(gauge)
    case(dipole_gauge)
       write(output_unit,*) "gauge: length"
@@ -162,11 +151,8 @@ program wann_evol
 !--------------------------------------------------------------------------------------
 !                         ++  Time propagation ++
 !--------------------------------------------------------------------------------------
-   write(output_unit,fmt50)
-   write(output_unit,'(A)') '         Time propagation'
-   write(output_unit,fmt50)
-
-   call Timer_SetName('propagation', 2); call Timer_Run(N=2)
+   call print_header(output_unit,"Time propagation","*")
+   call Timer_Tic('propagation', 2)
 
    Nsteps = ceiling((Nt+1)/dble(output_step)) - 1
 
@@ -218,15 +204,22 @@ program wann_evol
    end do
 
    write(output_unit,fmt50)
-   write(output_unit,*)
-   call Timer_Stop(N=2); call Timer_DTShow(N=2)
+   call Timer_Toc(N=2)
 !--------------------------------------------------------------------------------------
-   if(PrintToFile) call SaveObservables(FlOutPref)
+   if(PrintToFile) then
+      select case(gauge)
+      case(velocity_gauge, velo_emp_gauge)
+         call SaveTDObs(FlOutPref,Nsteps,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
+            Jpara,Jdia,Jintra)
+      case(dipole_gauge, dip_emp_gauge)
+         call SaveTDObs(FlOutPref,Nsteps,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
+            JHk,Jpol)         
+      end select
+   end if
 !--------------------------------------------------------------------------------------
    write(output_unit,*)
-   call Timer_Stop(N=1)
-   call Timer_DTShow(N=1)
-   write(output_unit,'(A)') '+------------------------------------------------------+'
+   call Timer_Toc(N=1)
+   write(output_unit,fmt72)
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
@@ -246,100 +239,6 @@ contains
       end if
 
    end subroutine external_field
-!--------------------------------------------------------------------------------------
-   subroutine SaveObservables(prefix)
-      character(len=*),intent(in) :: prefix
-
-#ifdef WITHHDF5
-      call SaveObservables_hdf5(prefix)
-#else
-      call SaveObservables_txt(prefix)
-#endif
-
-   end subroutine SaveObservables
-!--------------------------------------------------------------------------------------
-   subroutine SaveObservables_txt(prefix)
-      use Mutils,only: save_griddata
-      character(len=*),intent(in) :: prefix
-      character(len=256) :: fout
-      integer  :: tstp
-      real(dp),allocatable :: ts(:)
-
-      allocate(ts(0:Nsteps))
-      forall(tstp=0:Nsteps) ts(tstp) = dt * tstp * output_step
-
-      call save_griddata(trim(prefix)//'_etot.txt', ts, Etot)
-      call save_griddata(trim(prefix)//'_ekin.txt', ts, Ekin)
-      call save_griddata(trim(prefix)//'_occ.txt', ts, BandOcc, transp=.true.)
-      call save_griddata(trim(prefix)//'_curr.txt', ts, Jcurr, transp=.true.)
-      call save_griddata(trim(prefix)//'_dip.txt', ts, Dip, transp=.true.)
-
-      if(gauge == dipole_gauge .or. gauge == dip_emp_gauge) then
-         call save_griddata(trim(prefix)//'_curr_hk.txt', ts, JHk, transp=.true.)
-         call save_griddata(trim(prefix)//'_curr_pol.txt', ts, Jpol, transp=.true.)
-      else
-         call save_griddata(trim(prefix)//'_curr_para.txt', ts, Jpara, transp=.true.)
-         call save_griddata(trim(prefix)//'_curr_dia.txt', ts, Jdia, transp=.true.)
-         call save_griddata(trim(prefix)//'_curr_intra.txt', ts, Jintra, transp=.true.)
-      end if
-
-      deallocate(ts)
-
-   end subroutine SaveObservables_txt
-!--------------------------------------------------------------------------------------
-#ifdef WITHHDF5
-   subroutine SaveObservables_hdf5(prefix)
-      use Mhdf5_utils
-      character(len=*),intent(in) :: prefix
-      integer(HID_t) :: file_id
-      character(len=255) :: Flname
-      integer  :: tstp
-      real(dp) :: AF(3)
-      real(dp),allocatable :: ts(:)
-      real(dp),allocatable :: EF(:,:)
-
-      Flname = trim(prefix)//'_observables.h5'
-      call hdf_open_file(file_id, trim(Flname), STATUS='NEW')
-      if(ApplyField) then
-         call hdf_write_attribute(file_id,'','applyfield', 1)
-      else
-         call hdf_write_attribute(file_id,'','applyfield', 0)
-      end if
-      call hdf_write_attribute(file_id,'','nbnd', lattsys%nbnd)
-      call hdf_write_attribute(file_id,'','Nt', Nt)
-
-      allocate(ts(0:Nsteps))
-      forall(tstp=0:Nsteps) ts(tstp) = dt * tstp * output_step
-      call hdf_write_dataset(file_id,'time',ts)
-
-      call hdf_write_dataset(file_id,'etot',Etot)
-      call hdf_write_dataset(file_id,'ekin',Ekin)
-      call hdf_write_dataset(file_id,'occ',BandOcc)
-      call hdf_write_dataset(file_id,'current',Jcurr)
-      call hdf_write_dataset(file_id,'dipole',Dip)
-
-      if(gauge == dipole_gauge .or. gauge == dip_emp_gauge) then
-         call hdf_write_dataset(file_id,'current_hk',JHk)
-         call hdf_write_dataset(file_id,'current_pol',Jpol)
-      else
-         call hdf_write_dataset(file_id,'current_para',Jpara)
-         call hdf_write_dataset(file_id,'current_dia',Jdia)
-         call hdf_write_dataset(file_id,'current_intra',Jintra)
-      end if
-
-      if(ApplyField) then
-         allocate(EF(3,0:Nsteps))
-         do tstp=0,Nsteps
-            call external_field(ts(tstp),AF,EF(:,tstp))
-         end do
-         call hdf_write_dataset(file_id,'efield',EF)
-         deallocate(EF)
-      end if
-
-      call hdf_close_file(file_id)
-
-   end subroutine SaveObservables_hdf5
-#endif
 !--------------------------------------------------------------------------------------
 
 !======================================================================================

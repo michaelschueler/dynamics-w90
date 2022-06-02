@@ -7,6 +7,7 @@ set(OBJECT_FILES
 	Mham_w90.F90
 	Mlatt_utils.f90
 	Mlatt_kpts.F90
+	Mwann_compress.f90
 	Mwann_dyn.F90
 	Mwannier_calc.F90
 )

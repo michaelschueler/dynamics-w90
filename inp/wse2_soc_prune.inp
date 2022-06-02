@@ -1,0 +1,4 @@
+&HAMILTONIAN
+	file_wann = "data/WSe2_soc/wse2_soc_11bnd_tb.dat"
+	energy_thresh = 1.0d-3
+/

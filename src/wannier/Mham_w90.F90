@@ -18,6 +18,7 @@ module Mham_w90
       complex(dp),allocatable,dimension(:,:,:,:) :: pos_r
    contains
       procedure,public  :: ReadFromW90
+      procedure,public  :: SaveToW90
       procedure,public  :: Set
       procedure,public  :: get_eig
       procedure,public  :: get_ham_diag
@@ -621,6 +622,56 @@ contains
       close(file_unit)
 
    end subroutine ReadTB_from_w90
+!--------------------------------------------------------------------------------------
+   subroutine SaveToW90(me,fname)
+      character(len=*),parameter :: fmt_time='(a,"/",a,"/",a," at ",a,":",a,":",a)'
+      class(wann90_tb_t)  :: me
+      character(len=*),intent(in) :: fname
+      character(len=8) :: date
+      character(len=10) :: time
+      integer :: i,j,irpt
+      integer :: file_unit
+      
+      open(newunit=file_unit, file=trim(fname), status='replace')
+
+      call date_and_time(date=date,time=time)
+      write(file_unit, fmt_time) date(1:4),date(5:6),date(7:8),time(1:2),time(3:4),time(5:6)
+      !
+      ! lattice vectors
+      !
+      write(file_unit, *) BohrAngstrom * me%real_lattice(1, :) !a_1
+      write(file_unit, *) BohrAngstrom * me%real_lattice(2, :) !a_2
+      write(file_unit, *) BohrAngstrom * me%real_lattice(3, :) !a_3
+      
+      write(file_unit, *) me%num_wann
+      write(file_unit, *) me%nrpts
+      write(file_unit, '(15I5)') (me%ndegen(i), i=1, me%nrpts)
+      !
+      ! <0n|H|Rm>
+      !
+      do irpt = 1, me%nrpts
+         write(file_unit, '(/,3I5)') me%irvec(irpt,:)
+         do i = 1, me%num_wann
+            do j = 1, me%num_wann
+               write(file_unit, '(2I5,3x,2(E15.8,1x))') j, i, me%ham_r(j, i, irpt) * HreV
+            end do
+         end do
+      end do
+      !
+      ! <0n|r|Rm>
+      !
+      do irpt = 1, me%nrpts
+         write(file_unit, '(/,3I5)') me%irvec(irpt,:)
+         do i = 1, me%num_wann
+            do j = 1, me%num_wann
+               write(file_unit, '(2I5,3x,6(E15.8,1x))') j, i, me%pos_r(j, i, irpt, 1:3) * BohrAngstrom
+            end do
+         end do
+      end do
+
+      close(file_unit)
+
+   end subroutine SaveToW90
 !--------------------------------------------------------------------------------------
    function utility_rotate(mat, rot, dim)
       !==========================================================!
