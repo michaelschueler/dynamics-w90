@@ -3,9 +3,13 @@ module Mwannier_calc
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
    use Mdef,only: dp,iu,zero
+   use Mutils,only: str
    use Mlinalg,only: EigHE
    use Mlatt_kpts,only: Read_Kpoints
    use Mham_w90,only: wann90_tb_t
+   use Mwann_compress,only: PruneHoppings
+   use Mwann_slab,only: Wannier_BulkToSlab
+   use Mio_hamiltonian,only: ReadHamiltonian
    implicit none
    include "../formats.h"
 !--------------------------------------------------------------------------------------
@@ -14,12 +18,10 @@ module Mwannier_calc
 !--------------------------------------------------------------------------------------
    type wannier_calc_t
       logical :: soc_mode=.false.
-      logical :: slab_mode=.false.
       integer :: nbnd,nwan,Nk
       real(dp),allocatable,dimension(:,:) :: kpts,epsk
       complex(dp),allocatable,dimension(:,:,:) :: vectk
       type(wann90_tb_t) :: ham
-      type(wann90_tb_t) :: ham_s
    contains
       procedure,public  :: Init
       procedure,public  :: GetOrbitalWeight
@@ -28,35 +30,51 @@ module Mwannier_calc
       procedure,public  :: GetOAM
    end type wannier_calc_t
 !--------------------------------------------------------------------------------------
+   integer,parameter :: velocity_gauge=0,dipole_gauge=1
+   character(len=*),parameter :: fmt_info='(" Info: ",a)'
+!--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,file_inp)
+   subroutine Init(me,file_inp,slab_mode)
       class(wannier_calc_t) :: me
       character(len=*),intent(in) :: file_inp
+      logical,intent(in)          :: slab_mode
       character(len=255) :: file_ham
-      logical :: w90_with_soc=.false.
-      integer :: unit_inp,ppos
-      namelist/HAMILTONIAN/file_ham,w90_with_soc
+      logical  :: w90_with_soc=.false.
+      real(dp) :: energy_thresh
+      namelist/HAMILTONIAN/file_ham,w90_with_soc,energy_thresh
+      integer :: nlayer=0,max_zhop=10
+      namelist/SLAB/nlayer,max_zhop
+      !......................................
+      integer :: unit_inp
       integer :: ik
+      real(dp) :: comp_rate
       complex(dp),allocatable :: Hk(:,:)
+      type(wann90_tb_t) :: ham_tmp
+      !......................................
 
       open(newunit=unit_inp,file=trim(file_inp),status='OLD',action='READ')
-      read(unit_inp,nml=HAMILTONIAN) 
+      read(unit_inp,nml=HAMILTONIAN); rewind(unit_inp)
+      if(slab_mode)  read(unit_inp,nml=SLAB)
       close(unit_inp)
 
-      ppos = scan(trim(file_ham),".", BACK= .true.)
-      if(trim(file_ham(ppos+1:)) == "h5") then
-#if WITHHDF5
-         call me%Ham%ReadFromHDF5(file_ham)
-#else
-         write(error_unit,fmt900) "No HDF5 support. Can't read "//trim(file_ham)
-         stop
-#endif
+      call ReadHamiltonian(file_ham,ham_tmp)
+      if(energy_thresh > 0.0_dp) then
+         call PruneHoppings(energy_thresh,ham_tmp,me%ham,comp_rate)
+         write(output_unit,fmt_info) "compression rate: "//str(nint(100 * comp_rate)) // "%"
       else
-         call me%Ham%ReadFromW90(file_ham)
+         call me%ham%Set(ham_tmp)
       end if
+      call ham_tmp%Clean()
 
       me%soc_mode = w90_with_soc
+
+      if(slab_mode .and. nlayer > 0) then
+         write(output_unit,fmt_info) "building slab with "//str(nlayer)//" layers"
+         call ham_tmp%Set(me%ham)
+         call Wannier_BulkToSlab(ham_tmp,nlayer,me%ham,ijmax=max_zhop)
+      end if
+      call ham_tmp%Clean()
 
       if(me%soc_mode) then
          if(mod(me%ham%num_wann,2) /= 0) then
@@ -116,9 +134,9 @@ contains
                vectk_up(iorb) = me%vectk(2*iorb-1,ibnd,ik)
                vectk_dn(iorb) = me%vectk(2*iorb,ibnd,ik)
             end do
-            spin(1,ibnd,ik) = 2.0_dp*dble(dot_product(vectk_up,vectk_dn))
-            spin(2,ibnd,ik) = 2.0_dp*aimag(dot_product(vectk_up,vectk_dn))
-            spin(3,ibnd,ik) = sum(abs(vectk_up)**2) - sum(abs(vectk_dn)**2) 
+            spin(ibnd,1,ik) = 2.0_dp*dble(dot_product(vectk_up,vectk_dn))
+            spin(ibnd,2,ik) = 2.0_dp*aimag(dot_product(vectk_up,vectk_dn))
+            spin(ibnd,3,ik) = sum(abs(vectk_up)**2) - sum(abs(vectk_dn)**2) 
          end do
       end do
      
@@ -138,22 +156,14 @@ contains
       allocate(berry(me%nbnd,3,me%Nk)); berry = 0.0_dp
 
       select case(gauge_)
-      case(0) 
+      case(velocity_gauge) 
          do ik=1,me%Nk
-            if (me%slab_mode) then
-                berry(:,:,ik) = me%Ham_s%get_berrycurv(me%kpts(ik,:))
-            else
-                berry(:,:,ik) = me%Ham%get_berrycurv(me%kpts(ik,:))
-            end if
+            berry(:,:,ik) = me%Ham%get_berrycurv(me%kpts(ik,:))
          end do
-      case(1)
+      case(dipole_gauge)
          allocate(berry_disp(me%nbnd,3),berry_dip(me%nbnd,3))
          do ik=1,me%Nk
-            if (me%slab_mode) then
-                call me%Ham_s%get_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip)
-            else
-                call me%Ham%get_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip)
-            end if
+            call me%Ham%get_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip)
             berry(:,:,ik) = berry_disp + berry_dip
          end do
          deallocate(berry_disp,berry_dip)
@@ -177,21 +187,13 @@ contains
       allocate(oam(me%nbnd,3,me%Nk)); oam = 0.0_dp
 
       select case(gauge_)
-      case(0) 
+      case(velocity_gauge) 
          do ik=1,me%Nk
-            if (me%slab_mode) then
-                oam(:,:,ik) = me%Ham_s%get_oam(me%kpts(ik,:))
-            else
-                oam(:,:,ik) = me%Ham%get_oam(me%kpts(ik,:))
-            end if
+            oam(:,:,ik) = me%Ham%get_oam(me%kpts(ik,:))
          end do
-      case(1)
+      case(dipole_gauge)
          do ik=1,me%Nk
-            if (me%slab_mode) then
-                oam(:,:,ik) = me%Ham_s%get_oam_dip(me%kpts(ik,:))
-            else
-                oam(:,:,ik) = me%Ham%get_oam_dip(me%kpts(ik,:))
-            end if
+            oam(:,:,ik) = me%Ham%get_oam_dip(me%kpts(ik,:))
          end do
       case default
          write(error_unit,fmt900) "GetOAM: unrecognized gauge!"

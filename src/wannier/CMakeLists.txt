@@ -7,14 +7,14 @@ set(OBJECT_FILES
     Mham_w90.F90
     Mlatt_utils.f90
     Mlatt_kpts.F90
+    Mwann_compress.F90
     Mwann_dyn.F90
-    Mwannier_calc.F90
-    Mslab_calc.F90
+    Mwann_slab.F90
 )
 
 # ~~ Installation targets ~~
 add_library(wannier STATIC ${OBJECT_FILES})
-target_link_libraries(wannier math tools ${COMMON_LIBS})
-add_dependencies(wannier math tools)
+target_link_libraries(wannier math tools evol ${COMMON_LIBS})
+add_dependencies(wannier math tools evol)
 install(TARGETS wannier ARCHIVE DESTINATION lib)
 

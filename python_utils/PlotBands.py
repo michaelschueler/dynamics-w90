@@ -30,14 +30,17 @@ def Plot_bandstructure(epsk,klabel,fout=""):
     else:
         plt.show()
 #---------------------------------------------------------------------- 
-def Plot_bandstructure_orbweight(epsk,orb_weight,klabel,iorb=0,Emin=-100.0,Emax=100.0,fout=""):
+def Plot_bandstructure_orbweight(epsk,orb_weight,klabel,iorb=[0],Emin=-100.0,Emax=100.0,fout=""):
     Ry = 27.211386
 
     nk = epsk.shape[0]
     nbnd = epsk.shape[1]
     xk = np.linspace(0.0, 1.0, nk)
 
-    wkorb = orb_weight[:,:,iorb]
+    if hasattr(iorb, '__len__'):
+        wkorb = np.sum(orb_weight[:,:,iorb], axis=-1)
+    else:
+        wkorb = orb_weight[:,:,iorb]
 
     fig, ax = plt.subplots()
 
@@ -84,7 +87,7 @@ def Plot_bandstructure_spin(epsk,spin,klabel,spin_dir=2,Emin=-100.0,Emax=100.0,f
     nbnd = epsk.shape[1]
     xk = np.linspace(0.0, 1.0, nk)
 
-    Sp = spin[:,:,spin_dir]
+    Sp = spin[:,spin_dir,:]
 
     fig, ax = plt.subplots()
 
