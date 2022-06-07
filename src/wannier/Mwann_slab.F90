@@ -35,8 +35,6 @@ contains
       call utility_recip_lattice(slab_w90%real_lattice, slab_w90%recip_lattice)
       call utility_recip_reduced(slab_w90%recip_lattice, slab_w90%recip_reduced)
 
-      slab_w90%recip_lattice = bulk_w90%recip_lattice
-      slab_w90%recip_reduced = bulk_w90%recip_reduced
       slab_w90%num_wann = nlayer * bulk_w90%num_wann
 
       nrpts_2d =&
