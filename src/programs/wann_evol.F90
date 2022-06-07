@@ -18,9 +18,6 @@ program wann_evol
    character(len=*),parameter :: fmt_info='(" Info: ",a)'
    character(len=*),parameter :: fmt_input='(" Input: [",a,"]")'
    integer,parameter :: velocity_gauge=0,dipole_gauge=1,velo_emp_gauge=2,dip_emp_gauge=3
-   ! -- timing --
-   character(len=8) :: date
-   character(len=10) :: time
    ! -- for reading i/o --
    logical :: PrintToFile = .false.
    integer :: Narg,unit_inp
