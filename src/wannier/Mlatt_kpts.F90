@@ -14,11 +14,11 @@ module Mlatt_kpts
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Read_Kpoints(fname,kpts,print_info)
+   subroutine Read_Kpoints(fname,kpts,print_info,root_tag)
       character(len=*),intent(in) :: fname
       real(dp),allocatable,intent(out) :: kpts(:,:)
-      logical,intent(in),optional :: print_info
-      logical :: info_
+      logical,intent(in),optional :: print_info,root_tag
+      logical :: info_,root_
       character(len=32)  :: kpoints_type="grid"
       character(len=255) :: file_kpts=""
       integer :: unit_inp, unit_k
@@ -28,6 +28,9 @@ contains
 
       info_ = .true.
       if(present(print_info)) info_ = print_info
+
+      root_ = .true.
+      if(present(root_tag)) root_ = root_tag
 
       open(newunit=unit_inp, file=trim(fname), status='old', action='read')
       read(unit_inp, nml=KPOINTS)
@@ -46,7 +49,7 @@ contains
 
       nk = size(kpts,1)
 
-      if(info_) then
+      if(info_ .and. root_) then
          if(nk == 1) then
             write(output_unit,fmt_info) str(size(kpts,1))//" k-point was read from file."
          else

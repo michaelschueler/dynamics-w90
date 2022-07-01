@@ -1,12 +1,12 @@
 module Mlinalg
   use Mdebug
-  use Mdef, only: dp, one, zero, iu
+  use Mdef, only: dp, one, zero, iu, large_int
   use Mutils, only: stop_error
   implicit none
   private
   public eig, eighe, eigvals, eigvalshe, eigh, inv, solve, eye, det, lstsq, diag, trace, &
        svdvals, svd, TransForm, TransFormCC, util_rotate, util_rotate_cc, blas_zgemm, blas_dgemm, &
-       util_zgemm
+       util_zgemm, util_matmul, get_large_size
 
   ! eigenvalue/-vector problem for general matrices:
   interface eig
@@ -76,6 +76,11 @@ module Mlinalg
      module procedure zsvd
   end interface svd
 
+  interface util_matmul
+    module procedure dutil_matmul, zutil_matmul
+  end interface util_matmul
+
+
   interface blas_zgemm
      pure subroutine zgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
        import :: dp
@@ -116,6 +121,13 @@ module Mlinalg
 
 contains
 !--------------------------------------------------------------------------------------
+   pure logical function get_large_size(n)
+      integer,intent(in) :: n
+
+      get_large_size = n >= large_int
+
+   end function get_large_size
+!--------------------------------------------------------------------------------------
    subroutine util_zgemm(a, b, c, transa_opt, transb_opt)
       complex(kind=dp), intent(in)            :: a(:, :)
       complex(kind=dp), intent(in)            :: b(:, :)
@@ -146,6 +158,76 @@ contains
       call zgemm(transa, transb, m, n, k, one, a, size(a, 1), b, size(b, 1), zero, c, m)
 
    end subroutine util_zgemm
+!--------------------------------------------------------------------------------------
+   subroutine dutil_matmul(a,b,c,alpha,beta,large_size)
+      real(kind=dp), intent(in)            :: a(:, :)
+      real(kind=dp), intent(in)            :: b(:, :)
+      real(kind=dp), intent(inout)         :: c(:, :)  
+      real(kind=dp), intent(in),optional   :: alpha, beta
+      logical,intent(in),optional          :: large_size
+      logical :: large_size_,bt_term
+      real(dp) :: al,bt
+      integer :: m, n, k
+
+      m = size(c, 1)
+      n = size(c, 2)
+      k = size(a, 2)
+
+      large_size_ = .false.
+      if(present(large_size)) large_size_ = large_size
+
+      al = 1.0_dp
+      bt = 0.0_dp
+      bt_term = present(beta)
+      if(present(alpha)) al = alpha
+      if(bt_term) bt = beta
+
+      if(large_size_) then
+         call blas_dgemm('n', 'n', m, n, k, al, a, size(a, 1), b, size(b, 1), bt, c, m)
+      else
+         if(bt_term) then
+            c = bt * c + al * matmul(a, b)
+         else
+            c = al * matmul(a, b)
+         end if
+      end if
+
+   end subroutine dutil_matmul
+!--------------------------------------------------------------------------------------
+   subroutine zutil_matmul(a,b,c,alpha,beta,large_size)
+      complex(kind=dp), intent(in)            :: a(:, :)
+      complex(kind=dp), intent(in)            :: b(:, :)
+      complex(kind=dp), intent(inout)         :: c(:, :)  
+      complex(kind=dp), intent(in),optional   :: alpha, beta
+      logical,intent(in),optional             :: large_size
+      logical :: large_size_,bt_term
+      complex(dp) :: al,bt
+      integer :: m, n, k
+
+      m = size(c, 1)
+      n = size(c, 2)
+      k = size(a, 2)
+
+      large_size_ = .false.
+      if(present(large_size)) large_size_ = large_size
+
+      al = one
+      bt = zero
+      bt_term = present(beta)
+      if(present(alpha)) al = alpha
+      if(bt_term) bt = beta
+
+      if(large_size_) then
+         call blas_zgemm('n', 'n', m, n, k, al, a, size(a, 1), b, size(b, 1), bt, c, m)
+      else
+         if(bt_term) then
+            c = bt * c + al * matmul(a, b)
+         else
+            c = al * matmul(a, b)
+         end if
+      end if
+
+   end subroutine zutil_matmul
 !--------------------------------------------------------------------------------------
   pure subroutine TransForm(Q,X)
     complex(dp),intent(in) :: Q(:,:)

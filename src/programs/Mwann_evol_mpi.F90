@@ -5,11 +5,11 @@ module Mwann_evol_mpi
    use Mdebug
    use Mdef,only: dp,iu,one,zero,nfermi
    use Munits,only: DPi
+   use Mlinalg,only: get_large_size,util_matmul,util_rotate
    use Mrungekutta,only: ODE_step_rk5
-   use Mlatt,only: latt3d_t
    use Mham_w90,only: wann90_tb_t
    use Mwann_dyn
-   use Marray1d_dist,only: dist_array1d_t
+   use Marray1d_dist,only: dist_array1d_t,GetDisplSize1D
    implicit none
    include '../formats.h'
 !--------------------------------------------------------------------------------------
@@ -23,6 +23,7 @@ module Mwann_evol_mpi
    type(dist_array1d_t),private :: kdist
 !--------------------------------------------------------------------------------------
    integer,parameter :: velocity_gauge=0,dipole_gauge=1,velo_emp_gauge=2,dip_emp_gauge=3
+   logical :: large_size
 !--------------------------------------------------------------------------------------
    private
    public :: wann_evol_t
@@ -31,12 +32,10 @@ module Mwann_evol_mpi
       logical  :: free_evol=.false.
       integer  :: gauge
       integer  :: Nk,Nk_loc,nbnd
-      real(dp) :: Beta,MuChem
+      real(dp) :: Beta,MuChem,nelec
       real(dp),allocatable :: kcoord_loc(:,:)
       complex(dp),allocatable,dimension(:,:,:)  :: Hk,Udt,wan_rot
       complex(dp),allocatable,dimension(:,:,:,:) :: grad_Hk,Dk,velok
-      ! .. lattice class ..
-      type(latt3d_t) :: latt
       ! .. Hamiltonian class ..
       type(wann90_tb_t) :: Ham
       ! .. density matrix ..
@@ -49,6 +48,7 @@ module Mwann_evol_mpi
       procedure,public  :: Timestep
       procedure,public  :: CalcObservables_velo
       procedure,public  :: CalcObservables_dip
+      procedure,public  :: GetOccupationKPTS
    end type wann_evol_t
 !--------------------------------------------------------------------------------------
    abstract interface
@@ -62,12 +62,12 @@ module Mwann_evol_mpi
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,Beta,MuChem,ham,Nk1,Nk2,Nk3,gauge)
+   subroutine Init(me,Beta,MuChem,ham,kpts,gauge)
       class(wann_evol_t)           :: me
       real(dp),intent(in)          :: Beta
       real(dp),intent(in)          :: MuChem
       type(wann90_tb_t),intent(in) :: ham
-      integer,intent(in)           :: Nk1,Nk2,Nk3
+      real(dp),intent(in)          :: kpts(:,:)
       integer,intent(in)           :: gauge
       character(len=32) :: sampling
       integer :: ik,ik_glob
@@ -78,12 +78,12 @@ contains
 
       me%gauge = gauge
 
-      call me%latt%Init(Nk1,Nk2,Nk3,ham%recip_lattice)
-      me%Nk = me%latt%Nk
+      me%Nk = size(kpts,dim=1)
 
       call me%Ham%Set(Ham)
 
       me%nbnd = me%ham%num_wann
+      large_size = get_large_size(me%nbnd)
 
       call kdist%Init(ntasks,taskid,me%Nk)
       me%Nk_loc = kdist%N_loc(taskid)
@@ -91,7 +91,7 @@ contains
       allocate(me%kcoord_loc(me%Nk_loc,3))
       do ik=1,me%Nk_loc
          ik_glob = kdist%Indx_Loc2Glob(taskid,ik)
-         me%kcoord_loc(ik,:) = me%latt%kcoord(ik_glob,:)
+         me%kcoord_loc(ik,1:3) = kpts(ik_glob,1:3)
       end do
 
       me%Beta = Beta
@@ -151,7 +151,6 @@ contains
       case(velocity_gauge)
          call Wann_GenRhok_eq(me%ham,me%Nk_loc,me%kcoord_loc,me%MuChem,me%Beta,me%Rhok,&
             band_basis=.true.)
-         
          do ik=1,me%Nk_loc
             kpt = me%kcoord_loc(ik,:)
             me%Hk(:,:,ik) = me%ham%get_ham_diag(kpt)
@@ -165,15 +164,14 @@ contains
             me%Hk(:,:,ik) = me%ham%get_ham_diag(kpt)
             me%velok(:,:,ik,1:3) = me%ham%get_emp_velocity(kpt)
          end do
-      case(dipole_gauge)
-         call Wann_GenRhok_eq(me%ham,me%Nk_loc,me%kcoord_loc,me%MuChem,me%Beta,me%Rhok,&
-            band_basis=.false.)
-      case(dip_emp_gauge)
+      case(dipole_gauge, dip_emp_gauge)
          call Wann_GenRhok_eq(me%ham,me%Nk_loc,me%kcoord_loc,me%MuChem,me%Beta,me%Rhok,&
             band_basis=.false.)
       end select
 
       me%Rhok_eq = me%Rhok
+
+      me%nelec = num_part(me%MuChem)
 
       deallocate(Ek,Hk)
    !.............................................
@@ -236,14 +234,16 @@ contains
          real(dp),intent(in) :: t 
          complex(dp),intent(in) :: yt(:,:)
          complex(dp) :: dydt(nst,nst)
-         complex(dp) :: ht(nst,nst)
+         complex(dp),dimension(nst,nst) :: ht,ht_yt,yt_ht
          real(dp) :: AF(3),EF(3)
 
          AF = 0.0_dp; EF = 0.0_dp
          if(associated(field)) call field(t,AF,EF)
 
          ht = Wann_GetHk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
-         dydt = -iu*(matmul(ht,yt) - matmul(yt,ht))
+         call util_matmul(ht,yt,ht_yt,large_size=large_size)
+         call util_matmul(yt,ht,yt_ht,large_size=large_size)
+         dydt = -iu * (ht_yt - yt_ht)
          dydt = dydt - (yt - Rhok_eq) / tau
 
       end function deriv_dipole_gauge
@@ -253,7 +253,7 @@ contains
          real(dp),intent(in) :: t 
          complex(dp),intent(in) :: yt(:,:)
          complex(dp) :: dydt(nst,nst)
-         complex(dp) :: ht(nst,nst)
+         complex(dp),dimension(nst,nst) :: ht,ht_yt,yt_ht
          real(dp) :: AF(3),EF(3)
 
          AF = 0.0_dp; EF = 0.0_dp
@@ -261,7 +261,9 @@ contains
 
          ht = Wann_GetHk_dip(me%ham,AF,EF,kpt,reducedA=.false.,&
             Peierls_only=.true.)
-         dydt = -iu*(matmul(ht,yt) - matmul(yt,ht))
+         call util_matmul(ht,yt,ht_yt,large_size=large_size)
+         call util_matmul(yt,ht,yt_ht,large_size=large_size)
+         dydt = -iu * (ht_yt - yt_ht)
          dydt = dydt - (yt - Rhok_eq) / tau
 
       end function deriv_dip_emp_gauge
@@ -271,7 +273,7 @@ contains
          real(dp),intent(in) :: t 
          complex(dp),intent(in) :: yt(:,:)
          complex(dp) :: dydt(nst,nst)
-         complex(dp) :: ht(nst,nst)
+         complex(dp),dimension(nst,nst) :: ht,ht_yt,yt_ht
          real(dp) :: AF(3),EF(3)
          integer :: idir
 
@@ -282,7 +284,9 @@ contains
          do idir=1,3
             ht = ht - qc * AF(idir) * me%velok(:,:,ik,idir)
          end do
-         dydt = -iu*(matmul(ht,yt) - matmul(yt,ht))
+         call util_matmul(ht,yt,ht_yt,large_size=large_size)
+         call util_matmul(yt,ht,yt_ht,large_size=large_size)
+         dydt = -iu * (ht_yt - yt_ht)
          dydt = dydt - (yt - Rhok_eq) / tau
 
       end function deriv_velocity_gauge
@@ -364,7 +368,7 @@ contains
          if(me%free_evol) then
             do ik=1,me%Nk_loc
                Rho_old = me%Rhok(:,:,ik)
-               call UnitaryStepFBW(me%nbnd,me%Udt(:,:,ik),Rho_old,me%Rhok(:,:,ik))
+               call UnitaryStepFBW(me%nbnd,me%Udt(:,:,ik),Rho_old,me%Rhok(:,:,ik),large_size=large_size)
             end do
          end if
       end if
@@ -440,7 +444,7 @@ contains
       real(dp) :: dip_loc(3),JHk_loc(3)
       real(dp) :: AF(3),EF(3)
       real(dp) :: occ(me%nbnd)
-      complex(dp),dimension(me%nbnd,me%nbnd) :: rhok_bnd,rot_cc
+      complex(dp),dimension(me%nbnd,me%nbnd) :: rhok_bnd
 
       AF = 0.0_dp; EF = 0.0_dp
       if(associated(field)) call field(tstp*dt,AF,EF)
@@ -481,10 +485,9 @@ contains
       Ekin_loc = ck * Wann_KineticEn(me%ham,me%Nk_loc,me%kcoord_loc,me%Rhok,&
          band_basis=.false.)
       
-      !$OMP PARALLEL DO REDUCTION(+:Occ) PRIVATE(rhok_bnd,rot_cc)
+      !$OMP PARALLEL DO REDUCTION(+:Occ) PRIVATE(rhok_bnd)
       do ik=1,me%Nk_loc
-         rot_cc = conjg(transpose(me%wan_rot(:,:,ik)))            
-         rhok_bnd = matmul(rot_cc, matmul(me%Rhok(:,:,ik), me%wan_rot(:,:,ik)))
+         rhok_bnd = util_rotate(me%nbnd,me%wan_rot(:,:,ik),me%Rhok(:,:,ik),large_size=large_size)
          Occ = Occ + dble(GetDiag(me%nbnd,rhok_bnd)) / me%Nk
       end do
       
@@ -502,6 +505,43 @@ contains
       end if
 
    end subroutine CalcObservables_dip
+!--------------------------------------------------------------------------------------
+   subroutine GetOccupationKPTS(me,Occk)
+      class(wann_evol_t),intent(in) :: me
+      real(dp),intent(inout)        :: Occk(:,:)
+      integer :: ik
+      integer :: nsize
+      integer,allocatable :: displ(:),size_loc(:)
+      real(dp),allocatable :: Occk_loc(:,:)
+      complex(dp),allocatable :: Rhok_bnd(:,:)
+
+      call assert_shape(Occk, [me%nbnd,me%Nk], "GetOccupationKPTS", "Occk")
+
+      allocate(Occk_loc(me%nbnd,me%Nk_loc))
+      select case(me%gauge)
+         case(dipole_gauge, dip_emp_gauge)
+            allocate(Rhok_bnd(me%nbnd,me%nbnd))
+            do ik=1,me%Nk_loc
+               rhok_bnd = util_rotate(me%nbnd,me%wan_rot(:,:,ik),me%Rhok(:,:,ik),large_size=large_size)
+               Occk_loc(:,ik) = dble(GetDiag(me%nbnd,rhok_bnd))
+            end do
+            deallocate(Rhok_bnd)
+         case(velocity_gauge,velo_emp_gauge)
+            do ik=1,me%Nk_loc
+               Occk_loc(:,ik) = dble(GetDiag(me%nbnd,me%Rhok(:,:,ik)))
+            end do
+      end select
+
+      allocate(displ(0:ntasks-1),size_loc(0:ntasks-1))
+      call GetDisplSize1D(kdist%N_loc,me%nbnd,displ,nsize,size_loc)
+
+      call MPI_Allgatherv(Occk_loc,nsize,MPI_DOUBLE_PRECISION,Occk,size_loc,displ,&
+         MPI_DOUBLE_PRECISION,MPI_COMM_WORLD, ierr)
+
+      deallocate(displ,size_loc)
+      deallocate(Occk_loc)
+
+   end subroutine GetOccupationKPTS
 !--------------------------------------------------------------------------------------
    function GetDiag(ndim,A) result(Adiag)
       integer,intent(in)     :: ndim

@@ -2,7 +2,7 @@ module Mwann_dyn
 !======================================================================================
    use Mdef,only: dp, zero, iu, nfermi
    use Mham_w90,only: wann90_tb_t
-   use Mlinalg,only: EigHE,util_rotate
+   use Mlinalg,only: EigHE,util_rotate,util_rotate_cc,get_large_size
    use Mevol,only: GenU_CF2,GenU_CF4,UnitaryStepFBW
    implicit none
 !--------------------------------------------------------------------------------------
@@ -102,23 +102,25 @@ contains
       complex(dp),intent(inout)    :: Rhok(:,:,:)
       logical,intent(in),optional  :: band_basis
       logical :: bands_=.false.
+      logical :: large_size
       integer :: ik,j
       real(dp),dimension(w90%num_wann) :: En
-      complex(dp),dimension(w90%num_wann,w90%num_wann) :: Hk,Rhod,Qk,Qkcc
+      complex(dp),dimension(w90%num_wann,w90%num_wann) :: Hk,Rhod,Qk
+
+      large_size = get_large_size(w90%num_wann)
 
       if(present(band_basis)) bands_ = band_basis
       do ik=1,Nk
          rhod = zero
          Hk = w90%get_ham([kpts(ik,1),kpts(ik,2),kpts(ik,3)])
          call EigHE(Hk,En,Qk)
-         Qkcc = conjg(transpose(Qk))
          do j=1,w90%num_wann
             rhod(j,j) = nfermi(Beta,En(j)-Mu)
          end do   
          if(bands_) then
             Rhok(:,:,ik) = RhoD
          else
-            Rhok(:,:,ik) = matmul(Qk,matmul(RhoD,Qkcc))
+            Rhok(:,:,ik) =  util_rotate_cc(w90%num_wann,Qk,RhoD,large_size=large_size)
          end if
       end do
 
@@ -133,11 +135,14 @@ contains
       real(dp),intent(in)          :: dt
       procedure(vecpot_efield_func),pointer :: field
       complex(dp),intent(inout)    :: Rhok(:,:,:)
+      logical :: large_size
       integer :: ik
       real(dp) :: EF_1(3),AF_1(3),EF_2(3),AF_2(3)
       complex(dp),dimension(w90%num_wann,w90%num_wann) :: H1,H2,Rho_old,Udt
       complex(dp),dimension(w90%num_wann,w90%num_wann,3) :: vk
       
+      large_size = get_large_size(w90%num_wann)
+
       AF_1 = 0.0_dp; AF_2 = 0.0_dp
       EF_1 = 0.0_dp; EF_2 = 0.0_dp
       if(associated(field)) then
@@ -153,7 +158,7 @@ contains
          H1 = H1 - qc*(AF_1(1)*vk(:,:,1) + AF_1(2)*vk(:,:,2) + AF_1(3)*vk(:,:,3))
          H2 = H2 - qc*(AF_2(1)*vk(:,:,1) + AF_2(2)*vk(:,:,2) + AF_2(3)*vk(:,:,3))
          call GenU_CF4(dt,H1,H2,Udt)
-         call UnitaryStepFBW(w90%num_wann,Udt,Rho_old,Rhok(:,:,ik))
+         call UnitaryStepFBW(w90%num_wann,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
       end do
 
    end subroutine Wann_Rhok_timestep_velo
@@ -166,10 +171,13 @@ contains
       real(dp),intent(in)          :: dt
       procedure(vecpot_efield_func),pointer :: field
       complex(dp),intent(inout)    :: Rhok(:,:,:)
+      logical :: large_size
       integer :: ik
       real(dp) :: EF_1(3),AF_1(3),EF_2(3),AF_2(3)
       complex(dp),dimension(nbnd,nbnd) :: H1,H2,Rho_old,Udt
  
+      large_size = get_large_size(nbnd)
+
       AF_1 = 0.0_dp; AF_2 = 0.0_dp
       EF_1 = 0.0_dp; EF_2 = 0.0_dp
       if(associated(field)) then
@@ -182,7 +190,7 @@ contains
          H1 = Hk(:,:,ik) - qc*(AF_1(1)*vk(:,:,ik,1) + AF_1(2)*vk(:,:,ik,2) + AF_1(3)*vk(:,:,ik,3))
          H2 = Hk(:,:,ik) - qc*(AF_2(1)*vk(:,:,ik,1) + AF_2(2)*vk(:,:,ik,2) + AF_1(3)*vk(:,:,ik,3))
          call GenU_CF4(dt,H1,H2,Udt)
-         call UnitaryStepFBW(nbnd,Udt,Rho_old,Rhok(:,:,ik))
+         call UnitaryStepFBW(nbnd,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
       end do
 
    end subroutine Wann_Rhok_timestep_velo_calc
@@ -271,10 +279,13 @@ contains
       complex(dp),intent(inout)    :: Rhok(:,:,:)
       logical,intent(in),optional  :: Peierls_only
       logical :: peierls_
+      logical :: large_size
       integer :: ik
       real(dp) :: EF_1(3),AF_1(3),EF_2(3),AF_2(3)
       complex(dp),dimension(w90%num_wann,w90%num_wann) :: H1,H2,Rho_old,Udt
       
+      large_size = get_large_size(w90%num_wann)
+
       peierls_ = .false.
       if(present(Peierls_only)) peierls_ = Peierls_only
 
@@ -288,7 +299,7 @@ contains
          H1 = Wann_GetHk_dip(w90,AF_1,EF_1,kpts(ik,:),reducedA=.false.,Peierls_only=peierls_)
          H2 = Wann_GetHk_dip(w90,AF_2,EF_2,kpts(ik,:),reducedA=.false.,Peierls_only=peierls_)
          call GenU_CF4(dt,H1,H2,Udt)
-         call UnitaryStepFBW(w90%num_wann,Udt,Rho_old,Rhok(:,:,ik))
+         call UnitaryStepFBW(w90%num_wann,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
       end do
 
    end subroutine Wann_Rhok_timestep_dip_field
@@ -301,14 +312,17 @@ contains
       real(dp),intent(in)          :: dt
       real(dp),intent(in)          :: AF(3)
       complex(dp),intent(inout)    :: Rhok(:,:,:)
+      logical :: large_size
       integer :: ik
       complex(dp),dimension(w90%num_wann,w90%num_wann) :: H1,Rho_old,Udt
       
+      large_size = get_large_size(w90%num_wann)
+
       do ik=1,Nk
          Rho_old = Rhok(:,:,ik)
          H1 = Wann_GetHk_dip(w90,AF,[0.0_dp,0.0_dp,0.0_dp],kpts(ik,:),reducedA=.false.)
          call GenU_CF2(dt,H1,Udt)
-         call UnitaryStepFBW(w90%num_wann,Udt,Rho_old,Rhok(:,:,ik))
+         call UnitaryStepFBW(w90%num_wann,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
       end do
 
    end subroutine Wann_Rhok_timestep_dip_free

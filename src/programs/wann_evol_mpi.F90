@@ -10,8 +10,9 @@ program wann_evol_mpi
    use Mlaserpulse,only: LaserPulse_spline_t
    use Mham_w90,only: wann90_tb_t
    use Mwann_evol_mpi,only: wann_evol_t
+   use Mlatt_kpts,only: Read_Kpoints
    use Mio_hamiltonian,only: ReadHamiltonian
-   use Mio_obs,only: SaveTDObs
+   use Mio_obs,only: SaveTDObs, SaveTDOccupation
    implicit none
    include '../formats.h'
 !--------------------------------------------------------------------------------------
@@ -24,31 +25,28 @@ program wann_evol_mpi
    integer :: Narg,unit_inp
    character(len=255) :: FlIn,FlOutPref
    ! -- input variables --
-   logical            :: Output_Dens=.false.
+   logical            :: Output_Occ_KPTS=.false.
    logical            :: FixMuChem=.true.
    integer            :: gauge
-   integer            :: Nk1,Nk2,Nk3
    real(dp)           :: MuChem,Beta,Filling
-   character(len=255) :: file_ham,file_dens=''
-   namelist/SYSPARAMS/MuChem,FixMuChem,Filling,Beta,Nk1,Nk2,Nk3,&
-      file_ham,gauge,Output_Dens,file_dens
+   character(len=255) :: file_ham
+   namelist/SYSPARAMS/MuChem,FixMuChem,Filling,Beta,file_ham,gauge,Output_Occ_KPTS
    !......................................
    logical  :: relaxation_dynamics=.false.
    integer  :: Nt,output_step=1
    real(dp) :: Tmax,tstart=0.0_dp,tau_relax=1.0e10_dp
-   namelist/TIMEPARAMS/Nt,Tmax,output_step,tstart,relaxation_dynamics,tau_relax
-   !......................................
    character(len=255) :: file_field=""
-   namelist/FIELDPARAMS/file_field
+   namelist/TIMEPARAMS/Nt,Tmax,output_step,tstart,relaxation_dynamics,tau_relax,file_field
    !......................................
    ! -- internal variables --
    logical  :: file_ok
    logical  :: ApplyField=.false.
    integer  :: Nsteps,tstp,tstp_max,step
    real(dp) :: dt,pulse_tmin,pulse_tmax
+   real(dp),allocatable :: kpts(:,:)
    real(dp),allocatable :: Etot(:),Ekin(:),BandOcc(:,:),Jcurr(:,:),Dip(:,:)
    real(dp),allocatable :: Jpara(:,:),Jdia(:,:),JHk(:,:),Jpol(:,:),Jintra(:,:)
-   real(dp),allocatable :: Jcurr_kpt(:,:,:)
+   real(dp),allocatable :: Occk(:,:,:)
    type(LaserPulse_spline_t) :: pulse_x,pulse_y,pulse_z
    type(wann90_tb_t)         :: Ham
    type(wann_evol_t)         :: lattsys
@@ -86,8 +84,7 @@ program wann_evol_mpi
       call get_command_argument(1,FlIn)
       open(newunit=unit_inp,file=trim(FlIn),status='OLD',action='READ')
       read(unit_inp,nml=SYSPARAMS) ; rewind(unit_inp)
-      read(unit_inp,nml=TIMEPARAMS) ; rewind(unit_inp)
-      read(unit_inp,nml=FIELDPARAMS)
+      read(unit_inp,nml=TIMEPARAMS)
       close(unit_inp)
    else
       if(on_root) write(output_unit,fmt900) 'Please provide a namelist input file.'
@@ -109,6 +106,8 @@ program wann_evol_mpi
    end if
    if(on_root) write(output_unit,fmt_input) 'Hamiltionian from file: '//trim(file_ham)
    call ReadHamiltonian(file_ham,Ham)
+
+   call Read_Kpoints(FlIn,kpts,print_info=.true.,root_tag=on_root)
 
    ApplyField = len_trim(file_field) > 0
    if(ApplyField) then
@@ -138,14 +137,16 @@ program wann_evol_mpi
 
    tic = MPI_Wtime()
 
-   call lattsys%Init(Beta,MuChem,ham,Nk1,Nk2,Nk3,gauge)
+   call lattsys%Init(Beta,MuChem,ham,kpts,gauge)
 
    call lattsys%SetLaserPulse(external_field)
 
    if(FixMuChem) then
       call lattsys%SolveEquilibrium()
+      if(on_root) write(output_unit,fmt149) "number of electrons", lattsys%nelec
    else
       call lattsys%SolveEquilibrium(Filling)
+      if(on_root) write(output_unit,fmt149) "chemical potential", lattsys%MuChem
    end if
    toc = MPI_Wtime()
 
@@ -153,15 +154,16 @@ program wann_evol_mpi
       write(output_unit,*)
       write(output_unit,fmt555) "equilibrium",toc-tic
       write(output_unit,*)
+      write(output_unit,fmt_info,advance='no') "gauge: "
       select case(gauge)
       case(dipole_gauge)
-         write(output_unit,*) "gauge: length"
+         write(output_unit,*) "dipole gauge"
       case(dip_emp_gauge)
-         write(output_unit,*) "gauge: Peierls substitution"
+         write(output_unit,*) "Peierls substitution"
       case(velocity_gauge)
-         write(output_unit,*) "gauge: velocity"
+         write(output_unit,*) "velocity gauge"
       case(velo_emp_gauge)
-         write(output_unit,*) "gauge: empirical velocity"
+         write(output_unit,*) "empirical velocity gauge"
       case default
          write(error_unit,fmt900) "unrecognized gauge"
       end select
@@ -187,12 +189,20 @@ program wann_evol_mpi
       allocate(Jpara(3,0:Nsteps),Jdia(3,0:Nsteps),Jintra(3,0:Nsteps))
    end if
 
+   if(Output_Occ_KPTS) then
+      allocate(Occk(lattsys%nbnd,lattsys%Nk,0:Nsteps))
+   end if
+
    if(gauge == dipole_gauge .or. gauge == dip_emp_gauge) then
       call lattsys%CalcObservables_dip(0,dt,Ekin(0),Etot(0),Jcurr(:,0),JHk(:,0),Jpol(:,0),&
                Dip(:,0),BandOcc(:,0))
    else
       call lattsys%CalcObservables_velo(0,dt,Ekin(0),Etot(0),Jcurr(:,0),Jpara(:,0),Jdia(:,0),&
          Jintra(:,0),Dip(:,0),BandOcc(:,0))
+   end if
+
+   if(Output_Occ_KPTS) then
+      call lattsys%GetOccupationKPTS(Occk(:,:,0))
    end if
 
    pulse_tmin = min(pulse_x%Tmin,pulse_y%Tmin,pulse_z%Tmin) - tstart
@@ -218,6 +228,10 @@ program wann_evol_mpi
                   Jdia(:,step),Jintra(:,step),Dip(:,step),BandOcc(:,step))
          end if
 
+         if(Output_Occ_KPTS) then
+            call lattsys%GetOccupationKPTS(Occk(:,:,step))
+         end if
+
          if(on_root) write(output_unit,fmt145) "tstp",tstp+1
 
       end if
@@ -239,6 +253,10 @@ program wann_evol_mpi
          call SaveTDObs(FlOutPref,Nsteps,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
             JHk,Jpol)         
       end select
+
+      if(Output_Occ_KPTS) then
+         call SaveTDOccupation(FlOutPref,Nsteps,output_step,dt,Occk)
+      end if
    end if
 !--------------------------------------------------------------------------------------
    if(on_root) then

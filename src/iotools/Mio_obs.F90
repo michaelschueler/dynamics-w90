@@ -40,7 +40,7 @@ module Mio_obs
    end type WannierCalcOutput_t
 !--------------------------------------------------------------------------------------
    private
-   public :: WannierCalcOutput_t, SaveTDObs
+   public :: WannierCalcOutput_t, SaveTDObs, SaveTDOccupation
 
    interface SaveTDObs
       module procedure SaveTDObs_velo, SaveTDObs_dip
@@ -278,6 +278,20 @@ contains
 
    end subroutine SaveTDObs_dip
 !--------------------------------------------------------------------------------------
+   subroutine SaveTDOccupation(prefix,Nt,output_step,dt,Occk)
+      character(len=*),intent(in) :: prefix
+      integer,intent(in)  :: Nt,output_step
+      real(dp),intent(in) :: dt
+      real(dp),intent(in) :: Occk(:,:,0:)
+
+#ifdef WITHHDF5
+      call SaveTDOccupation_hdf5(prefix,Nt,output_step,dt,Occk)
+#else
+      call SaveTDOccupation_txt(prefix,Nt,Occk)
+#endif
+
+   end subroutine SaveTDOccupation
+!--------------------------------------------------------------------------------------
 #ifdef WITHHDF5
    subroutine SaveTDObs_velo_hdf5(prefix,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
       Jcurr_para,Jcurr_dia,Jcurr_intra)
@@ -424,7 +438,46 @@ contains
 
    end subroutine SaveTDObs_dip_txt
 !--------------------------------------------------------------------------------------
+#ifdef WITHHDF5
+   subroutine SaveTDOccupation_hdf5(prefix,Nt,output_step,dt,Occk)
+      character(len=*),intent(in) :: prefix
+      integer,intent(in)  :: Nt,output_step
+      real(dp),intent(in) :: dt
+      real(dp),intent(in) :: Occk(:,:,0:)
+      integer(HID_t) :: file_id
+      character(len=255) :: Flname
+      integer  :: tstp
+      real(dp),allocatable :: ts(:)
 
+      Flname = trim(prefix)//'_occupation.h5'
+      call hdf_open_file(file_id, trim(Flname), STATUS='NEW')
+
+      allocate(ts(0:Nt))
+      forall(tstp=0:Nt) ts(tstp) = dt * tstp * output_step
+      call hdf_write_dataset(file_id,'time',ts)   
+
+      call hdf_write_dataset(file_id,'occupation',Occk)
+
+      call hdf_close_file(file_id)
+      deallocate(ts)
+
+   end subroutine SaveTDOccupation_hdf5
+#endif
+!--------------------------------------------------------------------------------------
+   subroutine SaveTDOccupation_txt(prefix,Nt,Occk)
+      character(len=*),intent(in) :: prefix
+      integer,intent(in)  :: Nt
+      real(dp),intent(in) :: Occk(:,:,0:)
+      integer  :: tstp
+      character(len=256) :: file_out
+
+      do tstp=0,Nt
+         file_out = trim(prefix)//'_occupation_step'//str(tstp)//'.txt'
+         call savetxt(trim(file_out),Occk(:,:,tstp))
+      end do
+
+   end subroutine SaveTDOccupation_txt
+!--------------------------------------------------------------------------------------
 
 !======================================================================================
 end module Mio_obs
