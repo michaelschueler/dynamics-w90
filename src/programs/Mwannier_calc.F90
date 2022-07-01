@@ -41,7 +41,7 @@ contains
       logical,intent(in)          :: slab_mode
       character(len=255) :: file_ham
       logical  :: w90_with_soc=.false.
-      real(dp) :: energy_thresh
+      real(dp) :: energy_thresh=0.0_dp
       namelist/HAMILTONIAN/file_ham,w90_with_soc,energy_thresh
       integer :: nlayer=0,max_zhop=10
       namelist/SLAB/nlayer,max_zhop

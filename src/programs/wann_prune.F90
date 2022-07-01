@@ -4,7 +4,7 @@ program wann_prune
    use Mdebug
    use Mdef,only: dp,zero
    use Mtime,only: Timer_act, Timer_Tic, Timer_Toc
-   use Mutils,only: print_title, print_header, get_file_ext, check_file_ext
+   use Mutils,only: print_title, print_header, get_file_ext, check_file_ext, str
    use Mham_w90,only: wann90_tb_t
    use Mwann_compress,only: PruneHoppings
    use Mio_hamiltonian,only: ReadHamiltonian, WriteHamiltonian
@@ -59,7 +59,7 @@ program wann_prune
 
    write(output_unit,fmt148) "hoppings (before compression)", wann%nrpts
    write(output_unit,fmt148) "hoppings (after compression)", wann_pruned%nrpts
-   write(output_unit,fmt149) "compression rate", comp_rate
+   write(output_unit,'(a)') "compression rate: "//str(nint(100 * comp_rate)) // "%"
 
    if(PrintToFile) then
       call WriteHamiltonian(wann_pruned,file_out)
