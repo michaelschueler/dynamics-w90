@@ -43,10 +43,10 @@ program wann_evol_mpi
    logical  :: ApplyField=.false.
    integer  :: Nsteps,tstp,tstp_max,step
    real(dp) :: dt,pulse_tmin,pulse_tmax
-   real(dp),allocatable :: kpts(:,:)
-   real(dp),allocatable :: Etot(:),Ekin(:),BandOcc(:,:),Jcurr(:,:),Dip(:,:)
-   real(dp),allocatable :: Jpara(:,:),Jdia(:,:),JHk(:,:),Jpol(:,:),Jintra(:,:)
-   real(dp),allocatable :: Occk(:,:,:)
+   real(dp),allocatable,dimension(:)     :: Etot,Ekin
+   real(dp),allocatable,dimension(:,:)   :: kpts,BandOcc,Jcurr,Dip
+   real(dp),allocatable,dimension(:,:)   :: Jpara,Jdia,JHk,Jpol,Jintra
+   real(dp),allocatable,dimension(:,:,:) :: Occk
    type(LaserPulse_spline_t) :: pulse_x,pulse_y,pulse_z
    type(wann90_tb_t)         :: Ham
    type(wann_evol_t)         :: lattsys
@@ -138,7 +138,6 @@ program wann_evol_mpi
    tic = MPI_Wtime()
 
    call lattsys%Init(Beta,MuChem,ham,kpts,gauge)
-
    call lattsys%SetLaserPulse(external_field)
 
    if(FixMuChem) then
