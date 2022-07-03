@@ -15,6 +15,7 @@ module Mio_obs
       logical            :: calc_spin=.false.
       logical            :: calc_berry=.false.
       logical            :: calc_oam=.false.
+      logical            :: calc_metric=.false.
       logical            :: calc_evecs=.false.
       logical            :: write_kpts=.false. 
       real(dp),pointer,dimension(:,:)      :: epsk => null()    
@@ -23,6 +24,7 @@ module Mio_obs
       real(dp),pointer,dimension(:,:,:)    :: spin => null()
       real(dp),pointer,dimension(:,:,:)    :: berry => null()
       real(dp),pointer,dimension(:,:,:)    :: oam => null()
+      real(dp),pointer,dimension(:,:,:,:)  :: metric => null()
       complex(dp),pointer,dimension(:,:,:) :: evecs => null()
    contains
       procedure, public  :: AddEpsk => wann_calc_AddEpsk
@@ -31,6 +33,7 @@ module Mio_obs
       procedure, public  :: AddSpin => wann_calc_AddSpin
       procedure, public  :: AddBerry => wann_calc_AddBerry
       procedure, public  :: AddOAM => wann_calc_AddOAM
+      procedure, public  :: AddMetric => wann_calc_AddMetric      
       procedure, public  :: AddEvecs => wann_calc_AddEvecs
       procedure, public  :: SaveToFile => wann_calc_SaveToFile
       procedure, private :: SaveToFile_txt => wann_calc_SaveToFile_txt
@@ -95,6 +98,14 @@ contains
       me%oam => oam
 
    end subroutine wann_calc_AddOAM
+!--------------------------------------------------------------------------------------
+   subroutine wann_calc_AddMetric(me,metric)
+      class(WannierCalcOutput_t) :: me
+      real(dp),target,intent(in) :: metric(:,:,:,:)
+
+      me%metric => metric
+
+   end subroutine wann_calc_AddMetric
 !--------------------------------------------------------------------------------------
    subroutine wann_calc_AddEvecs(me,evecs)
       class(WannierCalcOutput_t) :: me

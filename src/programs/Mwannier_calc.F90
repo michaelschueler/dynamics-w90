@@ -28,6 +28,7 @@ module Mwannier_calc
       procedure,public  :: GetSpin
       procedure,public  :: GetBerryCurvature
       procedure,public  :: GetOAM
+      procedure,public  :: GetMetric
    end type wannier_calc_t
 !--------------------------------------------------------------------------------------
    integer,parameter :: velocity_gauge=0,dipole_gauge=1
@@ -40,9 +41,9 @@ contains
       character(len=*),intent(in) :: file_inp
       logical,intent(in)          :: slab_mode
       character(len=255) :: file_ham
-      logical  :: w90_with_soc=.false.
+      logical  :: w90_with_soc=.false.,expert_params=.false.
       real(dp) :: energy_thresh=0.0_dp
-      namelist/HAMILTONIAN/file_ham,w90_with_soc,energy_thresh
+      namelist/HAMILTONIAN/file_ham,w90_with_soc,energy_thresh,expert_params
       integer :: nlayer=0,max_zhop=10
       namelist/SLAB/nlayer,max_zhop
       !......................................
@@ -55,7 +56,7 @@ contains
 
       open(newunit=unit_inp,file=trim(file_inp),status='OLD',action='READ')
       read(unit_inp,nml=HAMILTONIAN); rewind(unit_inp)
-      if(slab_mode)  read(unit_inp,nml=SLAB)
+      if(slab_mode)  read(unit_inp,nml=SLAB); rewind(unit_inp)
       close(unit_inp)
 
       call ReadHamiltonian(file_ham,ham_tmp)
@@ -66,6 +67,8 @@ contains
          call me%ham%Set(ham_tmp)
       end if
       call ham_tmp%Clean()
+
+      if(expert_params) call me%ham%ReadParams(file_inp) 
 
       me%soc_mode = w90_with_soc
 
@@ -202,7 +205,18 @@ contains
 
    end subroutine GetOAM
 !--------------------------------------------------------------------------------------
+   subroutine GetMetric(me,metric)
+      class(wannier_calc_t) :: me
+      real(dp),allocatable,intent(out) :: metric(:,:,:,:)
+      integer :: ik
 
+      allocate(metric(me%nbnd,3,3,me%Nk))
+      do ik=1,me%Nk
+         metric(:,:,:,ik) = me%Ham%get_metric(me%kpts(ik,:))
+      end do
+
+   end subroutine GetMetric
+!--------------------------------------------------------------------------------------
 
 !======================================================================================    
 end module Mwannier_calc

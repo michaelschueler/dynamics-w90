@@ -2,6 +2,7 @@ module Mham_w90
 !======================================================================================
    use Mdef,only: dp,iu,zero,one
    use Munits,only: DPI,BohrAngstrom,HreV
+   use Mlinalg,only: get_large_size,util_zgemm,util_matmul,util_rotate,util_rotate_cc
    use Mlatt_utils,only: utility_recip_lattice, utility_recip_reduced
    implicit none
 !--------------------------------------------------------------------------------------
@@ -9,6 +10,8 @@ module Mham_w90
    public :: wann90_tb_t,ReadTB_from_w90,utility_recip_lattice
 !--------------------------------------------------------------------------------------
    type :: wann90_tb_t
+      !! Wannier Hamiltonian class. Reads/writes the Wannier Hamiltonian from/to file,
+      !! calculates the Hamiltonian and Berry-phase properties
       integer                                    :: num_wann,nrpts
       integer,allocatable,dimension(:)           :: ndegen
       integer,allocatable,dimension(:,:)         :: irvec
@@ -16,9 +19,14 @@ module Mham_w90
       real(dp),dimension(3,3)                    :: recip_reduced
       complex(dp),allocatable,dimension(:,:,:)   :: ham_r
       complex(dp),allocatable,dimension(:,:,:,:) :: pos_r
+      ! .. internal parameters for tuning the calculation ..
+      logical  :: use_degen_pert=.false.,force_herm=.true.,force_antiherm=.true.
+      real(dp) :: degen_thresh=1.0e-5_dp
    contains
       procedure,public  :: ReadFromW90
       procedure,public  :: SaveToW90
+      procedure,public  :: SetParams
+      procedure,public  :: ReadParams
       procedure,public  :: Set
       procedure,public  :: get_eig
       procedure,public  :: get_ham_diag
@@ -32,6 +40,7 @@ module Mham_w90
       procedure,public  :: get_berrycurv_dip
       procedure,public  :: get_oam
       procedure,public  :: get_oam_dip
+      procedure,public  :: get_metric
       procedure,public  :: Clean   
 #if WITHHDF5
       procedure,public  :: ReadFromHDF5
@@ -50,6 +59,39 @@ contains
       if(allocated(me%pos_r)) deallocate(me%pos_r)      
       
    end subroutine Clean
+!--------------------------------------------------------------------------------------
+   subroutine ReadParams(me,fname)
+      class(wann90_tb_t) :: me
+      character(len=*),intent(in) :: fname
+      integer :: unit_inp
+      logical :: use_degen_pert=.false.
+      logical :: force_herm=.true.
+      logical :: force_antiherm=.true.
+      real(dp) :: degen_thresh=1.0e-5_dp
+      namelist/W90PARAMS/use_degen_pert,force_herm,force_antiherm,degen_thresh
+
+      open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
+      read(unit_inp,nml=W90PARAMS)
+      close(unit_inp)
+
+      call me%SetParams(use_degen_pert=use_degen_pert, degen_thresh=degen_thresh,&
+         force_herm=force_herm, force_antiherm=force_antiherm)
+
+   end subroutine ReadParams
+!--------------------------------------------------------------------------------------
+   subroutine SetParams(me,use_degen_pert,degen_thresh,force_herm,force_antiherm)
+      class(wann90_tb_t)  :: me
+      logical,intent(in),optional  :: use_degen_pert
+      real(dp),intent(in),optional :: degen_thresh
+      logical,intent(in),optional  :: force_herm
+      logical,intent(in),optional  :: force_antiherm
+
+      if(present(use_degen_pert)) me%use_degen_pert = use_degen_pert
+      if(present(degen_thresh)) me%degen_thresh = degen_thresh
+      if(present(force_herm)) me%force_herm = force_herm
+      if(present(force_antiherm)) me%force_antiherm = force_antiherm
+
+   end subroutine SetParams
 !--------------------------------------------------------------------------------------
    subroutine Set(me,w90)
       class(wann90_tb_t) :: me
@@ -140,26 +182,25 @@ contains
 
    end function get_hess_ham
 !--------------------------------------------------------------------------------------
-   function get_dipole(me,kpt,herm_part,band_basis) result(Dk)
-      use Mlinalg,only: EigHE
+   function get_dipole(me,kpt,band_basis) result(Dk)
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
-      logical,intent(in),optional :: herm_part
       logical,intent(in),optional :: band_basis
-      logical :: herm_part_, band_basis_
+      logical :: band_basis_
+      logical :: large_size
       integer :: idir
       real(dp)    :: Ek(me%num_wann)
       complex(dp) :: Hk(me%num_wann,me%num_wann),Qk(me%num_wann,me%num_wann)
       complex(dp) :: Dk(me%num_wann,me%num_wann,3)
      
-      herm_part_ = .true.
-      if(present(herm_part)) herm_part_ = herm_part
       band_basis_ = .false.
       if(present(band_basis)) band_basis_ = band_basis
 
+      large_size = get_large_size(me%num_wann)
+
       call fourier_R_to_k_vec(kpt, me, me%pos_r, OO_true=Dk)
 
-      if(herm_part_) then
+      if(me%force_herm) then
          do idir=1,3
             Dk(:,:,idir) = 0.5_dp * (Dk(:,:,idir) + conjg(transpose(Dk(:,:,idir))))
          end do
@@ -167,40 +208,45 @@ contains
 
       if(band_basis_) then
          Hk = me%get_ham(kpt)
-         call EigHE(Hk,Ek,Qk)
+         ! call EigHE(Hk,Ek,Qk)
+         call utility_diagonalize(Hk, me%num_wann, Ek, Qk)
          do idir=1,3
-            Dk(:,:,idir) = matmul(conjg(transpose(Qk)), matmul(Dk(:,:,idir), Qk))
+            Dk(:,:,idir) = util_rotate(me%num_wann,Qk,Dk(:,:,idir),large_size=large_size)
+            ! Dk(:,:,idir) = matmul(conjg(transpose(Qk)), matmul(Dk(:,:,idir), Qk))
          end do
       end if
 
    end function get_dipole
 !--------------------------------------------------------------------------------------
    function get_emp_velocity(me,kpt) result(vk)
-      use Mlinalg,only: EigHE
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
       complex(dp)         :: vk(me%num_wann,me%num_wann,3)
+      logical :: large_size
       integer :: idir
       real(dp)    :: Ek(me%num_wann)
       complex(dp) :: Hk(me%num_wann,me%num_wann),Qk(me%num_wann,me%num_wann)
 
+      large_size = get_large_size(me%num_wann)
+
       vk = me%get_gradk_ham(kpt)
       Hk = me%get_ham(kpt)
-      call EigHE(Hk,Ek,Qk)
+      ! call EigHE(Hk,Ek,Qk)
+      call utility_diagonalize(Hk, me%num_wann, Ek, Qk)
       do idir=1,3
-         vk(:,:,idir) = matmul(conjg(transpose(Qk)), matmul(vk(:,:,idir), Qk))
+         vk(:,:,idir) = util_rotate(me%num_wann,Qk,vk(:,:,idir),large_size=large_size)
+         ! vk(:,:,idir) = matmul(conjg(transpose(Qk)), matmul(vk(:,:,idir), Qk))
       end do
 
    end function get_emp_velocity
 !--------------------------------------------------------------------------------------
-   function get_velocity(me,kpt,herm_part) result(Vk)
+   function get_velocity(me,kpt) result(Vk)
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
-      logical,intent(in),optional :: herm_part
-      logical :: herm_part_
       integer :: idir
       complex(dp)         :: vk(me%num_wann,me%num_wann,3)
 
+      logical :: large_size
       integer :: i,j
       real(dp) :: eig(me%num_wann)
       real(dp) :: del_eig(me%num_wann,3)
@@ -210,8 +256,7 @@ contains
       complex(dp),allocatable :: D_h(:,:,:)
       complex(dp),allocatable :: AA(:,:,:)
 
-      herm_part_ = .true.
-      if(present(herm_part)) herm_part_ = herm_part
+      large_size = get_large_size(me%num_wann)
 
       allocate(HH(me%num_wann, me%num_wann))
       allocate(delHH(me%num_wann, me%num_wann, 3))
@@ -219,13 +264,16 @@ contains
       allocate(D_h(me%num_wann, me%num_wann, 3))
       allocate(AA(me%num_wann, me%num_wann, 3))
 
-      call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU)
+      call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+         use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
 
-      call wham_get_D_h(me%num_wann, delHH, UU, eig, D_h)
+      call wham_get_D_h(me%num_wann, delHH, UU, eig, D_h, &
+         degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
 
       call fourier_R_to_k_vec(kpt, me, me%pos_r, OO_true=AA)
       do i = 1, 3
-         AA(:, :, i) = utility_rotate(AA(:, :, i), UU, me%num_wann)
+         AA(:, :, i) = util_rotate(me%num_wann, UU, AA(:, :, i), large_size=large_size)
+         ! AA(:, :, i) = utility_rotate(AA(:, :, i), UU, me%num_wann)
       end do
       AA = AA + iu*D_h ! Eq.(25) WYSV06
 
@@ -241,7 +289,7 @@ contains
       end do
 
 
-      if(herm_part_) then
+      if(me%force_herm) then
          do i=1,3
             vk(:,:,i) = 0.5_dp * (vk(:,:,i) + conjg(transpose(vk(:,:,i))))
          end do
@@ -256,6 +304,7 @@ contains
       real(dp),intent(in) :: kpt(3)
       real(dp)            :: Wk(me%num_wann,3)
 
+      logical :: large_size
       integer :: i,j,idir
       real(dp) :: eig(me%num_wann)
       real(dp) :: del_eig(me%num_wann,3)
@@ -265,19 +314,24 @@ contains
       complex(dp),allocatable :: D_h(:,:,:)
       complex(dp),allocatable :: AA(:,:,:)
 
+      large_size = get_large_size(me%num_wann)
+
       allocate(HH(me%num_wann, me%num_wann))
       allocate(delHH(me%num_wann, me%num_wann, 3))
       allocate(UU(me%num_wann, me%num_wann))
       allocate(D_h(me%num_wann, me%num_wann, 3))
       allocate(AA(me%num_wann, me%num_wann, 3))
 
-      call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU)
+      call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+         use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
 
-      call wham_get_D_h(me%num_wann, delHH, UU, eig, D_h)
+      call wham_get_D_h(me%num_wann, delHH, UU, eig, D_h, &
+         degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
 
       call fourier_R_to_k_vec(kpt, me, me%pos_r, OO_true=AA)
       do idir = 1, 3
-         AA(:, :, idir) = utility_rotate(AA(:, :, idir), UU, me%num_wann)
+         ! AA(:, :, idir) = utility_rotate(AA(:, :, idir), UU, me%num_wann)
+         AA(:, :, idir) = util_rotate(me%num_wann, UU, AA(:, :, idir), large_size=large_size)
       end do
       AA = AA + iu*D_h ! Eq.(25) WYSV06
 
@@ -299,11 +353,14 @@ contains
       real(dp),intent(out) :: Bhk(me%num_wann,3)
       real(dp),intent(out) :: Bdip(me%num_wann,3)
 
+      logical :: large_size
       integer :: i,j,idir
       real(dp) :: ediff
       real(dp) :: eig(me%num_wann)
       complex(dp),dimension(me%num_wann,me%num_wann) :: Hk,UU
       complex(dp),dimension(me%num_wann,me%num_wann,3) :: grad_Hk,Dk
+
+      large_size = get_large_size(me%num_wann)
 
       Hk = me%get_ham(kpt)
       grad_Hk = me%get_gradk_ham(kpt)
@@ -312,8 +369,10 @@ contains
       call utility_diagonalize(Hk, me%num_wann, eig, UU)
 
       do idir=1,3
-         grad_Hk(:,:,idir) = utility_rotate(grad_Hk(:,:,idir), UU, me%num_wann)
-         Dk(:,:,idir) = utility_rotate(Dk(:,:,idir), UU, me%num_wann)
+         grad_Hk(:, :, idir) = util_rotate(me%num_wann, UU, grad_Hk(:, :, idir), large_size=large_size)
+         Dk(:, :, idir) = util_rotate(me%num_wann, UU, Dk(:, :, idir), large_size=large_size)
+         ! grad_Hk(:,:,idir) = utility_rotate(grad_Hk(:,:,idir), UU, me%num_wann)
+         ! Dk(:,:,idir) = utility_rotate(Dk(:,:,idir), UU, me%num_wann)
       end do
 
       Bhk = 0.0_dp; Bdip = 0.0_dp
@@ -321,7 +380,7 @@ contains
          do j=1,me%num_wann
             if(i == j) cycle
             ediff = eig(i) - eig(j)
-            if(abs(ediff) < 1.0e-7_dp) cycle
+            if(abs(ediff) < me%degen_thresh) cycle
 
             Bhk(i,3) = Bhk(i,3) - aimag(grad_Hk(i,j,1) * grad_Hk(j,i,2) - grad_Hk(i,j,2) * grad_Hk(j,i,1)) / &
                ediff**2
@@ -348,6 +407,7 @@ contains
       real(dp),intent(in) :: kpt(3)
       real(dp)            :: Lk(me%num_wann,3)
 
+      logical :: large_size
       integer :: i,j,idir
       real(dp) :: eig(me%num_wann)
       real(dp) :: del_eig(me%num_wann,3)
@@ -357,19 +417,24 @@ contains
       complex(dp),allocatable :: D_h(:,:,:)
       complex(dp),allocatable :: AA(:,:,:)
 
+      large_size = get_large_size(me%num_wann)
+
       allocate(HH(me%num_wann, me%num_wann))
       allocate(delHH(me%num_wann, me%num_wann, 3))
       allocate(UU(me%num_wann, me%num_wann))
       allocate(D_h(me%num_wann, me%num_wann, 3))
       allocate(AA(me%num_wann, me%num_wann, 3))
 
-      call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU)
+      call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+         use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
 
-      call wham_get_D_h(me%num_wann, delHH, UU, eig, D_h)
+      call wham_get_D_h(me%num_wann, delHH, UU, eig, D_h, &
+         degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
 
       call fourier_R_to_k_vec(kpt, me, me%pos_r, OO_true=AA)
       do idir = 1, 3
-         AA(:, :, idir) = utility_rotate(AA(:, :, idir), UU, me%num_wann)
+         ! AA(:, :, idir) = utility_rotate(AA(:, :, idir), UU, me%num_wann)
+         AA(:, :, idir) = util_rotate(me%num_wann, UU, AA(:, :, idir), large_size=large_size)
       end do
       AA = AA + iu*D_h ! Eq.(25) WYSV06
 
@@ -390,12 +455,15 @@ contains
       real(dp),intent(in)  :: kpt(3)
       real(dp)             :: Lk(me%num_wann,3)
 
+      logical :: large_size
       integer :: i,j,idir
       real(dp) :: ediff
       real(dp) :: eig(me%num_wann)
       real(dp),dimension(me%num_wann,3) :: Lk_disp,Lk_dip
       complex(dp),dimension(me%num_wann,me%num_wann) :: Hk,UU
       complex(dp),dimension(me%num_wann,me%num_wann,3) :: grad_Hk,Dk
+
+      large_size = get_large_size(me%num_wann)
 
       Hk = me%get_ham(kpt)
       grad_Hk = me%get_gradk_ham(kpt)
@@ -404,8 +472,10 @@ contains
       call utility_diagonalize(Hk, me%num_wann, eig, UU)
 
       do idir=1,3
-         grad_Hk(:,:,idir) = utility_rotate(grad_Hk(:,:,idir), UU, me%num_wann)
-         Dk(:,:,idir) = utility_rotate(Dk(:,:,idir), UU, me%num_wann)
+         grad_Hk(:, :, idir) = util_rotate(me%num_wann, UU, grad_Hk(:, :, idir), large_size=large_size)
+         Dk(:, :, idir) = util_rotate(me%num_wann, UU, Dk(:, :, idir), large_size=large_size)
+         ! grad_Hk(:,:,idir) = utility_rotate(grad_Hk(:,:,idir), UU, me%num_wann)
+         ! Dk(:,:,idir) = utility_rotate(Dk(:,:,idir), UU, me%num_wann)
       end do
 
       Lk_disp = 0.0_dp; Lk_dip = 0.0_dp
@@ -413,7 +483,7 @@ contains
          do j=1,me%num_wann
             if(i == j) cycle
             ediff = eig(i) - eig(j)
-            if(abs(ediff) < 1.0e-7_dp) cycle
+            if(abs(ediff) < me%degen_thresh) cycle
 
             Lk_disp(i,3) = Lk_disp(i,3) - aimag(grad_Hk(i,j,1) * grad_Hk(j,i,2) - grad_Hk(i,j,2) * grad_Hk(j,i,1)) / &
                ediff
@@ -433,6 +503,60 @@ contains
       Lk = Lk_disp + Lk_dip
 
    end function get_oam_dip
+!--------------------------------------------------------------------------------------
+   function get_metric(me,kpt) result(gmet)
+      !! computes the quantum metric \(g^\alpha_{\mu\nu}(k)\) from the Berry connections
+      class(wann90_tb_t)  :: me
+      real(dp),intent(in) :: kpt(3) !! k-point (reduced coordinates)
+      real(dp) :: gmet(me%num_wann,3,3)
+
+      logical :: large_size
+      integer :: i,j,idir,jdir
+      real(dp) :: eig(me%num_wann)
+      real(dp) :: del_eig(me%num_wann,3)
+      complex(dp),allocatable :: HH(:,:)
+      complex(dp),allocatable :: delHH(:,:,:)
+      complex(dp),allocatable :: UU(:,:)
+      complex(dp),allocatable :: D_h(:,:,:)
+      complex(dp),allocatable :: AA(:,:,:)
+
+      large_size = get_large_size(me%num_wann)
+
+      allocate(HH(me%num_wann, me%num_wann))
+      allocate(delHH(me%num_wann, me%num_wann, 3))
+      allocate(UU(me%num_wann, me%num_wann))
+      allocate(D_h(me%num_wann, me%num_wann, 3))
+      allocate(AA(me%num_wann, me%num_wann, 3))
+
+      call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+         use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+
+      call wham_get_D_h(me%num_wann, delHH, UU, eig, D_h, &
+         degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
+
+      call fourier_R_to_k_vec(kpt, me, me%pos_r, OO_true=AA)
+      do idir = 1, 3
+         AA(:, :, idir) = util_rotate(me%num_wann, UU, AA(:, :, idir), large_size=large_size)
+         ! AA(:, :, i) = utility_rotate(AA(:, :, i), UU, me%num_wann)
+      end do
+      AA = AA + iu*D_h ! Eq.(25) WYSV06
+
+      gmet = 0.0_dp
+      do jdir=1,3
+         do idir=1,3
+            do i=1,me%num_wann
+               do j=1,me%num_wann
+                  if(i == j) cycle
+                  gmet(i,idir,jdir) = gmet(i,idir,jdir) &
+                     + 0.5_dp * dble(conjg(AA(i,j,idir)) * AA(i,j,jdir) + conjg(AA(i,j,jdir)) * AA(i,j,idir))
+               end do
+            end do
+         end do
+      end do
+
+      deallocate(HH,delHH,UU,D_h,AA)
+
+   end function get_metric
 !--------------------------------------------------------------------------------------
    subroutine ReadFromW90(me,fname)
       class(wann90_tb_t)  :: me
@@ -507,7 +631,7 @@ contains
 !--------------------------------------------------------------------------------------
 #if WITHHDF5
    subroutine ReadFromHDF5(me,fname)
-      !! Saves 
+      !! Reads the Wannier Hamiltonian from HDF5 binary format
       use Mhdf5_utils
       class(wann90_tb_t)  :: me
       character(len=*),intent(in) :: fname
@@ -635,6 +759,7 @@ contains
    end subroutine ReadTB_from_w90
 !--------------------------------------------------------------------------------------
    subroutine SaveToW90(me,fname)
+      !! Save the Wannier Hamiltonian to file, matching the format of Wannier90
       character(len=*),parameter :: fmt_time='(a,"/",a,"/",a," at ",a,":",a,":",a)'
       class(wann90_tb_t)  :: me
       character(len=*),intent(in) :: fname
@@ -683,22 +808,6 @@ contains
       close(file_unit)
 
    end subroutine SaveToW90
-!--------------------------------------------------------------------------------------
-   function utility_rotate(mat, rot, dim)
-      !==========================================================!
-      !                                                           !
-      !! Rotates the dim x dim matrix 'mat' according to
-      !! (rot)^dagger.mat.rot, where 'rot' is a unitary matrix
-      !                                                           !
-      !===========================================================!
-      integer          :: dim
-      complex(kind=dp) :: utility_rotate(dim, dim)
-      complex(kind=dp) :: mat(dim, dim)
-      complex(kind=dp) :: rot(dim, dim)
-
-      utility_rotate = matmul(matmul(transpose(conjg(rot)), mat), rot)
-
-   end function utility_rotate
 !--------------------------------------------------------------------------------------
    subroutine utility_diagonalize(mat, dim, eig, rot)
       !============================================================!
@@ -752,59 +861,10 @@ contains
       complex(kind=dp) :: rot(dim, dim)
       complex(kind=dp) :: tmp(dim, dim)
 
-      call utility_zgemm_new(rot, mat, tmp, 'C', 'N')
+      call util_zgemm(rot, mat, tmp, transa_opt='C')
       utility_rotate_diag = utility_matmul_diag(tmp, rot, dim)
 
    end function utility_rotate_diag
-!--------------------------------------------------------------------------------------
- subroutine utility_zgemm_new(a, b, c, transa_opt, transb_opt)
-   !=============================================================!
-   !                                                             !
-   ! Return matrix product of complex matrices a and b:          !
-   !                                                             !
-   !                       C = Op(A) Op(B)                       !
-   !                                                             !
-   ! transa = 'N'  ==> Op(A) = A                                 !
-   ! transa = 'T'  ==> Op(A) = transpose(A)                      !
-   ! transa = 'C'  ==> Op(A) = congj(transpose(A))               !
-   !                                                             !
-   ! similarly for B                                             !
-   !                                                             !
-   ! Due to the use of assumed shape arrays, this routine is a   !
-   ! safer and more general replacement for the above routine    !
-   ! utility_zgemm. Consider removing utility_zgemm and using    !
-   ! utility_zgemm_new throughout.                               !
-   !                                                             !
-   !=============================================================!
-      complex(kind=dp), intent(in)            :: a(:, :)
-      complex(kind=dp), intent(in)            :: b(:, :)
-      complex(kind=dp), intent(out)           :: c(:, :)
-      character(len=1), intent(in), optional  :: transa_opt
-      character(len=1), intent(in), optional  :: transb_opt
-
-      integer          :: m, n, k
-      character(len=1) :: transa, transb
-
-      transa = 'N'
-      transb = 'N'
-      if (present(transa_opt)) transa = transa_opt
-      if (present(transb_opt)) transb = transb_opt
-
-      ! m ... number of rows in Op(A) and C
-      ! n ... number of columns in Op(B) and C
-      ! k ... number of columns in Op(A) resp. rows in Op(B)
-      m = size(c, 1)
-      n = size(c, 2)
-
-      if (transa /= 'N') then
-         k = size(a, 1)
-      else
-         k = size(a, 2)
-      end if
-
-      call zgemm(transa, transb, m, n, k, one, a, size(a, 1), b, size(b, 1), zero, c, m)
-
-   end subroutine utility_zgemm_new
 !--------------------------------------------------------------------------------------
    function utility_matmul_diag(mat1, mat2, dim)
       !===========================================================!
@@ -828,7 +888,7 @@ contains
 
    end function utility_matmul_diag
 !--------------------------------------------------------------------------------------
-   subroutine wham_get_D_h(num_wann, delHH, UU, eig, D_h)
+   subroutine wham_get_D_h(num_wann, delHH, UU, eig, D_h, degen_thr, anti_herm)
       !=========================================!
       !                                         !
       !! Compute D^H_a=UU^dag.del_a UU (a=x,y,z)
@@ -847,90 +907,85 @@ contains
       complex(kind=dp), dimension(:, :), intent(in)    :: UU
       real(kind=dp), dimension(:), intent(in)    :: eig
       complex(kind=dp), dimension(:, :, :), intent(out) :: D_h
+      real(dp), intent(in), optional :: degen_thr
+      logical, intent(in), optional  :: anti_herm
 
+      real(dp) :: degen_thr_
+      logical :: anti_herm_
+      logical :: large_size
       complex(kind=dp), allocatable :: delHH_bar_i(:, :)
       integer                       :: n, m, i
+
+      degen_thr_ = 1.0e-7_dp
+      if(present(degen_thr)) degen_thr_ = degen_thr
+
+      anti_herm_ = .true.
+      if(present(anti_herm)) anti_herm_ = anti_herm
+
+      large_size = get_large_size(num_wann)
 
       allocate (delHH_bar_i(num_wann, num_wann))
       D_h = zero
       do i = 1, 3
-         delHH_bar_i(:, :) = utility_rotate(delHH(:, :, i), UU, num_wann)
+         delHH_bar_i(:, :) = util_rotate(num_wann, UU, delHH(:, :, i), large_size=large_size)
+         ! delHH_bar_i(:, :) = utility_rotate(delHH(:, :, i), UU, num_wann)
          do m = 1, num_wann
             do n = 1, num_wann
-               if (n == m .or. abs(eig(m) - eig(n)) < 1.0e-7_dp) cycle
+               if (n == m .or. abs(eig(m) - eig(n)) < degen_thr_) cycle
                D_h(n, m, i) = delHH_bar_i(n, m)/(eig(m) - eig(n))
             end do
          end do
       enddo
 
+      if(anti_herm_) then
+         do i=1,3
+            D_h(:, :, i) = 0.5_dp*(D_h(:, :, i) - conjg(transpose(D_h(:, :, i))))
+         end do
+      end if
+
       deallocate(delHH_bar_i)
 
    end subroutine wham_get_D_h
 !--------------------------------------------------------------------------------------
-  subroutine wham_get_eig_deleig(kpt, w90, eig, del_eig, HH, delHH, UU)
-    !! Given a k point, this function returns eigenvalues E and
-    !! derivatives of the eigenvalues dE/dk_a, using wham_get_deleig_a
+   subroutine wham_get_eig_deleig(kpt, w90, eig, del_eig, HH, delHH, UU, use_degen_pert, degen_thr)
+      !! Given a k point, this function returns eigenvalues E and
+      !! derivatives of the eigenvalues dE/dk_a, using wham_get_deleig_a
 
-    real(kind=dp), dimension(3), intent(in)         :: kpt
-    !! the three coordinates of the k point vector (in relative coordinates)
-    type(wann90_tb_t), intent(in)                   :: w90
-    real(kind=dp), intent(out)                      :: eig(w90%num_wann)
-    !! the calculated eigenvalues at kpt
-    real(kind=dp), intent(out)                      :: del_eig(w90%num_wann, 3)
-    !! the calculated derivatives of the eigenvalues at kpt [first component: band; second component: 1,2,3
-    !! for the derivatives along the three k directions]
-    complex(kind=dp), dimension(:, :), intent(out)   :: HH
-    !! the Hamiltonian matrix at kpt
-    complex(kind=dp), dimension(:, :, :), intent(out) :: delHH
-    !! the delHH matrix (derivative of H) at kpt
-    complex(kind=dp), dimension(:, :), intent(out)   :: UU
-    !! the rotation matrix that gives the eigenvectors of HH
+      real(kind=dp), dimension(3), intent(in)         :: kpt
+      !! the three coordinates of the k point vector (in relative coordinates)
+      type(wann90_tb_t), intent(in)                   :: w90
+      real(kind=dp), intent(out)                      :: eig(w90%num_wann)
+      !! the calculated eigenvalues at kpt
+      real(kind=dp), intent(out)                      :: del_eig(w90%num_wann, 3)
+      !! the calculated derivatives of the eigenvalues at kpt [first component: band; second component: 1,2,3
+      !! for the derivatives along the three k directions]
+      complex(kind=dp), dimension(:, :), intent(out)   :: HH
+      !! the Hamiltonian matrix at kpt
+      complex(kind=dp), dimension(:, :, :), intent(out) :: delHH
+      !! the delHH matrix (derivative of H) at kpt
+      complex(kind=dp), dimension(:, :), intent(out)   :: UU
+      !! the rotation matrix that gives the eigenvectors of HH
+      logical, intent(in), optional :: use_degen_pert
+      real(dp),intent(in), optional :: degen_thr
+      logical :: use_degen_pert_
+      real(dp) :: degen_thr_
 
-    call fourier_R_to_k(kpt, w90, w90%ham_r, HH, 0)
-    call utility_diagonalize(HH, w90%num_wann, eig, UU)
-    call fourier_R_to_k(kpt,  w90, w90%ham_r, delHH(:, :, 1), 1)
-    call fourier_R_to_k(kpt,  w90, w90%ham_r, delHH(:, :, 2), 2)
-    call fourier_R_to_k(kpt,  w90, w90%ham_r, delHH(:, :, 3), 3)
-    call wham_get_deleig_a(w90%num_wann, del_eig(:, 1), w90, eig, delHH(:, :, 1), UU)
-    call wham_get_deleig_a(w90%num_wann, del_eig(:, 2), w90, eig, delHH(:, :, 2), UU)
-    call wham_get_deleig_a(w90%num_wann, del_eig(:, 3), w90, eig, delHH(:, :, 3), UU)
+      use_degen_pert_ = .false.
+      if(present(use_degen_pert)) use_degen_pert_ = use_degen_pert
 
-  end subroutine wham_get_eig_deleig
-!--------------------------------------------------------------------------------------
-  !subroutine wham_get_eig_deleig_2D(kpt3, w90, eig, del_eig, HH, delHH, UU)
-    !! Given a k point, this function returns eigenvalues E and
-    !! derivatives of the eigenvalues dE/dk_a, using wham_get_deleig_a
-    !! Slab version
-    !! For output still generate 3D data
+      degen_thr_ = 1.0e-5_dp
+      if(present(degen_thr)) degen_thr_ = degen_thr
 
-    !real(kind=dp), dimension(3), intent(in)         :: kpt3
-    !! the three coordinates of the k point vector (in relative coordinates)
-    !real(kind=dp), dimension(2)                     :: kpt2
-    !! the first two coordinates of the k point vector (in relative coordinates)
-    !type(wann90_tb_t), intent(in)                   :: w90
-    !real(kind=dp), intent(out)                      :: eig(w90%num_wann)
-    !! the calculated eigenvalues at kpt
-    !real(kind=dp), intent(out)                      :: del_eig(w90%num_wann, 3)
-    !! the calculated derivatives of the eigenvalues at kpt [first component: band; second component: 1,2,3
-    !! for the derivatives along the three k directions]
-    !complex(kind=dp), dimension(:, :), intent(out)   :: HH
-    !! the Hamiltonian matrix at kpt
-    !complex(kind=dp), dimension(:, :, :), intent(out) :: delHH
-    !! the delHH matrix (derivative of H) at kpt
-    !complex(kind=dp), dimension(:, :), intent(out)   :: UU
-    !! the rotation matrix that gives the eigenvectors of HH
-    !integer :: ijmax = 10
+      call fourier_R_to_k(kpt, w90, w90%ham_r, HH, 0)
+      call utility_diagonalize(HH, w90%num_wann, eig, UU)
+      call fourier_R_to_k(kpt, w90, w90%ham_r, delHH(:, :, 1), 1)
+      call fourier_R_to_k(kpt, w90, w90%ham_r, delHH(:, :, 2), 2)
+      call fourier_R_to_k(kpt, w90, w90%ham_r, delHH(:, :, 3), 3)
+      call wham_get_deleig_a(w90%num_wann, del_eig(:, 1), w90, eig, delHH(:, :, 1), UU, use_degen_pert_, degen_thr_)
+      call wham_get_deleig_a(w90%num_wann, del_eig(:, 2), w90, eig, delHH(:, :, 2), UU, use_degen_pert_, degen_thr_)
+      call wham_get_deleig_a(w90%num_wann, del_eig(:, 3), w90, eig, delHH(:, :, 3), UU, use_degen_pert_, degen_thr_)
 
-    !HH = w90%get_ham_slab(me,kpt3,w90%nslab)
-    !call utility_diagonalize(HH, w90%num_wann, eig, UU)
-    !call fourier_R_to_k_slab(ijmax, kpt,  w90, w90%ham_r, delHH(:, :, 1), 1)
-    !call fourier_R_to_k_slab(ijmax, kpt,  w90, w90%ham_r, delHH(:, :, 2), 2)
-    !call fourier_R_to_k_slab(ijmax, kpt,  w90, w90%ham_r, delHH(:, :, 3), 3)
-    !call wham_get_deleig_a(w90%num_wann, del_eig(:, 1), w90, eig, delHH(:, :, 1), UU)
-    !call wham_get_deleig_a(w90%num_wann, del_eig(:, 2), w90, eig, delHH(:, :, 2), UU)
-    !call wham_get_deleig_a(w90%num_wann, del_eig(:, 3), w90, eig, delHH(:, :, 3), UU)
-
-  !end subroutine wham_get_eig_deleig_2D
+   end subroutine wham_get_eig_deleig
 !--------------------------------------------------------------------------------------
    subroutine wham_get_deleig_a(num_wann, deleig_a, w90, eig, delHH_a, UU, use_degen_pert, degen_thr)
       !==========================!
@@ -951,21 +1006,28 @@ contains
 
       ! Misc/Dummy
       !
-      logical :: use_degen_pert_=.false.
-      real(dp) :: degen_thr_ = 1.0e-4_dp
+      logical :: use_degen_pert_
+      real(dp) :: degen_thr_
+      logical :: large_size
       integer                       :: i, degen_min, degen_max, dim
       real(kind=dp)                 :: diff
       complex(kind=dp), allocatable :: delHH_bar_a(:, :), U_deg(:, :)
 
+      use_degen_pert_=.false.
       if(present(use_degen_pert)) use_degen_pert_ = use_degen_pert
+
+      degen_thr_ = 1.0e-5_dp
       if(present(degen_thr)) degen_thr_ = degen_thr
+
+      large_size = get_large_size(num_wann)
 
       allocate (delHH_bar_a(num_wann, num_wann))
       allocate (U_deg(num_wann, num_wann))
 
       if (use_degen_pert_) then
 
-         delHH_bar_a = utility_rotate(delHH_a, UU, num_wann)
+         ! delHH_bar_a = utility_rotate(delHH_a, UU, num_wann)
+         delHH_bar_a = util_rotate(num_wann, UU, delHH_a, large_size)
 
          ! Assuming that the energy eigenvalues are stored in eig(:) in
          ! increasing order (diff >= 0)
@@ -1047,25 +1109,16 @@ contains
    end subroutine
 !--------------------------------------------------------------------------------------
    subroutine fourier_R_to_k(kpt, w90, OO_R, OO, alpha)
-      !=========================================================!
-      !                                                         !
-      !! For alpha=0:
-      !! O_ij(R) --> O_ij(k) = sum_R e^{+ik.R}*O_ij(R)
-      !!
-      !! For alpha=1,2,3:
-      !! sum_R [cmplx_i*R_alpha*e^{+ik.R}*O_ij(R)]
-      !! where R_alpha is a Cartesian component of R
-      !! ***REMOVE EVENTUALLY*** (replace with pw90common_fourier_R_to_k_new)
-      !                                                         !
-      !=========================================================!
-
-      ! Arguments
-      !
-      real(kind=dp)                                     :: kpt(3)
-      type(wann90_tb_t),intent(in)                      :: w90
-      complex(kind=dp), dimension(:, :, :), intent(in)  :: OO_R
-      complex(kind=dp), dimension(:, :), intent(inout)  :: OO
-      integer                                           :: alpha
+      !! Performs the Fourier transformation R -> k
+      !! For \(\alpha=0\): 
+      !! \(O_{ij}(R) \rightarrow O_{ij}(k) = \sum_R e^{i k \cdot R} O_{ij}(R)\)
+      !! For \(\alpha=1,2,3\):
+      !! \(i \sum_R R_\alpha e^{i k \cdot R} O_{ij}(R) \)
+      real(kind=dp)                                     :: kpt(3) !! k-point (reduced coordinates)
+      type(wann90_tb_t),intent(in)                      :: w90 !! Wannier90 object
+      complex(kind=dp), dimension(:, :, :), intent(in)  :: OO_R !! operator in real space O(R)
+      complex(kind=dp), dimension(:, :), intent(inout)  :: OO !! operator in k-space O(k)
+      integer                                           :: alpha !! cartesian direction for derivative
 
       integer          :: ir, i, j, ideg
       real(kind=dp)    :: rdotk

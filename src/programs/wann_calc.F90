@@ -23,15 +23,17 @@ program wann_calc
    logical :: calc_spin=.false.
    logical :: calc_berry=.false.
    logical :: calc_oam=.false.
+   logical :: calc_metric=.false. 
    logical :: calc_evecs=.false.
    logical :: write_kpts=.false.
    integer :: gauge=0
-   namelist/CALCOPT/slab_mode,calc_orbweight,calc_spin,calc_berry,calc_oam,calc_evecs,&
-      write_kpts,gauge
+   namelist/CALCOPT/slab_mode,calc_orbweight,calc_spin,calc_berry,calc_oam,calc_metric,&
+      calc_evecs,write_kpts,gauge
    ! -- internal variables --
-   real(dp),allocatable,dimension(:,:,:) :: orb_weight,spin,berry,oam
-   type(wannier_calc_t)                  :: wann
-   type(WannierCalcOutput_t)             :: output
+   real(dp),allocatable,dimension(:,:,:)   :: orb_weight,spin,berry,oam
+   real(dp),allocatable,dimension(:,:,:,:) :: metric
+   type(wannier_calc_t)                    :: wann
+   type(WannierCalcOutput_t)               :: output
 !--------------------------------------------------------------------------------------
    call Timer_Act()
    call Timer_Tic('total',1)
@@ -97,6 +99,13 @@ program wann_calc
       call output%AddOAM(oam)
       call Timer_Toc(N=2)
    end if
+
+   if(calc_metric) then
+      call Timer_Tic('quantum metric', 2)
+      call wann%GetMetric(metric)
+      call output%AddMetric(metric)
+      call Timer_Toc(N=2)
+   end if   
 
    if(PrintToFile) call output%SaveToFile(FlOutPref)
 !--------------------------------------------------------------------------------------
