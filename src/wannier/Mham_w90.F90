@@ -988,14 +988,8 @@ contains
    end subroutine wham_get_eig_deleig
 !--------------------------------------------------------------------------------------
    subroutine wham_get_deleig_a(num_wann, deleig_a, w90, eig, delHH_a, UU, use_degen_pert, degen_thr)
-      !==========================!
-      !                          !
-      !! Band derivatives dE/dk_a
-      !                          !
-      !==========================!
-      ! Arguments
-      !
-      integer,intent(in) :: num_wann
+      !! Band derivatives \( dE/dk_a \)
+      integer,intent(in) :: num_wann !! number of Wannier functions 
       real(kind=dp), intent(out) :: deleig_a(num_wann)
       type(wann90_tb_t),intent(in) :: w90
       real(kind=dp), intent(in)  :: eig(num_wann)

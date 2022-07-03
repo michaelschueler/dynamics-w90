@@ -165,6 +165,27 @@ contains
          call savetxt(trim(fout), me%oam(:,3,:), transp=.true.)   
       end if
 
+      if(associated(me%metric)) then
+         fout = trim(prefix)//'_metric_xx.txt'
+         call savetxt(trim(fout), me%metric(:,1,1,:), transp=.true.)       
+         fout = trim(prefix)//'_metric_xy.txt'
+         call savetxt(trim(fout), me%metric(:,1,2,:), transp=.true.)   
+         fout = trim(prefix)//'_metric_xz.txt'
+         call savetxt(trim(fout), me%metric(:,1,3,:), transp=.true.) 
+         fout = trim(prefix)//'_metric_yx.txt'
+         call savetxt(trim(fout), me%metric(:,2,1,:), transp=.true.) 
+         fout = trim(prefix)//'_metric_yy.txt'
+         call savetxt(trim(fout), me%metric(:,2,2,:), transp=.true.) 
+         fout = trim(prefix)//'_metric_yz.txt'
+         call savetxt(trim(fout), me%metric(:,2,3,:), transp=.true.) 
+         fout = trim(prefix)//'_metric_zx.txt'
+         call savetxt(trim(fout), me%metric(:,3,1,:), transp=.true.)
+         fout = trim(prefix)//'_metric_zy.txt'
+         call savetxt(trim(fout), me%metric(:,3,2,:), transp=.true.) 
+         fout = trim(prefix)//'_metric_zz.txt'
+         call savetxt(trim(fout), me%metric(:,3,3,:), transp=.true.) 
+      end if
+
       if(associated(me%evecs)) then
          nbnd = size(me%evecs, dim=1)
          nk = size(me%evecs, dim=3)
@@ -212,6 +233,10 @@ contains
 
       if(associated(me%oam)) then
          call hdf_write_dataset(file_id,'oam',me%oam)
+      end if
+
+      if(associated(me%metric)) then
+         call hdf_write_dataset(file_id,'metric',me%metric)
       end if
 
       if(associated(me%evecs)) then

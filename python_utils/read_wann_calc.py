@@ -46,6 +46,12 @@ def ReadOAM(fname):
     f.close()
     return oam
 #----------------------------------------------------------------------
+def ReadMetric(fname):
+    f = h5py.File(fname, "r")
+    oam = np.array(f['metric'])
+    f.close()
+    return oam
+#----------------------------------------------------------------------
 def ReadEvecs(fname):
     f = h5py.File(fname, "r")
     evecs = np.array(f['evecs-real']) + 1j * np.array(f['evecs-imag'])
