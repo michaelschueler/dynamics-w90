@@ -40,6 +40,12 @@ def ReadBerry(fname):
     f.close()
     return berry
 #----------------------------------------------------------------------
+def ReadSpinBerry(fname):
+    f = h5py.File(fname, "r")
+    spin_berry = np.array(f['spin_berry'])
+    f.close()
+    return spin_berry
+#----------------------------------------------------------------------
 def ReadOAM(fname):
     f = h5py.File(fname, "r")
     oam = np.array(f['oam'])
