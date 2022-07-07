@@ -22,16 +22,17 @@ program wann_calc
    logical :: calc_orbweight=.false.
    logical :: calc_spin=.false.
    logical :: calc_berry=.false.
+   logical :: calc_spin_berry=.false.
    logical :: calc_oam=.false.
    logical :: calc_metric=.false. 
    logical :: calc_evecs=.false.
    logical :: write_kpts=.false.
    integer :: gauge=0
-   namelist/CALCOPT/slab_mode,calc_orbweight,calc_spin,calc_berry,calc_oam,calc_metric,&
-      calc_evecs,write_kpts,gauge
+   namelist/CALCOPT/slab_mode,calc_orbweight,calc_spin,calc_berry,calc_spin_berry,&
+      calc_oam,calc_metric,calc_evecs,write_kpts,gauge
    ! -- internal variables --
    real(dp),allocatable,dimension(:,:,:)   :: orb_weight,spin,berry,oam
-   real(dp),allocatable,dimension(:,:,:,:) :: metric
+   real(dp),allocatable,dimension(:,:,:,:) :: metric,spin_berry
    type(wannier_calc_t)                    :: wann
    type(WannierCalcOutput_t)               :: output
 !--------------------------------------------------------------------------------------
@@ -88,14 +89,21 @@ program wann_calc
 
    if(calc_berry) then
       call Timer_Tic('Berry curvature', 2)
-      call wann%GetBerryCurvature(berry)
+      call wann%GetBerryCurvature(berry,gauge=gauge)
       call output%AddBerry(berry)
+      call Timer_Toc(N=2)
+   end if
+
+   if(calc_spin_berry) then
+      call Timer_Tic('Spin-Berry curvature', 2)
+      call wann%GetSpinBerryCurvature(spin_berry,gauge=gauge)
+      call output%AddSpinBerry(spin_berry)
       call Timer_Toc(N=2)
    end if
 
    if(calc_oam) then
       call Timer_Tic('OAM', 2)
-      call wann%GetOAM(oam)
+      call wann%GetOAM(oam,gauge=gauge)
       call output%AddOAM(oam)
       call Timer_Toc(N=2)
    end if
