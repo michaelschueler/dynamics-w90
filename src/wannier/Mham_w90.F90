@@ -443,7 +443,8 @@ contains
       complex(dp),allocatable :: delHH(:,:,:)
       complex(dp),allocatable :: UU(:,:)
       complex(dp),allocatable :: Dh_spin(:,:,:,:)
-      complex(dp),allocatable :: AA(:,:,:),AA_spin(:,:,:,:)
+      complex(dp),allocatable :: AA(:,:,:),Dh(:,:,:)
+      complex(dp),allocatable :: AA_spin(:,:,:,:)
 
       if(mod(me%num_wann,2) /= 0) then
          write(error_unit,fmt900) "num_wann is odd - not compatible with spin orbit coupling"
@@ -455,12 +456,16 @@ contains
       allocate(HH(me%num_wann, me%num_wann))
       allocate(delHH(me%num_wann, me%num_wann, 3))
       allocate(UU(me%num_wann, me%num_wann))
-      allocate(Dh_spin(me%num_wann, me%num_wann, 3, 3))
       allocate(AA(me%num_wann, me%num_wann, 3))
+      allocate(Dh(me%num_wann, me%num_wann, 3))
       allocate(AA_spin(me%num_wann, me%num_wann, 3, 3))
+      allocate(Dh_spin(me%num_wann, me%num_wann, 3, 3))
 
       call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
          use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+
+      call wham_get_D_h(me%num_wann, delHH, UU, eig, Dh, &
+         degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
 
       call wham_get_D_h_spin(me%num_wann, delHH, UU, eig, Dh_spin, &
          degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
@@ -476,19 +481,25 @@ contains
       end do
       AA_spin = AA_spin + iu*Dh_spin ! Eq.(25) WYSV06
 
+      do idir = 1, 3
+         AA(:, :, idir) = util_rotate(me%num_wann, UU, AA(:, :, idir), large_size=large_size)
+      end do
+      AA = AA + iu*Dh ! Eq.(25) WYSV06
+
+
       Wk = 0.0_dp
       do i=1,me%num_wann
          do j=1,me%num_wann
             if(i == j) cycle
             do ispin=1,3
-               Wk(i,3,ispin) = Wk(i,3,ispin) + 2.0_dp * aimag(AA_spin(i,j,1,ispin)*AA_spin(j,i,2,ispin))
-               Wk(i,1,ispin) = Wk(i,1,ispin) + 2.0_dp * aimag(AA_spin(i,j,2,ispin)*AA_spin(j,i,3,ispin))
-               Wk(i,2,ispin) = Wk(i,2,ispin) + 2.0_dp * aimag(AA_spin(i,j,3,ispin)*AA_spin(j,i,1,ispin))
+               Wk(i,3,ispin) = Wk(i,3,ispin) + 2.0_dp * aimag(AA_spin(i,j,1,ispin)*AA(j,i,2))
+               Wk(i,1,ispin) = Wk(i,1,ispin) + 2.0_dp * aimag(AA_spin(i,j,2,ispin)*AA(j,i,3))
+               Wk(i,2,ispin) = Wk(i,2,ispin) + 2.0_dp * aimag(AA_spin(i,j,3,ispin)*AA(j,i,1))
             end do
          end do
       end do
 
-      deallocate(HH,delHH,UU,Dh_spin,AA,AA_spin)
+      deallocate(HH,delHH,UU,Dh,Dh_spin,AA,AA_spin)
 
    end function get_spin_berrycurv
 !--------------------------------------------------------------------------------------
@@ -589,6 +600,10 @@ contains
          end do
       end do
 
+      do idir=1,3
+         grad_Hk(:, :, idir) = util_rotate(me%num_wann, UU, grad_Hk(:, :, idir), large_size=large_size)
+      end do
+
       Bhk = 0.0_dp; Bdip = 0.0_dp
       do i=1,me%num_wann
          do j=1,me%num_wann
@@ -598,19 +613,19 @@ contains
 
             do mu=1,3
 
-               Bhk(i,3,mu) = Bhk(i,3,mu) - aimag(gHk_spin(i,j,1,mu) * gHk_spin(j,i,2,mu) &
-                  - gHk_spin(i,j,2,mu) * gHk_spin(j,i,1,mu)) / ediff**2
-               Bhk(i,1,mu) = Bhk(i,1,mu) - aimag(gHk_spin(i,j,2,mu) * gHk_spin(j,i,3,mu) &
-                  - gHk_spin(i,j,3,mu) * gHk_spin(j,i,2,mu)) / ediff**2
-               Bhk(i,2,mu) = Bhk(i,2,mu) - aimag(gHk_spin(i,j,3,mu) * gHk_spin(j,i,1,mu) - &
-                  gHk_spin(i,j,1,mu) * gHk_spin(j,i,3,mu)) / ediff**2
+               Bhk(i,3,mu) = Bhk(i,3,mu) + aimag(grad_Hk(i,j,1) * gHk_spin(j,i,2,mu) &
+                  - grad_Hk(i,j,2) * gHk_spin(j,i,1,mu)) / ediff**2
+               Bhk(i,1,mu) = Bhk(i,1,mu) + aimag(grad_Hk(i,j,2) * gHk_spin(j,i,3,mu) &
+                  - grad_Hk(i,j,3) * gHk_spin(j,i,2,mu)) / ediff**2
+               Bhk(i,2,mu) = Bhk(i,2,mu) + aimag(grad_Hk(i,j,3) * gHk_spin(j,i,1,mu) - &
+                  grad_Hk(i,j,1) * gHk_spin(j,i,3,mu)) / ediff**2
 
-               Bdip(i,3,mu) = Bdip(i,3,mu) + dble(gHk_spin(i,j,1,mu) * Dk_spin(j,i,2,mu) &
-                  - gHk_spin(i,j,2,mu) * Dk_spin(j,i,1,mu)) / ediff
-               Bdip(i,1,mu) = Bdip(i,1,mu) + dble(gHk_spin(i,j,2,mu) * Dk_spin(j,i,3,mu) &
-                  - gHk_spin(i,j,3,mu) * Dk_spin(j,i,2,mu)) / ediff
-               Bdip(i,2,mu) = Bdip(i,2,mu) + dble(gHk_spin(i,j,3,mu) * Dk_spin(j,i,1,mu) &
-                  - gHk_spin(i,j,1,mu) * Dk_spin(j,i,3,mu)) / ediff
+               Bdip(i,3,mu) = Bdip(i,3,mu) - dble(grad_Hk(i,j,1) * Dk_spin(j,i,2,mu) &
+                  - grad_Hk(i,j,2) * Dk_spin(j,i,1,mu)) / ediff
+               Bdip(i,1,mu) = Bdip(i,1,mu) - dble(grad_Hk(i,j,2) * Dk_spin(j,i,3,mu) &
+                  - grad_Hk(i,j,3) * Dk_spin(j,i,2,mu)) / ediff
+               Bdip(i,2,mu) = Bdip(i,2,mu) - dble(grad_Hk(i,j,3) * Dk_spin(j,i,1,mu) &
+                  - grad_Hk(i,j,1) * Dk_spin(j,i,3,mu)) / ediff
 
             end do
          end do
@@ -1576,7 +1591,7 @@ contains
             Aspin(2*i-1, 2*j, 2) = -iu*A(2*i-1, 2*j) ! <up|\sigma_y|dn>
             Aspin(2*i, 2*j-1, 2) = iu*A(2*i, 2*j-1) ! <dn|\sigma_y|up>
             Aspin(2*i-1, 2*j-1, 3) = A(2*i-1, 2*j-1) ! <up|\sigma_z|up>
-            Aspin(2*i, 2*j, 3) = A(2*i, 2*j) ! <dn|\sigma_z|dn>
+            Aspin(2*i, 2*j, 3) = -A(2*i, 2*j) ! <dn|\sigma_z|dn>
          end do
       end do
 
