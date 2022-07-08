@@ -10,6 +10,7 @@ set(OBJECT_FILES
     Mwann_compress.F90
     Mwann_dyn.F90
     Mwann_slab.F90
+    Mwann_soc.F90
 )
 
 # ~~ Installation targets ~~
