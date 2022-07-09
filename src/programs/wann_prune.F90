@@ -19,9 +19,9 @@ program wann_prune
    character(len=255) :: FlIn,file_out
    ! -- input variables --
    character(len=255) :: file_ham
-   logical            :: w90_with_soc
+   logical            :: w90_with_soc,expert_params
    real(dp)           :: energy_thresh
-   namelist/HAMILTONIAN/file_ham,w90_with_soc,energy_thresh
+   namelist/HAMILTONIAN/file_ham,w90_with_soc,energy_thresh,expert_params
    ! -- internal variables --
    real(dp) :: comp_rate
    type(wann90_tb_t) :: wann
