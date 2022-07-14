@@ -34,9 +34,10 @@ program wann_evol_mpi
    !......................................
    logical  :: relaxation_dynamics=.false.
    integer  :: Nt,output_step=1
-   real(dp) :: Tmax,tstart=0.0_dp,tau_relax=1.0e10_dp
+   real(dp) :: Tmax,tstart=0.0_dp,T1_relax=1.0e10_dp,T2_relax=1.0e10_dp
    character(len=255) :: file_field=""
-   namelist/TIMEPARAMS/Nt,Tmax,output_step,tstart,relaxation_dynamics,tau_relax,file_field
+   namelist/TIMEPARAMS/Nt,Tmax,output_step,tstart,relaxation_dynamics,T1_relax,T2_relax,&
+      file_field
    !......................................
    ! -- internal variables --
    logical  :: file_ok
@@ -211,7 +212,7 @@ program wann_evol_mpi
    step = 0
    do tstp=0,Nt-1
       if(relaxation_dynamics) then
-         call lattsys%Timestep_RelaxTime(tau_relax,tstp,dt)
+         call lattsys%Timestep_RelaxTime(T1_relax,T2_relax,tstp,dt)
       else
          call lattsys%Timestep(tstp,dt,field_tmax=pulse_tmax)
       end if

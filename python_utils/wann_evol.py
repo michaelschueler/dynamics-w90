@@ -28,7 +28,7 @@ class WannierEvolution():
         }
     #========================================
     def SetTimeParams(self,Nt,Tmax,file_field="",output_step=1,tstart=0.0,\
-        relaxation_dynamics=None,tau_relax=None):
+        relaxation_dynamics=None,T1_relax=None,T2_relax=None):
         self.timeparams = {
             'Nt': Nt,
             'Tmax': Tmax,
@@ -40,8 +40,10 @@ class WannierEvolution():
         if relaxation_dynamics != None:
             self.timeparams['relaxation_dynamics'] = relaxation_dynamics
 
-        if tau_relax != None:
-            self.timeparams['tau_relax'] = tau_relax
+        if T1_relax != None:
+            self.timeparams['T1_relax'] = T1_relax
+        if T2_relax != None:
+            self.timeparams['T2_relax'] = T2_relax
     #========================================
     def SetKPTS(self,kpoints_type,file_kpts="",nk1=1,nk2=1,nk3=1):
         self.kpoints = {
