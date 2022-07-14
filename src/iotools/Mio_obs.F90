@@ -25,6 +25,7 @@ module Mio_obs
       real(dp),pointer,dimension(:,:,:)    :: berry => null()
       real(dp),pointer,dimension(:,:,:)    :: oam => null()
       real(dp),pointer,dimension(:,:,:,:)  :: metric => null()
+      real(dp),pointer,dimension(:,:,:,:)  :: spin_berry => null()
       complex(dp),pointer,dimension(:,:,:) :: evecs => null()
    contains
       procedure, public  :: AddEpsk => wann_calc_AddEpsk
@@ -32,6 +33,7 @@ module Mio_obs
       procedure, public  :: AddOrbWeight => wann_calc_AddOrbWeight
       procedure, public  :: AddSpin => wann_calc_AddSpin
       procedure, public  :: AddBerry => wann_calc_AddBerry
+      procedure, public  :: AddSpinBerry => wann_calc_AddSpinBerry
       procedure, public  :: AddOAM => wann_calc_AddOAM
       procedure, public  :: AddMetric => wann_calc_AddMetric      
       procedure, public  :: AddEvecs => wann_calc_AddEvecs
@@ -90,6 +92,14 @@ contains
       me%berry => berry
 
    end subroutine wann_calc_AddBerry
+!--------------------------------------------------------------------------------------
+   subroutine wann_calc_AddSpinBerry(me,spin_berry)
+      class(WannierCalcOutput_t) :: me
+      real(dp),target,intent(in) :: spin_berry(:,:,:,:)
+
+      me%spin_berry => spin_berry
+
+   end subroutine wann_calc_AddSpinBerry
 !--------------------------------------------------------------------------------------
    subroutine wann_calc_AddOAM(me,oam)
       class(WannierCalcOutput_t) :: me
@@ -154,6 +164,27 @@ contains
          call savetxt(trim(fout), me%berry(:,2,:), transp=.true.)
          fout = trim(prefix)//'_berry_z.txt'
          call savetxt(trim(fout), me%berry(:,3,:), transp=.true.)          
+      end if
+
+      if(associated(me%spin_berry)) then
+         fout = trim(prefix)//'_spin_berry_x_sigx.txt'
+         call savetxt(trim(fout), me%spin_berry(:,1,1,:), transp=.true.)
+         fout = trim(prefix)//'_spin_berry_x_sigy.txt'
+         call savetxt(trim(fout), me%spin_berry(:,1,2,:), transp=.true.)
+         fout = trim(prefix)//'_spin_berry_x_sigz.txt'
+         call savetxt(trim(fout), me%spin_berry(:,1,3,:), transp=.true.)     
+         fout = trim(prefix)//'_spin_berry_y_sigx.txt'
+         call savetxt(trim(fout), me%spin_berry(:,2,1,:), transp=.true.)
+         fout = trim(prefix)//'_spin_berry_y_sigy.txt'
+         call savetxt(trim(fout), me%spin_berry(:,2,2,:), transp=.true.)
+         fout = trim(prefix)//'_spin_berry_y_sigz.txt'
+         call savetxt(trim(fout), me%spin_berry(:,2,3,:), transp=.true.) 
+         fout = trim(prefix)//'_spin_berry_z_sigx.txt'
+         call savetxt(trim(fout), me%spin_berry(:,3,1,:), transp=.true.)
+         fout = trim(prefix)//'_spin_berry_z_sigy.txt'
+         call savetxt(trim(fout), me%spin_berry(:,3,2,:), transp=.true.)
+         fout = trim(prefix)//'_spin_berry_z_sigz.txt'
+         call savetxt(trim(fout), me%spin_berry(:,3,3,:), transp=.true.)        
       end if
 
       if(associated(me%oam)) then
@@ -229,6 +260,10 @@ contains
 
       if(associated(me%berry)) then
          call hdf_write_dataset(file_id,'berry',me%berry)       
+      end if
+
+      if(associated(me%spin_berry)) then
+         call hdf_write_dataset(file_id,'spin_berry',me%spin_berry)       
       end if
 
       if(associated(me%oam)) then

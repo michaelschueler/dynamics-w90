@@ -1,10 +1,13 @@
 module Mham_w90
 !======================================================================================
+   use,intrinsic::iso_fortran_env,only: output_unit,error_unit
+   use Mdebug
    use Mdef,only: dp,iu,zero,one
    use Munits,only: DPI,BohrAngstrom,HreV
    use Mlinalg,only: get_large_size,util_zgemm,util_matmul,util_rotate,util_rotate_cc
    use Mlatt_utils,only: utility_recip_lattice, utility_recip_reduced
    implicit none
+   include '../formats.h'
 !--------------------------------------------------------------------------------------
    private
    public :: wann90_tb_t,ReadTB_from_w90,utility_recip_lattice
@@ -41,6 +44,9 @@ module Mham_w90
       procedure,public  :: get_oam
       procedure,public  :: get_oam_dip
       procedure,public  :: get_metric
+      procedure,public  :: get_spin_velocity
+      procedure,public  :: get_spin_berrycurv
+      procedure,public  :: get_spin_berrycurv_dip      
       procedure,public  :: Clean   
 #if WITHHDF5
       procedure,public  :: ReadFromHDF5
@@ -299,6 +305,81 @@ contains
 
    end function get_velocity
 !--------------------------------------------------------------------------------------
+   function get_spin_velocity(me,kpt) result(Vk)
+      class(wann90_tb_t)  :: me
+      real(dp),intent(in) :: kpt(3)
+      complex(dp)         :: vk(me%num_wann,me%num_wann,3,3)
+
+      logical :: large_size
+      integer :: i,j,idir,ispin,norb
+      real(dp) :: eig(me%num_wann)
+      real(dp) :: del_eig(me%num_wann,3)
+      complex(dp),allocatable :: HH(:,:)
+      complex(dp),allocatable :: delHH(:,:,:)
+      complex(dp),allocatable :: UU(:,:)
+      complex(dp),allocatable :: Dh_spin(:,:,:,:)
+      complex(dp),allocatable :: AA(:,:,:),AA_spin(:,:,:,:)
+
+      if(mod(me%num_wann,2) /= 0) then
+         write(error_unit,fmt900) "num_wann is odd - not compatible with spin orbit coupling"
+         stop
+      end if
+
+      norb = nint(me%num_wann / 2.0_dp)
+
+      large_size = get_large_size(me%num_wann)
+
+      allocate(HH(me%num_wann, me%num_wann))
+      allocate(delHH(me%num_wann, me%num_wann, 3))
+      allocate(UU(me%num_wann, me%num_wann))
+      allocate(Dh_spin(me%num_wann, me%num_wann, 3, 3))
+      allocate(AA(me%num_wann, me%num_wann, 3))
+      allocate(AA_spin(me%num_wann, me%num_wann, 3, 3))
+
+      call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+         use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+
+      call wham_get_D_h_spin(me%num_wann, delHH, UU, eig, Dh_spin, &
+         degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
+
+      call fourier_R_to_k_vec(kpt, me, me%pos_r, OO_true=AA)
+
+      do idir = 1, 3
+         call GetSpinElements(me%num_wann, AA(:,:,idir), AA_spin(:,:,idir,:))
+         do ispin = 1, 3
+            AA_spin(:, :, idir, ispin) = util_rotate(me%num_wann, UU, AA_spin(:, :, idir, ispin), &
+               large_size=large_size)
+         end do
+      end do
+      AA_spin = AA_spin + iu*Dh_spin ! Eq.(25) WYSV06
+
+      vk = zero
+      do idir=1,3
+         do i=1,norb
+            vk(2*i-1,2*i-1,idir,3) = del_eig(2*i-1,idir)
+            vk(2*i,2*i,idir,3) = -del_eig(2*i,idir)
+         end do
+      end do
+
+      do i=1,me%num_wann
+         do j=1,me%num_wann
+            vk(j,i,:,:) = vk(j,i,:,:) - iu * (eig(i) - eig(j)) * AA_spin(j,i,:,:)
+         end do
+      end do
+
+
+      if(me%force_herm) then
+         do ispin=1,3
+            do idir=1,3
+               vk(:,:,idir,ispin) = 0.5_dp * (vk(:,:,idir,ispin) + conjg(transpose(vk(:,:,idir,ispin))))
+            end do
+         end do
+      end if
+
+      deallocate(HH,delHH,UU,Dh_spin,AA,AA_spin)
+
+   end function get_spin_velocity
+!--------------------------------------------------------------------------------------
    function get_berrycurv(me, kpt) result(Wk)
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
@@ -345,7 +426,82 @@ contains
          end do
       end do
 
+      deallocate(HH,delHH,UU,D_h,AA)
+
    end function get_berrycurv
+!--------------------------------------------------------------------------------------
+   function get_spin_berrycurv(me, kpt) result(Wk)
+      class(wann90_tb_t)  :: me
+      real(dp),intent(in) :: kpt(3)
+      real(dp)            :: Wk(me%num_wann,3,3)
+
+      logical :: large_size
+      integer :: i,j,idir,ispin
+      real(dp) :: eig(me%num_wann)
+      real(dp) :: del_eig(me%num_wann,3)
+      complex(dp),allocatable :: HH(:,:)
+      complex(dp),allocatable :: delHH(:,:,:)
+      complex(dp),allocatable :: UU(:,:)
+      complex(dp),allocatable :: Dh_spin(:,:,:,:)
+      complex(dp),allocatable :: AA(:,:,:),Dh(:,:,:)
+      complex(dp),allocatable :: AA_spin(:,:,:,:)
+
+      if(mod(me%num_wann,2) /= 0) then
+         write(error_unit,fmt900) "num_wann is odd - not compatible with spin orbit coupling"
+         stop
+      end if
+
+      large_size = get_large_size(me%num_wann)
+
+      allocate(HH(me%num_wann, me%num_wann))
+      allocate(delHH(me%num_wann, me%num_wann, 3))
+      allocate(UU(me%num_wann, me%num_wann))
+      allocate(AA(me%num_wann, me%num_wann, 3))
+      allocate(Dh(me%num_wann, me%num_wann, 3))
+      allocate(AA_spin(me%num_wann, me%num_wann, 3, 3))
+      allocate(Dh_spin(me%num_wann, me%num_wann, 3, 3))
+
+      call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+         use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+
+      call wham_get_D_h(me%num_wann, delHH, UU, eig, Dh, &
+         degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
+
+      call wham_get_D_h_spin(me%num_wann, delHH, UU, eig, Dh_spin, &
+         degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
+
+      call fourier_R_to_k_vec(kpt, me, me%pos_r, OO_true=AA)
+
+      do idir = 1, 3
+         call GetSpinElements(me%num_wann, AA(:,:,idir), AA_spin(:,:,idir,:))
+         do ispin = 1, 3
+            AA_spin(:, :, idir,ispin) = util_rotate(me%num_wann, UU, AA_spin(:, :, idir, ispin), &
+               large_size=large_size)
+         end do
+      end do
+      AA_spin = AA_spin + iu*Dh_spin ! Eq.(25) WYSV06
+
+      do idir = 1, 3
+         AA(:, :, idir) = util_rotate(me%num_wann, UU, AA(:, :, idir), large_size=large_size)
+      end do
+      AA = AA + iu*Dh ! Eq.(25) WYSV06
+
+
+      Wk = 0.0_dp
+      do i=1,me%num_wann
+         do j=1,me%num_wann
+            if(i == j) cycle
+            do ispin=1,3
+               Wk(i,3,ispin) = Wk(i,3,ispin) + 2.0_dp * aimag(AA_spin(i,j,1,ispin)*AA(j,i,2))
+               Wk(i,1,ispin) = Wk(i,1,ispin) + 2.0_dp * aimag(AA_spin(i,j,2,ispin)*AA(j,i,3))
+               Wk(i,2,ispin) = Wk(i,2,ispin) + 2.0_dp * aimag(AA_spin(i,j,3,ispin)*AA(j,i,1))
+            end do
+         end do
+      end do
+
+      deallocate(HH,delHH,UU,Dh,Dh_spin,AA,AA_spin)
+
+   end function get_spin_berrycurv
 !--------------------------------------------------------------------------------------
    subroutine get_berrycurv_dip(me, kpt, Bhk, Bdip) 
       class(wann90_tb_t)   :: me
@@ -401,6 +557,85 @@ contains
       Bdip = 2.0_dp * Bdip
 
    end subroutine get_berrycurv_dip
+!--------------------------------------------------------------------------------------
+   subroutine get_spin_berrycurv_dip(me, kpt, Bhk, Bdip) 
+      class(wann90_tb_t)   :: me
+      real(dp),intent(in)  :: kpt(3)
+      real(dp),intent(out) :: Bhk(me%num_wann,3,3)
+      real(dp),intent(out) :: Bdip(me%num_wann,3,3)
+
+      logical :: large_size
+      integer :: i,j,idir,mu
+      real(dp) :: ediff
+      real(dp) :: eig(me%num_wann)
+      complex(dp),dimension(me%num_wann,me%num_wann) :: Hk,UU
+      complex(dp),dimension(me%num_wann,me%num_wann,3) :: grad_Hk,Dk,Mspin
+      complex(dp),allocatable,dimension(:,:,:,:)       :: gHk_spin,Dk_spin
+
+      if(mod(me%num_wann,2) /= 0) then
+         write(error_unit,fmt900) "num_wann is odd - not compatible with spin orbit coupling"
+         stop
+      end if
+
+      large_size = get_large_size(me%num_wann)
+
+      Hk = me%get_ham(kpt)
+      grad_Hk = me%get_gradk_ham(kpt)
+      Dk = me%get_dipole(kpt)
+
+      call utility_diagonalize(Hk, me%num_wann, eig, UU)
+
+      allocate(gHk_spin(me%num_wann,me%num_wann,3,3),Dk_spin(me%num_wann,me%num_wann,3,3))
+
+      do idir=1,3
+         call GetSpinElements(me%num_wann, grad_Hk(:,:,idir), Mspin)
+         do mu=1,3
+            gHk_spin(:, :, idir, mu) = util_rotate(me%num_wann, UU, Mspin(:,:,mu),&
+               large_size=large_size)
+         end do
+         call GetSpinElements(me%num_wann, Dk(:,:,idir), Mspin)
+         do mu=1,3
+            Dk_spin(:, :, idir, mu) = util_rotate(me%num_wann, UU, Mspin(:,:,mu),&
+               large_size=large_size)
+         end do
+      end do
+
+      do idir=1,3
+         grad_Hk(:, :, idir) = util_rotate(me%num_wann, UU, grad_Hk(:, :, idir), large_size=large_size)
+      end do
+
+      Bhk = 0.0_dp; Bdip = 0.0_dp
+      do i=1,me%num_wann
+         do j=1,me%num_wann
+            if(i == j) cycle
+            ediff = eig(i) - eig(j)
+            if(abs(ediff) < me%degen_thresh) cycle
+
+            do mu=1,3
+
+               Bhk(i,3,mu) = Bhk(i,3,mu) + aimag(grad_Hk(i,j,1) * gHk_spin(j,i,2,mu) &
+                  - grad_Hk(i,j,2) * gHk_spin(j,i,1,mu)) / ediff**2
+               Bhk(i,1,mu) = Bhk(i,1,mu) + aimag(grad_Hk(i,j,2) * gHk_spin(j,i,3,mu) &
+                  - grad_Hk(i,j,3) * gHk_spin(j,i,2,mu)) / ediff**2
+               Bhk(i,2,mu) = Bhk(i,2,mu) + aimag(grad_Hk(i,j,3) * gHk_spin(j,i,1,mu) - &
+                  grad_Hk(i,j,1) * gHk_spin(j,i,3,mu)) / ediff**2
+
+               Bdip(i,3,mu) = Bdip(i,3,mu) - dble(grad_Hk(i,j,1) * Dk_spin(j,i,2,mu) &
+                  - grad_Hk(i,j,2) * Dk_spin(j,i,1,mu)) / ediff
+               Bdip(i,1,mu) = Bdip(i,1,mu) - dble(grad_Hk(i,j,2) * Dk_spin(j,i,3,mu) &
+                  - grad_Hk(i,j,3) * Dk_spin(j,i,2,mu)) / ediff
+               Bdip(i,2,mu) = Bdip(i,2,mu) - dble(grad_Hk(i,j,3) * Dk_spin(j,i,1,mu) &
+                  - grad_Hk(i,j,1) * Dk_spin(j,i,3,mu)) / ediff
+
+            end do
+         end do
+      end do 
+
+      Bdip = 2.0_dp * Bdip
+
+      deallocate(gHk_spin,Dk_spin)
+
+   end subroutine get_spin_berrycurv_dip
 !--------------------------------------------------------------------------------------
    function get_oam(me, kpt) result(Lk)
       class(wann90_tb_t)  :: me
@@ -906,7 +1141,7 @@ contains
       complex(kind=dp), dimension(:, :, :), intent(in)  :: delHH
       complex(kind=dp), dimension(:, :), intent(in)    :: UU
       real(kind=dp), dimension(:), intent(in)    :: eig
-      complex(kind=dp), dimension(:, :, :), intent(out) :: D_h
+      complex(kind=dp), dimension(:, :, :), intent(inout) :: D_h
       real(dp), intent(in), optional :: degen_thr
       logical, intent(in), optional  :: anti_herm
 
@@ -947,6 +1182,48 @@ contains
 
    end subroutine wham_get_D_h
 !--------------------------------------------------------------------------------------
+   subroutine wham_get_D_h_spin(num_wann, delHH, UU, eig, D_h, degen_thr, anti_herm)
+      integer,intent(in) :: num_wann 
+      complex(kind=dp), dimension(:, :, :), intent(in)  :: delHH
+      complex(kind=dp), dimension(:, :), intent(in)    :: UU
+      real(kind=dp), dimension(:), intent(in)    :: eig
+      complex(kind=dp), dimension(:, :, :, :), intent(inout) :: D_h
+      real(dp), intent(in), optional :: degen_thr
+      logical, intent(in), optional  :: anti_herm
+
+      real(dp) :: degen_thr_
+      logical :: anti_herm_
+      logical :: large_size
+      complex(kind=dp), allocatable :: delHH_bar_i(:, :), delHH_spin(:,:,:)
+      integer                       :: n, m, i, mu
+
+
+      degen_thr_ = 1.0e-7_dp
+      if(present(degen_thr)) degen_thr_ = degen_thr
+
+      anti_herm_ = .true.
+      if(present(anti_herm)) anti_herm_ = anti_herm
+
+      large_size = get_large_size(num_wann)
+
+      allocate(delHH_bar_i(num_wann, num_wann), delHH_spin(num_wann, num_wann, 3))
+      D_h = zero
+      do i = 1, 3
+         call GetSpinElements(num_wann, delHH(:, :, i), delHH_spin)
+         do mu = 1, 3
+            delHH_bar_i(:, :) = util_rotate(num_wann, UU, delHH_spin(:, :, mu), large_size=large_size)
+            ! delHH_bar_i(:, :) = utility_rotate(delHH(:, :, i), UU, num_wann)
+            do m = 1, num_wann
+               do n = 1, num_wann
+                  if (n == m .or. abs(eig(m) - eig(n)) < degen_thr_) cycle
+                  D_h(n, m, i, mu) = delHH_bar_i(n, m)/(eig(m) - eig(n))
+               end do
+            end do
+         end do    
+      end do    
+
+   end subroutine wham_get_D_h_spin
+!--------------------------------------------------------------------------------------
    subroutine wham_get_eig_deleig(kpt, w90, eig, del_eig, HH, delHH, UU, use_degen_pert, degen_thr)
       !! Given a k point, this function returns eigenvalues E and
       !! derivatives of the eigenvalues dE/dk_a, using wham_get_deleig_a
@@ -959,11 +1236,11 @@ contains
       real(kind=dp), intent(out)                      :: del_eig(w90%num_wann, 3)
       !! the calculated derivatives of the eigenvalues at kpt [first component: band; second component: 1,2,3
       !! for the derivatives along the three k directions]
-      complex(kind=dp), dimension(:, :), intent(out)   :: HH
+      complex(kind=dp), dimension(:, :), intent(inout)   :: HH
       !! the Hamiltonian matrix at kpt
-      complex(kind=dp), dimension(:, :, :), intent(out) :: delHH
+      complex(kind=dp), dimension(:, :, :), intent(inout) :: delHH
       !! the delHH matrix (derivative of H) at kpt
-      complex(kind=dp), dimension(:, :), intent(out)   :: UU
+      complex(kind=dp), dimension(:, :), intent(inout)   :: UU
       !! the rotation matrix that gives the eigenvectors of HH
       logical, intent(in), optional :: use_degen_pert
       real(dp),intent(in), optional :: degen_thr
@@ -1286,6 +1563,33 @@ contains
       if(allocated(crvec)) deallocate(crvec)
 
    end subroutine fourier_R_to_k_vec
+!--------------------------------------------------------------------------------------
+   subroutine GetSpinElements(num_wann,A,Aspin)
+      integer,intent(in)        :: num_wann
+      complex(dp),intent(in)    :: A(:,:)
+      complex(dp),intent(inout) :: Aspin(:,:,:)
+      integer :: norb
+      integer :: i,j
+
+      call assert_shape(A, [num_wann, num_wann], "Mham_w90: GetSpinElements", "A")
+      call assert_shape(Aspin, [num_wann, num_wann, 3], "Mham_w90: GetSpinElements", "Aspin")
+
+      norb = nint(num_wann / 2.0_dp)
+
+      Aspin = zero
+
+      do j=1,norb
+         do i=1,norb
+            Aspin(2*i-1, 2*j, 1) = A(2*i-1, 2*j) ! <up|\sigma_x|dn>
+            Aspin(2*i, 2*j-1, 1) = A(2*i, 2*j-1) ! <dn|\sigma_x|up>
+            Aspin(2*i-1, 2*j, 2) = -iu*A(2*i-1, 2*j) ! <up|\sigma_y|dn>
+            Aspin(2*i, 2*j-1, 2) = iu*A(2*i, 2*j-1) ! <dn|\sigma_y|up>
+            Aspin(2*i-1, 2*j-1, 3) = A(2*i-1, 2*j-1) ! <up|\sigma_z|up>
+            Aspin(2*i, 2*j, 3) = -A(2*i, 2*j) ! <dn|\sigma_z|dn>
+         end do
+      end do
+
+   end subroutine GetSpinElements
 !--------------------------------------------------------------------------------------
 
 !======================================================================================

@@ -27,6 +27,7 @@ module Mwannier_calc
       procedure,public  :: GetOrbitalWeight
       procedure,public  :: GetSpin
       procedure,public  :: GetBerryCurvature
+      procedure,public  :: GetSpinBerryCurvature
       procedure,public  :: GetOAM
       procedure,public  :: GetMetric
    end type wannier_calc_t
@@ -176,6 +177,38 @@ contains
       end select
 
    end subroutine GetBerryCurvature
+!--------------------------------------------------------------------------------------
+   subroutine GetSpinBerryCurvature(me,spin_berry,gauge)
+      class(wannier_calc_t) :: me
+      real(dp),allocatable,intent(out) :: spin_berry(:,:,:,:)
+      integer,intent(in),optional :: gauge
+      integer :: gauge_
+      integer :: ik
+      real(dp),allocatable :: berry_disp(:,:,:),berry_dip(:,:,:)
+
+      gauge_ = 0
+      if(present(gauge)) gauge_ = gauge
+
+      allocate(spin_berry(me%nbnd,3,3,me%Nk)); spin_berry = 0.0_dp
+
+      select case(gauge_)
+      case(velocity_gauge) 
+         do ik=1,me%Nk
+            spin_berry(:,:,:,ik) = me%Ham%get_spin_berrycurv(me%kpts(ik,:))
+         end do
+      case(dipole_gauge)
+         allocate(berry_disp(me%nbnd,3,3),berry_dip(me%nbnd,3,3))
+         do ik=1,me%Nk
+            call me%Ham%get_spin_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip)
+            spin_berry(:,:,:,ik) = berry_disp + berry_dip
+         end do
+         deallocate(berry_disp,berry_dip)
+      case default
+         write(error_unit,fmt900) "GetBerryCurvature: unrecognized gauge!"
+         return
+      end select
+
+   end subroutine GetSpinBerryCurvature
 !--------------------------------------------------------------------------------------
    subroutine GetOAM(me,oam,gauge)
       class(wannier_calc_t) :: me
