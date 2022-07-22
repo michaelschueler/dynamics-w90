@@ -114,6 +114,7 @@ contains
       me%ham_r = w90%ham_r
       me%pos_r = w90%pos_r
       me%coords = w90%coords
+      me%coords_present = coords_present
 
    end subroutine Set
 !--------------------------------------------------------------------------------------
