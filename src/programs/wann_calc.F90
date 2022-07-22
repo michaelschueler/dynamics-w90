@@ -5,7 +5,9 @@ program wann_calc
    use Mdef,only: dp,zero
    use Mtime,only: Timer_act, Timer_Tic, Timer_Toc
    use Mutils,only: print_title, print_header
+   use Mlatt_kpts,only: Read_Kpoints
    use Mwannier_calc,only: wannier_calc_t
+   use Mio_params,only: HamiltonianParams_t, WannierCalcParams_t
    use Mio_obs,only: WannierCalcOutput_t
    use Mio_hamiltonian,only: ReadHamiltonian, WriteHamiltonian
    implicit none
@@ -17,23 +19,13 @@ program wann_calc
    logical :: PrintToFile = .false.
    integer :: Narg,unit_inp
    character(len=255) :: FlIn,FlOutPref
-   ! -- input variables --
-   logical :: slab_mode=.false.
-   logical :: calc_orbweight=.false.
-   logical :: calc_spin=.false.
-   logical :: calc_berry=.false.
-   logical :: calc_spin_berry=.false.
-   logical :: calc_oam=.false.
-   logical :: calc_metric=.false. 
-   logical :: calc_evecs=.false.
-   logical :: write_kpts=.false.
-   integer :: gauge=0
-   namelist/CALCOPT/slab_mode,calc_orbweight,calc_spin,calc_berry,calc_spin_berry,&
-      calc_oam,calc_metric,calc_evecs,write_kpts,gauge
    ! -- internal variables --
+   real(dp),allocatable,dimension(:,:)     :: kpts
    real(dp),allocatable,dimension(:,:,:)   :: orb_weight,spin,berry,oam
    real(dp),allocatable,dimension(:,:,:,:) :: metric,spin_berry
    type(wannier_calc_t)                    :: wann
+   type(HamiltonianParams_t)               :: par_ham
+   type(WannierCalcParams_t)               :: par_calc
    type(WannierCalcOutput_t)               :: output
 !--------------------------------------------------------------------------------------
    call Timer_Act()
@@ -46,9 +38,9 @@ program wann_calc
    Narg=command_argument_count()
    if(Narg>=1) then
       call get_command_argument(1,FlIn)
-      open(newunit=unit_inp,file=trim(FlIn),status='OLD',action='READ')
-      read(unit_inp,nml=CALCOPT); rewind(unit_inp)
-      close(unit_inp)
+      call par_ham%ReadFromFile(FlIn)
+      call par_calc%ReadFromFile(FlIn)
+      call Read_Kpoints(FlIn,kpts,print_info=.true.)
    else
       write(error_unit,fmt900) 'Please provide a namelist input file.'
       stop
@@ -62,53 +54,53 @@ program wann_calc
       write(output_unit,fmt_info) 'No output prefix given. No output will be produced.'
    end if
 
-   call wann%Init(FlIn,slab_mode)
+   call wann%Init(par_ham,par_calc,kpts)
  
    call output%AddEpsk(wann%epsk)
-   if(write_kpts) call output%AddKpts(wann%kpts)
-   if(calc_evecs) call output%AddEvecs(wann%vectk)
+   if(par_calc%write_kpts) call output%AddKpts(kpts)
+   if(par_calc%calc_evecs) call output%AddEvecs(wann%vectk)
 
    write(output_unit,*)
    call Timer_Toc(N=2)
 !--------------------------------------------------------------------------------------
 !                               ++  Calculation ++
 !--------------------------------------------------------------------------------------
-   if(calc_orbweight) then
+   if(par_calc%calc_orbweight) then
       call Timer_Tic('orbital weight', 2)
       call wann%GetOrbitalWeight(orb_weight)
       call output%AddOrbweight(orb_weight)
       call Timer_Toc(N=2)
    end if
 
-   if(calc_spin) then
+   if(par_calc%calc_spin) then
       call Timer_Tic('spin', 2)
       call wann%GetSpin(spin)
       call output%AddSpin(spin)
       call Timer_Toc(N=2)
    end if
 
-   if(calc_berry) then
+   if(par_calc%calc_berry) then
       call Timer_Tic('Berry curvature', 2)
-      call wann%GetBerryCurvature(berry,gauge=gauge)
+      call wann%GetBerryCurvature(berry,gauge=par_calc%gauge)
       call output%AddBerry(berry)
       call Timer_Toc(N=2)
    end if
 
-   if(calc_spin_berry) then
+   if(par_calc%calc_spin_berry) then
       call Timer_Tic('Spin-Berry curvature', 2)
-      call wann%GetSpinBerryCurvature(spin_berry,gauge=gauge)
+      call wann%GetSpinBerryCurvature(spin_berry,gauge=par_calc%gauge)
       call output%AddSpinBerry(spin_berry)
       call Timer_Toc(N=2)
    end if
 
-   if(calc_oam) then
+   if(par_calc%calc_oam) then
       call Timer_Tic('OAM', 2)
-      call wann%GetOAM(oam,gauge=gauge)
+      call wann%GetOAM(oam,gauge=par_calc%gauge)
       call output%AddOAM(oam)
       call Timer_Toc(N=2)
    end if
 
-   if(calc_metric) then
+   if(par_calc%calc_metric) then
       call Timer_Tic('quantum metric', 2)
       call wann%GetMetric(metric)
       call output%AddMetric(metric)

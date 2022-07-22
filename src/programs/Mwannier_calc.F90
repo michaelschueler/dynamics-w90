@@ -5,10 +5,10 @@ module Mwannier_calc
    use Mdef,only: dp,iu,zero
    use Mutils,only: str
    use Mlinalg,only: EigHE
-   use Mlatt_kpts,only: Read_Kpoints
    use Mham_w90,only: wann90_tb_t
    use Mwann_compress,only: PruneHoppings
    use Mwann_slab,only: Wannier_BulkToSlab
+   use Mio_params,only: WannierCalcParams_t, HamiltonianParams_t
    use Mio_hamiltonian,only: ReadHamiltonian
    implicit none
    include "../formats.h"
@@ -37,48 +37,40 @@ module Mwannier_calc
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,file_inp,slab_mode)
+   subroutine Init(me,par_ham,par_calc,kpts)
       class(wannier_calc_t) :: me
-      character(len=*),intent(in) :: file_inp
-      logical,intent(in)          :: slab_mode
-      character(len=255) :: file_ham
-      logical  :: w90_with_soc=.false.,expert_params=.false.
-      real(dp) :: energy_thresh=0.0_dp
-      namelist/HAMILTONIAN/file_ham,w90_with_soc,energy_thresh,expert_params
-      integer :: nlayer=0,max_zhop=10
-      namelist/SLAB/nlayer,max_zhop
+      type(HamiltonianParams_t),intent(in) :: par_ham
+      type(WannierCalcParams_t),intent(in) :: par_calc
+      real(dp),intent(in)                  :: kpts(:,:)
       !......................................
-      integer :: unit_inp
       integer :: ik
       real(dp) :: comp_rate
       complex(dp),allocatable :: Hk(:,:)
       type(wann90_tb_t) :: ham_tmp
       !......................................
 
-      open(newunit=unit_inp,file=trim(file_inp),status='OLD',action='READ')
-      read(unit_inp,nml=HAMILTONIAN); rewind(unit_inp)
-      if(slab_mode)  read(unit_inp,nml=SLAB); rewind(unit_inp)
-      close(unit_inp)
-
-      call ReadHamiltonian(file_ham,ham_tmp)
-      if(energy_thresh > 0.0_dp) then
-         call PruneHoppings(energy_thresh,ham_tmp,me%ham,comp_rate)
+      call ReadHamiltonian(par_ham%file_ham,ham_tmp)
+      if(par_ham%energy_thresh > 0.0_dp) then
+         call PruneHoppings(par_ham%energy_thresh,ham_tmp,me%ham,comp_rate)
          write(output_unit,fmt_info) "compression rate: "//str(nint(100 * comp_rate)) // "%"
       else
          call me%ham%Set(ham_tmp)
       end if
       call ham_tmp%Clean()
 
-      if(expert_params) call me%ham%ReadParams(file_inp) 
+      me%soc_mode = par_ham%w90_with_soc
 
-      me%soc_mode = w90_with_soc
-
-      if(slab_mode .and. nlayer > 0) then
-         write(output_unit,fmt_info) "building slab with "//str(nlayer)//" layers"
+      if(par_calc%slab_mode .and. par_calc%slab_nlayer > 0) then
+         write(output_unit,fmt_info) "building slab with "//str(par_calc%slab_nlayer)//" layers"
          call ham_tmp%Set(me%ham)
-         call Wannier_BulkToSlab(ham_tmp,nlayer,me%ham,ijmax=max_zhop)
+         call Wannier_BulkToSlab(ham_tmp,par_calc%slab_nlayer,me%ham,ijmax=par_calc%slab_max_zhop)
       end if
       call ham_tmp%Clean()
+
+      call me%ham%SetParams(use_degen_pert=par_ham%use_degen_pert,&
+         degen_thresh=par_ham%degen_thresh,&
+         force_herm=par_ham%force_herm,&
+         force_antiherm=par_ham%force_antiherm)
 
       if(me%soc_mode) then
          if(mod(me%ham%num_wann,2) /= 0) then
@@ -91,7 +83,8 @@ contains
       end if
       me%nbnd = me%ham%num_wann
 
-      call Read_Kpoints(file_inp,me%kpts,print_info=.true.)
+      allocate(me%kpts(size(kpts,1), size(kpts,2)))
+      me%kpts = kpts
 
       me%Nk = size(me%kpts,1)
       allocate(me%epsk(me%nbnd,me%Nk),me%vectk(me%nbnd,me%nbnd,me%Nk))

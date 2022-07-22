@@ -6,20 +6,25 @@ module Mham_w90
    use Munits,only: DPI,BohrAngstrom,HreV
    use Mlinalg,only: get_large_size,util_zgemm,util_matmul,util_rotate,util_rotate_cc
    use Mlatt_utils,only: utility_recip_lattice, utility_recip_reduced
+   use Mread_xyz,only: ReadXYZ
    implicit none
    include '../formats.h'
 !--------------------------------------------------------------------------------------
    private
    public :: wann90_tb_t,ReadTB_from_w90,utility_recip_lattice
 !--------------------------------------------------------------------------------------
+   integer,parameter :: field_mode_positions=0,field_mode_dipole=1,field_mode_berry=2
+!--------------------------------------------------------------------------------------
    type :: wann90_tb_t
       !! Wannier Hamiltonian class. Reads/writes the Wannier Hamiltonian from/to file,
       !! calculates the Hamiltonian and Berry-phase properties
+      logical                                    :: coords_present=.false.
       integer                                    :: num_wann,nrpts
       integer,allocatable,dimension(:)           :: ndegen
       integer,allocatable,dimension(:,:)         :: irvec
       real(dp),dimension(3,3)                    :: real_lattice,recip_lattice
       real(dp),dimension(3,3)                    :: recip_reduced
+      real(dp),allocatable,dimension(:,:)        :: coords
       complex(dp),allocatable,dimension(:,:,:)   :: ham_r
       complex(dp),allocatable,dimension(:,:,:,:) :: pos_r
       ! .. internal parameters for tuning the calculation ..
@@ -29,15 +34,16 @@ module Mham_w90
       procedure,public  :: ReadFromW90
       procedure,public  :: SaveToW90
       procedure,public  :: SetParams
-      procedure,public  :: ReadParams
       procedure,public  :: Set
       procedure,public  :: get_eig
       procedure,public  :: get_ham_diag
       procedure,public  :: get_ham
+      procedure,public  :: get_ham_field 
       procedure,public  :: get_gradk_ham
       procedure,public  :: get_hess_ham
       procedure,public  :: get_dipole
       procedure,public  :: get_velocity
+      procedure,public  :: get_berry_connection
       procedure,public  :: get_emp_velocity
       procedure,public  :: get_berrycurv
       procedure,public  :: get_berrycurv_dip
@@ -63,27 +69,9 @@ contains
       if(allocated(me%irvec)) deallocate(me%irvec)
       if(allocated(me%ham_r)) deallocate(me%ham_r)
       if(allocated(me%pos_r)) deallocate(me%pos_r)      
-      
+      if(allocated(me%coords)) deallocate(me%coords)      
+
    end subroutine Clean
-!--------------------------------------------------------------------------------------
-   subroutine ReadParams(me,fname)
-      class(wann90_tb_t) :: me
-      character(len=*),intent(in) :: fname
-      integer :: unit_inp
-      logical :: use_degen_pert=.false.
-      logical :: force_herm=.true.
-      logical :: force_antiherm=.true.
-      real(dp) :: degen_thresh=1.0e-5_dp
-      namelist/W90PARAMS/use_degen_pert,force_herm,force_antiherm,degen_thresh
-
-      open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
-      read(unit_inp,nml=W90PARAMS)
-      close(unit_inp)
-
-      call me%SetParams(use_degen_pert=use_degen_pert, degen_thresh=degen_thresh,&
-         force_herm=force_herm, force_antiherm=force_antiherm)
-
-   end subroutine ReadParams
 !--------------------------------------------------------------------------------------
    subroutine SetParams(me,use_degen_pert,degen_thresh,force_herm,force_antiherm)
       class(wann90_tb_t)  :: me
@@ -113,16 +101,19 @@ contains
       if(allocated(me%irvec)) deallocate(me%irvec)
       if(allocated(me%ham_r)) deallocate(me%ham_r)
       if(allocated(me%pos_r)) deallocate(me%pos_r)
+      if(allocated(me%coords)) deallocate(me%coords)
 
       allocate(me%ndegen(me%nrpts))
       allocate(me%irvec(me%nrpts,3))
       allocate(me%ham_r(me%num_wann,me%num_wann,me%nrpts))
       allocate(me%pos_r(me%num_wann,me%num_wann,me%nrpts,3))
+      allocate(me%coords(me%num_wann,3))
 
       me%ndegen = w90%ndegen
       me%irvec = w90%irvec
       me%ham_r = w90%ham_r
       me%pos_r = w90%pos_r
+      me%coords = w90%coords
 
    end subroutine Set
 !--------------------------------------------------------------------------------------
@@ -161,6 +152,39 @@ contains
       call fourier_R_to_k(kpt, me, me%ham_r, Hk, 0)
 
    end function get_ham
+!--------------------------------------------------------------------------------------
+   function get_ham_field(me,kpt,Ef,field_mode) result(Hk)
+      class(wann90_tb_t)  :: me
+      real(dp),intent(in) :: kpt(3)
+      real(dp),intent(in) :: Ef(3)
+      integer,intent(in)  :: field_mode
+      complex(dp) :: Hk(me%num_wann,me%num_wann)
+      integer :: i,idir
+      complex(dp),dimension(me%num_wann,me%num_wann,3) :: Dk,AA
+   
+      Hk = me%get_ham(kpt)
+
+      select case(field_mode)
+      case(field_mode_positions)
+         do i=1,me%num_wann
+            Hk(i,i) = Hk(i,i) - Ef(1) * me%coords(i,1)
+            Hk(i,i) = Hk(i,i) - Ef(2) * me%coords(i,2)
+            Hk(i,i) = Hk(i,i) - Ef(3) * me%coords(i,3)
+         end do
+      case(field_mode_dipole)
+         Dk = me%get_dipole(kpt,band_basis=.false.)
+         do idir=1,3
+            Hk(:,:) = Hk(:,:) - Ef(idir) * Dk(:,:,idir)
+         end do
+      case(field_mode_berry)
+         AA = me%get_berry_connection(kpt)
+         do idir=1,3
+            Hk(:,:) = Hk(:,:) - Ef(idir) * AA(:,:,idir)
+         end do         
+      end select 
+
+
+   end function get_ham_field
 !--------------------------------------------------------------------------------------
    function get_gradk_ham(me,kpt) result(grad_Hk)
       class(wann90_tb_t)  :: me
@@ -380,11 +404,10 @@ contains
 
    end function get_spin_velocity
 !--------------------------------------------------------------------------------------
-   function get_berrycurv(me, kpt) result(Wk)
+   function get_berry_connection(me,kpt) result(AA)
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
-      real(dp)            :: Wk(me%num_wann,3)
-
+      complex(dp)         :: AA(me%num_wann,me%num_wann,3)
       logical :: large_size
       integer :: i,j,idir
       real(dp) :: eig(me%num_wann)
@@ -393,7 +416,6 @@ contains
       complex(dp),allocatable :: delHH(:,:,:)
       complex(dp),allocatable :: UU(:,:)
       complex(dp),allocatable :: D_h(:,:,:)
-      complex(dp),allocatable :: AA(:,:,:)
 
       large_size = get_large_size(me%num_wann)
 
@@ -401,7 +423,6 @@ contains
       allocate(delHH(me%num_wann, me%num_wann, 3))
       allocate(UU(me%num_wann, me%num_wann))
       allocate(D_h(me%num_wann, me%num_wann, 3))
-      allocate(AA(me%num_wann, me%num_wann, 3))
 
       call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
          use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
@@ -411,10 +432,27 @@ contains
 
       call fourier_R_to_k_vec(kpt, me, me%pos_r, OO_true=AA)
       do idir = 1, 3
-         ! AA(:, :, idir) = utility_rotate(AA(:, :, idir), UU, me%num_wann)
          AA(:, :, idir) = util_rotate(me%num_wann, UU, AA(:, :, idir), large_size=large_size)
       end do
       AA = AA + iu*D_h ! Eq.(25) WYSV06
+
+      deallocate(HH,delHH,UU,D_h)
+
+   end function get_berry_connection
+!--------------------------------------------------------------------------------------
+   function get_berrycurv(me, kpt) result(Wk)
+      class(wann90_tb_t)  :: me
+      real(dp),intent(in) :: kpt(3)
+      real(dp)            :: Wk(me%num_wann,3)
+
+      logical :: large_size
+      integer :: i,j
+      complex(dp),allocatable :: AA(:,:,:)
+
+      large_size = get_large_size(me%num_wann)
+
+      allocate(AA(me%num_wann, me%num_wann, 3))
+      AA = me%get_berry_connection(kpt)
 
       Wk = 0.0_dp
       do i=1,me%num_wann
@@ -426,7 +464,7 @@ contains
          end do
       end do
 
-      deallocate(HH,delHH,UU,D_h,AA)
+      deallocate(AA)
 
    end function get_berrycurv
 !--------------------------------------------------------------------------------------
@@ -793,12 +831,20 @@ contains
 
    end function get_metric
 !--------------------------------------------------------------------------------------
-   subroutine ReadFromW90(me,fname)
+   subroutine ReadFromW90(me,file_ham,file_xyz)
       class(wann90_tb_t)  :: me
-      character(len=*),intent(in) :: fname
+      character(len=*),intent(in) :: file_ham
+      character(len=*),intent(in),optional :: file_xyz
 
-      call ReadTB_from_w90(fname,me%real_lattice,me%num_wann,me%nrpts,me%ndegen,&
+      call ReadTB_from_w90(file_ham,me%real_lattice,me%num_wann,me%nrpts,me%ndegen,&
          me%irvec,me%ham_r,me%pos_r)
+
+      allocate(me%coords(me%num_wann,3)); me%coords = 0.0_dp
+      if(present(file_xyz)) then
+         if(len_trim(file_xyz) > 0) call ReadXYZ(file_xyz,me%coords)
+         me%coords = me%coords / BohrAngstrom
+         me%coords_present = .true.
+      end if
 
       call utility_recip_lattice(me%real_lattice, me%recip_lattice)
 
@@ -859,6 +905,13 @@ contains
          call hdf_write_attribute(file_id,'','pos_stored', 0)
       end if
 
+      if(me%coords_present) then
+         call hdf_write_attribute(file_id,'','coords_stored', 1)
+         call hdf_write_dataset(file_id,'coords',me%coords)
+      else
+         call hdf_write_attribute(file_id,'','coords_stored', 0)        
+      end if
+
       call hdf_close_file(file_id)
 
    end subroutine SaveToHDF5
@@ -871,7 +924,7 @@ contains
       class(wann90_tb_t)  :: me
       character(len=*),intent(in) :: fname
       integer(HID_t) :: file_id
-      integer :: atomic_units,pos_stored
+      integer :: atomic_units,pos_stored,coords_stored
       real(dp),allocatable :: d_ham_r(:,:,:)
       real(dp),allocatable :: d_pos_r(:,:,:,:)
 
@@ -919,6 +972,13 @@ contains
          deallocate(d_pos_r)
 
          if(atomic_units == 0) me%pos_r = me%pos_r / BohrAngstrom
+      end if
+
+      call hdf_read_attribute(file_id,'','coords_stored', coords_stored)  
+      if(coords_stored == 1) then
+         allocate(me%coords(me%num_wann,3))
+         call hdf_read_dataset(file_id,'coords',me%coords)
+         if(atomic_units == 0) me%coords = me%coords / BohrAngstrom
       end if
 
       call hdf_close_file(file_id)

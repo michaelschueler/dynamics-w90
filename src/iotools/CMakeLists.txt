@@ -3,6 +3,7 @@ include_directories(
   )
 
 set(OBJECT_FILES
+    Mio_params.F90
 		Mio_obs.F90
 		Mio_hamiltonian.F90
 )

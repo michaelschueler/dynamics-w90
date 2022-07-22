@@ -4,6 +4,7 @@ include_directories(
 
 set(OBJECT_FILES
     Mlatt.f90
+    Mread_xyz.F90
     Mham_w90.F90
     Mlatt_utils.f90
     Mlatt_kpts.F90
