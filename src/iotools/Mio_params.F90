@@ -38,6 +38,7 @@ module Mio_params
       logical            :: apply_field=.false.
       integer            :: field_mode=field_mode_positions
       real(dp)           :: energy_thresh=0.0_dp
+      real(dp)           :: Efield(3)=[0.0_dp,0.0_dp,0.0_dp]
       logical            :: use_degen_pert=.false.
       logical            :: force_herm=.true.
       logical            :: force_antiherm=.true.
@@ -104,13 +105,14 @@ contains
       logical            :: w90_with_soc=.false.
       logical            :: apply_field=.false.
       integer            :: field_mode=field_mode_positions
+      real(dp)           :: Efield(3)=[0.0_dp,0.0_dp,0.0_dp]
       real(dp)           :: energy_thresh=0.0_dp
       logical            :: use_degen_pert=.false.
       logical            :: force_herm=.true.
       logical            :: force_antiherm=.true.
       real(dp)           :: degen_thresh=1.0e-5_dp  
       namelist/HAMILTONIAN/file_ham,file_xyz,w90_with_soc,energy_thresh,use_degen_pert,&
-         force_herm,force_antiherm,degen_thresh,apply_field,field_mode
+         force_herm,force_antiherm,degen_thresh,apply_field,field_mode,Efield
       integer :: unit_inp
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
@@ -122,6 +124,7 @@ contains
       me%w90_with_soc = w90_with_soc
       me%apply_field = apply_field
       me%field_mode = field_mode
+      me%Efield = Efield
       me%energy_thresh = energy_thresh
       me%use_degen_pert = use_degen_pert
       me%force_herm = force_herm

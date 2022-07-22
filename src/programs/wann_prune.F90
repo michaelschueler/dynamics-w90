@@ -7,6 +7,7 @@ program wann_prune
    use Mutils,only: print_title, print_header, get_file_ext, check_file_ext, str
    use Mham_w90,only: wann90_tb_t
    use Mwann_compress,only: PruneHoppings
+   use Mio_params,only: HamiltonianParams_t
    use Mio_hamiltonian,only: ReadHamiltonian, WriteHamiltonian
    implicit none
    include '../formats.h'
@@ -17,13 +18,9 @@ program wann_prune
    logical :: PrintToFile = .false.
    integer :: Narg,unit_inp
    character(len=255) :: FlIn,file_out
-   ! -- input variables --
-   character(len=255) :: file_ham
-   logical            :: w90_with_soc,expert_params
-   real(dp)           :: energy_thresh
-   namelist/HAMILTONIAN/file_ham,w90_with_soc,energy_thresh,expert_params
    ! -- internal variables --
    real(dp) :: comp_rate
+   type(HamiltonianParams_t) :: par
    type(wann90_tb_t) :: wann
    type(wann90_tb_t) :: wann_pruned
 !--------------------------------------------------------------------------------------
@@ -36,9 +33,7 @@ program wann_prune
    Narg=command_argument_count()
    if(Narg>=1) then
       call get_command_argument(1,FlIn)
-      open(newunit=unit_inp,file=trim(FlIn),status='OLD',action='READ')
-      read(unit_inp,nml=HAMILTONIAN)
-      close(unit_inp)
+      call par%ReadFromFile(FlIn)
    else
       write(error_unit,fmt900) 'Please provide a namelist input file.'
       stop
@@ -53,9 +48,13 @@ program wann_prune
       write(output_unit,*)
    end if
 
-   call ReadHamiltonian(file_ham,wann)
+   if(len_trim(par%file_xyz) > 0) then
+      call ReadHamiltonian(par%file_ham,wann,file_xyz=par%file_xyz)
+   else
+      call ReadHamiltonian(par%file_ham,wann)
+   end if
 
-   call PruneHoppings(energy_thresh,wann,wann_pruned,comp_rate)
+   call PruneHoppings(par%energy_thresh,wann,wann_pruned,comp_rate)
 
    write(output_unit,fmt148) "hoppings (before compression)", wann%nrpts
    write(output_unit,fmt148) "hoppings (after compression)", wann_pruned%nrpts

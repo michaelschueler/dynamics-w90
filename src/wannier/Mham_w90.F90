@@ -33,7 +33,7 @@ module Mham_w90
    contains
       procedure,public  :: ReadFromW90
       procedure,public  :: SaveToW90
-      procedure,public  :: SetParams
+      procedure,public  :: SetExpertParams
       procedure,public  :: Set
       procedure,public  :: get_eig
       procedure,public  :: get_ham_diag
@@ -73,7 +73,7 @@ contains
 
    end subroutine Clean
 !--------------------------------------------------------------------------------------
-   subroutine SetParams(me,use_degen_pert,degen_thresh,force_herm,force_antiherm)
+   subroutine SetExpertParams(me,use_degen_pert,degen_thresh,force_herm,force_antiherm)
       class(wann90_tb_t)  :: me
       logical,intent(in),optional  :: use_degen_pert
       real(dp),intent(in),optional :: degen_thresh
@@ -85,7 +85,7 @@ contains
       if(present(force_herm)) me%force_herm = force_herm
       if(present(force_antiherm)) me%force_antiherm = force_antiherm
 
-   end subroutine SetParams
+   end subroutine SetExpertParams
 !--------------------------------------------------------------------------------------
    subroutine Set(me,w90)
       class(wann90_tb_t) :: me
@@ -841,9 +841,11 @@ contains
 
       allocate(me%coords(me%num_wann,3)); me%coords = 0.0_dp
       if(present(file_xyz)) then
-         if(len_trim(file_xyz) > 0) call ReadXYZ(file_xyz,me%coords)
-         me%coords = me%coords / BohrAngstrom
-         me%coords_present = .true.
+         if(len_trim(file_xyz) > 0) then
+            call ReadXYZ(file_xyz,me%coords)
+            me%coords = me%coords / BohrAngstrom
+            me%coords_present = .true.
+         end if
       end if
 
       call utility_recip_lattice(me%real_lattice, me%recip_lattice)
@@ -911,8 +913,6 @@ contains
       else
          call hdf_write_attribute(file_id,'','coords_stored', 0)        
       end if
-
-      call hdf_close_file(file_id)
 
    end subroutine SaveToHDF5
 #endif

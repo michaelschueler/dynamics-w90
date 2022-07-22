@@ -34,6 +34,7 @@ module Mwannier_calc
 !--------------------------------------------------------------------------------------
    integer,parameter :: velocity_gauge=0,dipole_gauge=1
    character(len=*),parameter :: fmt_info='(" Info: ",a)'
+   integer,parameter :: field_mode_positions=0,field_mode_dipole=1,field_mode_berry=2
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
@@ -49,7 +50,7 @@ contains
       type(wann90_tb_t) :: ham_tmp
       !......................................
 
-      call ReadHamiltonian(par_ham%file_ham,ham_tmp)
+      call ReadHamiltonian(par_ham%file_ham,ham_tmp,file_xyz=par_ham%file_xyz)
       if(par_ham%energy_thresh > 0.0_dp) then
          call PruneHoppings(par_ham%energy_thresh,ham_tmp,me%ham,comp_rate)
          write(output_unit,fmt_info) "compression rate: "//str(nint(100 * comp_rate)) // "%"
@@ -67,7 +68,7 @@ contains
       end if
       call ham_tmp%Clean()
 
-      call me%ham%SetParams(use_degen_pert=par_ham%use_degen_pert,&
+      call me%ham%SetExpertParams(use_degen_pert=par_ham%use_degen_pert,&
          degen_thresh=par_ham%degen_thresh,&
          force_herm=par_ham%force_herm,&
          force_antiherm=par_ham%force_antiherm)
@@ -90,10 +91,27 @@ contains
       allocate(me%epsk(me%nbnd,me%Nk),me%vectk(me%nbnd,me%nbnd,me%Nk))
 
       allocate(Hk(me%nbnd,me%nbnd))
-      do ik=1,me%Nk
-         Hk = me%Ham%get_ham(me%kpts(ik,:))
-         call EigHE(Hk,me%epsk(:,ik),me%vectk(:,:,ik))
-      end do
+      if(par_ham%apply_field) then
+         write(output_unit,fmt_info) "E-field: ["//str(par_ham%Efield(1))//" , "//str(par_ham%Efield(2)) &
+            // " , "//str(par_ham%Efield(3))//"]"
+         select case(par_ham%field_mode)
+         case(field_mode_positions)
+            write(output_unit,fmt_info) "field couples to positions"
+         case(field_mode_dipole)
+            write(output_unit,fmt_info) "field couples to dipoles"
+         case(field_mode_berry)
+            write(output_unit,fmt_info) "field couples to Berry connection"
+         end select 
+         do ik=1,me%Nk
+            Hk = me%Ham%get_ham_field(me%kpts(ik,:),par_ham%Efield,par_ham%field_mode)
+            call EigHE(Hk,me%epsk(:,ik),me%vectk(:,:,ik))
+         end do
+      else
+         do ik=1,me%Nk
+            Hk = me%Ham%get_ham(me%kpts(ik,:))
+            call EigHE(Hk,me%epsk(:,ik),me%vectk(:,:,ik))
+         end do
+      end if
       deallocate(Hk)
 
    end subroutine Init

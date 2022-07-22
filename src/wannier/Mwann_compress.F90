@@ -23,6 +23,7 @@ contains
       wann_pruned%real_lattice = wann%real_lattice
       wann_pruned%recip_lattice = wann%recip_lattice
       wann_pruned%recip_reduced = wann%recip_reduced
+      wann_pruned%coords_present = wann%coords_present
 
       allocate(ir_indc(wann%nrpts))
       ir_indc = [ (ir, ir=1,wann%nrpts) ]
@@ -39,11 +40,15 @@ contains
       if(allocated(wann_pruned%irvec)) deallocate(wann_pruned%irvec)
       if(allocated(wann_pruned%ham_r)) deallocate(wann_pruned%ham_r)
       if(allocated(wann_pruned%pos_r)) deallocate(wann_pruned%pos_r)
+      if(allocated(wann_pruned%coords)) deallocate(wann_pruned%coords)
 
       allocate(wann_pruned%ndegen(wann_pruned%nrpts))
       allocate(wann_pruned%irvec(wann_pruned%nrpts,3))
       allocate(wann_pruned%ham_r(wann%num_wann,wann%num_wann,wann_pruned%nrpts))
       allocate(wann_pruned%pos_r(wann%num_wann,wann%num_wann,wann_pruned%nrpts,3))
+      allocate(wann_pruned%coords(wann%num_wann,3))
+
+      wann_pruned%coords = wann%coords
 
       do ir=1,wann_pruned%nrpts
          ir_old = ir_indc_pruned(ir)

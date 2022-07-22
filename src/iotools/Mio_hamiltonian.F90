@@ -14,12 +14,17 @@ module Mio_hamiltonian
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine ReadHamiltonian(file_wann,wann)
-      character(len=*),intent(in)   :: file_wann
-      type(wann90_tb_t),intent(out) :: wann
+   subroutine ReadHamiltonian(file_wann,wann,file_xyz)
+      character(len=*),intent(in)            :: file_wann
+      type(wann90_tb_t),intent(out)          :: wann
+      character(len=*),intent(in),optional   :: file_xyz
 
       if(check_file_ext(file_wann, "tb") .or. check_file_ext(file_wann, "dat")) then
-         call wann%ReadFromW90(file_wann)
+         if(present(file_xyz)) then
+            call wann%ReadFromW90(file_wann,file_xyz=file_xyz)
+         else
+            call wann%ReadFromW90(file_wann)
+         end if
       elseif(check_file_ext(file_wann, "h5")) then
 #ifdef WITHHDF5
          call wann%ReadFromHDF5(file_wann)
