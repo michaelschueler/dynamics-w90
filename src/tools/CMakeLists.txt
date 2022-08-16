@@ -24,4 +24,4 @@ endif(mpi)
 # ~~ Installation targets ~~
 add_library(tools STATIC ${OBJECT_FILES})
 target_link_libraries(tools ${COMMON_LIBS})
-install(TARGETS tools ARCHIVE DESTINATION lib)
+# install(TARGETS tools ARCHIVE DESTINATION lib)

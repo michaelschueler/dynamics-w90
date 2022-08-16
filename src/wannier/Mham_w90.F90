@@ -3,11 +3,11 @@ module Mham_w90
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
    use Mdef,only: dp,iu,zero,one
-   use Munits,only: DPI,BohrAngstrom,HreV
    use Mlinalg,only: get_large_size,util_zgemm,util_matmul,util_rotate,util_rotate_cc
    use Mlatt_utils,only: utility_recip_lattice, utility_recip_reduced
    use Mread_xyz,only: ReadXYZ
    implicit none
+   include '../units_inc.f90'
    include '../formats.h'
 !--------------------------------------------------------------------------------------
    private

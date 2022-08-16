@@ -21,6 +21,12 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/exe)
 
+option(wannier_lib "Building Wannier library" OFF)
+if(wannier_lib)
+    message(STATUS "Building Wannier library")
+endif(wannier_lib)
+
+
 # ~~ Commenly shared libs ~~
 set(COMMON_LIBS "")
 
