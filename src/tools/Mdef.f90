@@ -2,6 +2,7 @@ module MDef
 !======================================================================================
    use,intrinsic::iso_fortran_env,dp=>real64
    implicit none
+   include "../units_inc.f90"
 !--------------------------------------------------------------------------------------
    ! in case Fortran 2008 standards are not available use this  
    !  integer,parameter::dp=kind(1.0D0)
@@ -80,7 +81,6 @@ contains
 !-------------------------------------------------------------------------------------- 
    pure elemental real(dp) function Lorentz(a,x)
       !! Lorentz peak function
-      real(dp),parameter :: pi=4.0_dp*atan(1.0_dp)
       real(dp),intent(in) :: a !! width
       real(dp),intent(in) :: x !! argument
 
@@ -90,7 +90,6 @@ contains
 !-------------------------------------------------------------------------------------- 
    pure elemental real(dp) function Gauss(a,x)
       !! Gauss peak function
-      real(dp),parameter :: dpi=8.0_dp*atan(1.0_dp)
       real(dp),intent(in) :: a !! width
       real(dp),intent(in) :: x !! argument
 
@@ -105,7 +104,6 @@ contains
 !-------------------------------------------------------------------------------------- 
    pure real(dp) function GaussOne(a,x)
       !! Unnormalized Gauss peak function
-      real(dp),parameter :: dpi=8.0_dp*atan(1.0_dp)
       real(dp),intent(in) :: a !! width
       real(dp),intent(in) :: x !! argument
 

@@ -13,11 +13,11 @@ module Mio_orbitals
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine ReadWannierOrbitals(fname,orb)
+   subroutine ReadWannierOrbitals(fname,orbs)
       character(len=*),intent(in)            :: fname
       type(wannier_orbs_t),intent(out)       :: orbs
 
-      if(check_file_ext(file_wann, "txt") .or. check_file_ext(fname, "dat")) then
+      if(check_file_ext(fname, "txt") .or. check_file_ext(fname, "dat")) then
          call orbs%ReadFromTXT(fname)
 #ifdef WITHHDF5
          call orbs%ReadFromHDF5(fname)

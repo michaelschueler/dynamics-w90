@@ -2,7 +2,6 @@ module Mspecial
 !======================================================================================
     use Mdebug
     use Mdef,only: dp,iu
-    use Munits,only: DPI
     use Mutils, only: stop_error
     use Mroot, only: bisect
     implicit none

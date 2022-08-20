@@ -7,9 +7,11 @@ module Mio_params
    include "../formats.h"  
 !--------------------------------------------------------------------------------------
    private
-   public :: WannierCalcParams_t,HamiltonianParams_t
+   public :: WannierCalcParams_t, HamiltonianParams_t, PESParams_t
 !--------------------------------------------------------------------------------------
    integer,parameter :: field_mode_positions=0,field_mode_dipole=1,field_mode_berry=2
+   integer,parameter :: gauge_len=0, gauge_mom=1
+   integer,parameter :: wf_pw=0, wf_coul=1
 !--------------------------------------------------------------------------------------
    type :: WannierCalcParams_t
       ! .. calculation options ..
@@ -37,6 +39,7 @@ module Mio_params
       logical            :: w90_with_soc=.false.
       logical            :: apply_field=.false.
       integer            :: field_mode=field_mode_positions
+      real(dp)           :: MuChem=0.0_dp
       real(dp)           :: energy_thresh=0.0_dp
       real(dp)           :: Efield(3)=[0.0_dp,0.0_dp,0.0_dp]
       logical            :: use_degen_pert=.false.
@@ -46,6 +49,23 @@ module Mio_params
    contains
       procedure, public :: ReadFromFile => Ham_ReadFromFile  
    end type HamiltonianParams_t
+
+   type :: PESParams_t
+      character(len=256) :: file_orbs=""
+      logical            :: kpts_reduced=.true.
+      integer            :: gauge=gauge_len
+      integer            :: scatt_type=wf_pw
+      integer            :: Nepe=1
+      real(dp)           :: wphot=1.0_dp
+      real(dp)           :: Eshift=0.0_dp
+      real(dp)           :: Epe_min,Epe_max  
+      real(dp)           :: lambda_esc=0.0_dp      
+      real(dp)           :: eta_smear=1.0e-3_dp
+      real(dp)           :: Zeff=0.0_dp
+      complex(dp)        :: polvec(3)
+   contains
+      procedure, public :: ReadFromFile => PES_ReadFromFile  
+   end type PESParams_t
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
@@ -105,6 +125,7 @@ contains
       logical            :: w90_with_soc=.false.
       logical            :: apply_field=.false.
       integer            :: field_mode=field_mode_positions
+      real(dp)           :: MuChem=0.0_dp
       real(dp)           :: Efield(3)=[0.0_dp,0.0_dp,0.0_dp]
       real(dp)           :: energy_thresh=0.0_dp
       logical            :: use_degen_pert=.false.
@@ -112,7 +133,7 @@ contains
       logical            :: force_antiherm=.true.
       real(dp)           :: degen_thresh=1.0e-5_dp  
       namelist/HAMILTONIAN/file_ham,file_xyz,w90_with_soc,energy_thresh,use_degen_pert,&
-         force_herm,force_antiherm,degen_thresh,apply_field,field_mode,Efield
+         force_herm,force_antiherm,degen_thresh,apply_field,field_mode,Efield,MuChem
       integer :: unit_inp
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
@@ -125,6 +146,7 @@ contains
       me%apply_field = apply_field
       me%field_mode = field_mode
       me%Efield = Efield
+      me%MuChem = MuChem
       me%energy_thresh = energy_thresh
       me%use_degen_pert = use_degen_pert
       me%force_herm = force_herm
@@ -133,6 +155,46 @@ contains
 
    end subroutine Ham_ReadFromFile
 !--------------------------------------------------------------------------------------
+   subroutine PES_ReadFromFile(me,fname)
+      class(PESParams_t)  :: me
+      character(len=*),intent(in)  :: fname
+      character(len=256) :: file_orbs=""
+      logical            :: kpts_reduced=.true.
+      integer            :: gauge=gauge_len
+      integer            :: scatt_type=wf_pw
+      integer            :: Nepe=1
+      real(dp)           :: wphot=1.0_dp
+      real(dp)           :: Eshift=0.0_dp
+      real(dp)           :: Epe_min,Epe_max  
+      real(dp)           :: lambda_esc=0.0_dp      
+      real(dp)           :: eta_smear=1.0e-3_dp
+      real(dp)           :: Zeff=0.0_dp
+      real(dp)           :: polvec_real(3),polvec_imag(3)
+      namelist/PESPARAMS/file_orbs,gauge,Nepe,wphot,Eshift,Epe_min,Epe_max,lambda_esc,&
+         eta_smear,Zeff,polvec_real,polvec_imag
+      integer :: unit_inp
+
+      open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
+      read(unit_inp,nml=PESPARAMS)
+      close(unit_inp)
+
+      me%file_orbs = file_orbs
+      me%kpts_reduced = kpts_reduced
+      me%gauge = gauge
+      me%scatt_type = scatt_type
+      me%Nepe = Nepe
+      me%wphot = wphot
+      me%Eshift = Eshift
+      me%Epe_min = Epe_min
+      me%Epe_max = Epe_max
+      me%lambda_esc = lambda_esc
+      me%eta_smear = eta_smear
+      me%Zeff = Zeff
+      me%polvec = polvec_real + iu * polvec_imag
+
+   end subroutine PES_ReadFromFile
+!--------------------------------------------------------------------------------------
+
 
 !====================================================================================== 
 end module Mio_params

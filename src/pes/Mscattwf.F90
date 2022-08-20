@@ -2,9 +2,10 @@ module Mscattwf
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
-   use Mdef,only: dp
+   use Mdef,only: dp, one, iu
    use Mspecial,only: spherical_bessel_jn
    implicit none
+   include "../units_inc.f90"
 !--------------------------------------------------------------------------------------
    private
    public :: scattwf_t
@@ -31,7 +32,7 @@ contains
 
       if(present(Z)) me%Z = Z
 
-   end subroutine InitGrid
+   end subroutine Init
 !--------------------------------------------------------------------------------------
    function Eval(me,l,k,r) result(Rr)
       class(scattwf_t),intent(in) :: me  
@@ -42,9 +43,6 @@ contains
       integer :: IFAIL
       real(dp) :: eta
       real(dp),dimension(0:l) :: FC,GC,FCP,GCP
-
-      idx_ = 0
-      if(present(idx)) idx_ = idx
 
       select case(me%wf_type)
       case(wf_pw)
@@ -80,31 +78,30 @@ contains
    end function Phase
 !--------------------------------------------------------------------------------------
    recursive function lacz_gamma(a) result(g)
-      double complex, intent(in) :: a
-      double complex :: g
-
-      double precision, parameter :: sq2p=sqrt(0.5D0*Qpi),pi=0.25D0*QPi
-      integer, parameter :: cg = 7
+      complex(dp),intent(in) :: a
+      complex(dp) :: g
+      real(dp),parameter :: sq2p=sqrt(0.5D0*Qpi),pi=0.25D0*QPi
+      integer,parameter :: cg = 7
 
       ! these precomputed values are taken by the sample code in Wikipedia,
       ! and the sample itself takes them from the GNU Scientific Library
       double precision, dimension(0:8), parameter :: p = &
-      (/ 0.99999999999980993, 676.5203681218851, -1259.1392167224028, &
-         771.32342877765313, -176.61502916214059, 12.507343278686905, &
-         -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7 /)
+      (/ 0.99999999999980993d0, 676.5203681218851d0, -1259.1392167224028d0, &
+         771.32342877765313d0, -176.61502916214059d0, 12.50734327868690d05, &
+         -0.13857109526572012d0, 9.9843695780195716d-6, 1.5056327351493116d-7 /)
 
-      double complex :: t, w, x
+      complex(dp) :: t, w, x
       integer :: i
 
       x = a
 
-      if ( dreal(x) < 0.5D0 ) then
+      if ( dble(x) < 0.5D0 ) then
          g = pi/( sin(pi*x) * lacz_gamma(1D0-x) )
       else
          x = x - 1D0
          t = p(0)
          do i=1, cg+1
-            t = t + p(i)/(x+real(i,8))
+            t = t + p(i)/(x+real(i,kind=dp))
          end do
          w = x + real(cg,8) + 0.5D0
          g = sq2p* w**(x+0.5D0) * exp(-w) * t
