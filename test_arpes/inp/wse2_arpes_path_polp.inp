@@ -1,0 +1,27 @@
+&hamiltonian
+    muchem = -0.0734996876263276
+    file_ham = 'wse2_11bnd_proj_tb.dat'
+    file_xyz = 'wse2_11bnd_proj.xyz'
+/
+
+&kpoints
+    file_kpts = 'path_MKGKM.inp'
+    kpoints_type = 'path'
+/
+
+&pesparams
+    epe_max = 0.5879975010106208
+    epe_min = 0.44099812575796554
+    eshift = -0.11024953143949139
+    nepe = 100
+    zeff = 0.0
+    eta_smear = 0.001
+    file_orbs = 'orbitals_real.h5'
+    gauge = 0
+    kpts_reduced = .true.
+    lambda_esc = 0.0
+    polvec_imag = 0.0, 0.7071067811865475, 0.0
+    polvec_real = 0.7071067811865475, 0.0, 0.0
+    scatt_type = 0
+    wphot = 0.7349968762632759
+/

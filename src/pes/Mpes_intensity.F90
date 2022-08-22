@@ -8,7 +8,6 @@ module Mpes_intensity
    use Mradialwf,only: radialwf_t
    use Mscattwf,only: scattwf_t
    use Mmatrix_elements,only: ScattMatrixElement_Momentum, ScattMatrixElement_Length
-   use Mlatt_utils,only: utility_Cart2Red_2D
    use Mwannier_orbitals,only: wannier_orbs_t
    use Mham_w90,only: wann90_tb_t
    implicit none
@@ -114,7 +113,7 @@ contains
 
    end subroutine PES_MatrixElements
 !--------------------------------------------------------------------------------------
-   function PES_Intensity(orbs,wann,scattwf,kpar,wphot,pol,Epe,Eshift,mu,lam,eta,gauge) result(int)
+   function PES_Intensity(orbs,wann,scattwf,kpar,wphot,pol,Epe,epsk,vectk,mu,lam,eta,gauge) result(int)
       type(wannier_orbs_t),intent(in) :: orbs
       type(wann90_tb_t),intent(in)    :: wann
       type(scattwf_t),intent(in)      :: scattwf
@@ -122,7 +121,8 @@ contains
       real(dp),intent(in)             :: wphot    
       complex(dp),intent(in)          :: pol(3)  
       real(dp),intent(in)             :: Epe
-      real(dp),intent(in)             :: Eshift    
+      real(dp),intent(in)             :: epsk(:)   
+      complex(dp),intent(inout)       :: vectk(:,:)        
       real(dp),intent(in)             :: mu      
       real(dp),intent(in)             :: lam       
       real(dp),intent(in)             :: eta           
@@ -130,15 +130,15 @@ contains
       real(dp)                        :: int
       integer :: gauge_    
       integer :: idir,nbnd,ibnd
-      real(dp) :: Ez,kvec(3),kpt(3)
-      real(dp),allocatable :: epsk(:)
-      complex(dp),allocatable :: Hk(:,:),vectk(:,:),matel(:,:),matel_pol(:)
+      real(dp) :: Ez,kvec(3)
+      complex(dp),allocatable :: matel(:,:),matel_pol(:)
 
       gauge_ = gauge_len
       if(present(gauge)) gauge_ = gauge
 
       nbnd = wann%num_wann
       call assert(orbs%norb == nbnd, "PES_Intensity: orbs%norb == nbnd")
+      call assert_shape(vectk,[nbnd,nbnd],"PES_Intensity","vectk")
 
       Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2)
       if(Ez < 1.0e-5_dp) then
@@ -149,13 +149,6 @@ contains
       kvec(1:2) = kpar
       kvec(3) = sqrt(2.0_dp * Ez)
 
-      kpt = 0.0_dp
-      kpt(1:2) = utility_Cart2Red_2D(wann%recip_reduced,kvec(1:2))
-
-      allocate(epsk(nbnd),Hk(nbnd,nbnd),vectk(nbnd,nbnd))
-      Hk = wann%get_ham(kpt)
-      call EigHE(Hk,epsk,vectk)
-      epsk = epsk + Eshift
 
       if(all(abs(epsk + wphot - Epe) > 6 * eta)) then
          int = 0.0_dp
@@ -165,6 +158,7 @@ contains
       allocate(matel(nbnd,3),matel_pol(nbnd))
 
       call PES_MatrixElements(orbs,wann,scattwf,kvec,vectk,lam,matel,gauge=gauge_)
+
       matel_pol = zero
       do idir=1,3
          matel_pol(:) = matel_pol(:) + pol(idir) * matel(:,idir)
@@ -176,7 +170,6 @@ contains
          int = int + abs(matel_pol(ibnd))**2 * gauss(eta, epsk(ibnd) + wphot - Epe)   
       end do
 
-      deallocate(epsk,Hk,vectk)
       deallocate(matel,matel_pol)
 
 

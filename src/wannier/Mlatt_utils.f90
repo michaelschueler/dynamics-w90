@@ -60,7 +60,7 @@ contains
    end subroutine utility_recip_reduced
 !--------------------------------------------------------------------------------------
    function utility_Cart2Red_2D(recip_red,kvec) result(kred)
-      real(dp),intent(in) :: recip_red(2,2)  
+      real(dp),intent(in) :: recip_red(:,:)  
       real(dp),intent(in) :: kvec(2)
       real(dp)            :: kred(2)
 
@@ -69,7 +69,7 @@ contains
    end function utility_Cart2Red_2D
 !--------------------------------------------------------------------------------------
    function utility_Cart2Red_3D(recip_red,kvec) result(kred)
-      real(dp),intent(in) :: recip_red(3,3)  
+      real(dp),intent(in) :: recip_red(:,:)  
       real(dp),intent(in) :: kvec(3)
       real(dp)            :: kred(3)
 

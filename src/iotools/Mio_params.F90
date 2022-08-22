@@ -171,7 +171,7 @@ contains
       real(dp)           :: Zeff=0.0_dp
       real(dp)           :: polvec_real(3),polvec_imag(3)
       namelist/PESPARAMS/file_orbs,gauge,Nepe,wphot,Eshift,Epe_min,Epe_max,lambda_esc,&
-         eta_smear,Zeff,polvec_real,polvec_imag
+         eta_smear,Zeff,polvec_real,polvec_imag,kpts_reduced,scatt_type
       integer :: unit_inp
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')

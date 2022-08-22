@@ -4,6 +4,7 @@ module Marpes_calc
    use Mdebug
    use Mdef,only: dp,iu,zero
    use Mutils,only: str
+   use Mlatt_utils,only: utility_Cart2Red_2D
    use Mham_w90,only: wann90_tb_t
    use Mwannier_orbitals,only: wannier_orbs_t
    use Mscattwf,only: scattwf_t
@@ -18,6 +19,7 @@ module Marpes_calc
    public :: arpes_calc_t
 !--------------------------------------------------------------------------------------
    type arpes_calc_t
+      integer     :: nbnd
       integer     :: gauge
       integer     :: Nepe
       real(dp)    :: wphot,MuChem,Eshift,lambda_esc,eta_smear
@@ -49,8 +51,10 @@ contains
       type(PESParams_t),intent(in)         :: par_pes
       real(dp),intent(in)                  :: kpts(:,:)
       integer :: ik
+      real(dp) :: kvec(3),kred(3)
 
       call ReadHamiltonian(par_ham%file_ham,me%ham,file_xyz=par_ham%file_xyz)
+      me%nbnd = me%ham%num_wann
       me%MuChem = par_ham%MuChem
 
       call ReadWannierOrbitals(par_pes%file_orbs,me%orbs)
@@ -60,6 +64,7 @@ contains
       me%Eshift = par_pes%Eshift
       me%lambda_esc = par_pes%lambda_esc
       me%eta_smear = par_pes%eta_smear    
+      me%polvec = par_pes%polvec
 
       allocate(me%Epe(me%Nepe))
       if(me%Nepe == 1) then
@@ -85,20 +90,37 @@ contains
    end subroutine Init
 !--------------------------------------------------------------------------------------
    subroutine CalcPES(me)
+      use Mlinalg,only: EigHE
       class(arpes_calc_t) :: me
       integer :: ik,iepe
-      real(dp) :: kpar(2)
+      real(dp) :: kpar(2),kpt(3)
+      real(dp),allocatable :: epsk(:)
+      complex(dp),allocatable :: Hk(:,:),vectk(:,:)
+
+      allocate(epsk(me%nbnd),Hk(me%nbnd,me%nbnd),vectk(me%nbnd,me%nbnd))
+
 
       allocate(me%spect(me%Nepe,me%Nk))
 
+      kpt = 0.0_dp
       do ik=1,me%Nk
          kpar(1:2) = me%kpts(ik,1:2)
+         kpt(1:2) = utility_Cart2Red_2D(me%ham%recip_reduced,kpar)
+
+         print*, kpt
+
+         Hk = me%ham%get_ham(kpt)
+         call EigHE(Hk,epsk,vectk)
+         epsk = epsk + me%Eshift
+
          !$OMP PARALLEL DO
          do iepe=1,me%Nepe
             me%spect(iepe,ik) = PES_Intensity(me%orbs,me%ham,me%chi,kpar,me%wphot,&
-               me%polvec,me%Epe(iepe),me%Eshift,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge)
+               me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge)
          end do
       end do
+
+      deallocate(epsk,Hk,vectk)
 
    end subroutine CalcPES
 !--------------------------------------------------------------------------------------

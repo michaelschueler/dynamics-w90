@@ -19,6 +19,7 @@ contains
 
       if(check_file_ext(fname, "txt") .or. check_file_ext(fname, "dat")) then
          call orbs%ReadFromTXT(fname)
+      elseif(check_file_ext(fname, "h5")) then
 #ifdef WITHHDF5
          call orbs%ReadFromHDF5(fname)
 #else
