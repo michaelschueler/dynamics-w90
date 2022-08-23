@@ -82,13 +82,13 @@ contains
       do irpt2d=1,nrpts_2d
          do i=1,nlayer
             do j=1,nlayer
-               slab_w90%ham_r((j-1)*nwan+1:j*nwan,(i-1)*nwan:i*nwan,irpt2d) = &
+               slab_w90%ham_r((j-1)*nwan+1:j*nwan,(i-1)*nwan+1:i*nwan,irpt2d) = &
                   Hij(:,:,i-j+ijmax_+1,irpt2d)
-               slab_w90%pos_r((j-1)*nwan+1:j*nwan,(i-1)*nwan:i*nwan,irpt2d,1) = &
+               slab_w90%pos_r((j-1)*nwan+1:j*nwan,(i-1)*nwan+1:i*nwan,irpt2d,1) = &
                   Dij(:,:,i-j+ijmax_+1,irpt2d,1)
-               slab_w90%pos_r((j-1)*nwan+1:j*nwan,(i-1)*nwan:i*nwan,irpt2d,2) = &
+               slab_w90%pos_r((j-1)*nwan+1:j*nwan,(i-1)*nwan+1:i*nwan,irpt2d,2) = &
                   Dij(:,:,i-j+ijmax_+1,irpt2d,2)
-               slab_w90%pos_r((j-1)*nwan+1:j*nwan,(i-1)*nwan:i*nwan,irpt2d,3) = &
+               slab_w90%pos_r((j-1)*nwan+1:j*nwan,(i-1)*nwan+1:i*nwan,irpt2d,3) = &
                   Dij(:,:,i-j+ijmax_+1,irpt2d,3)
             end do
          end do
