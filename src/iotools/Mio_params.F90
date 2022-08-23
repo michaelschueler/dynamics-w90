@@ -61,7 +61,6 @@ module Mio_params
       real(dp)           :: Epe_min,Epe_max  
       real(dp)           :: lambda_esc=0.0_dp      
       real(dp)           :: eta_smear=1.0e-3_dp
-      real(dp)           :: Zeff=0.0_dp
       complex(dp)        :: polvec(3)
    contains
       procedure, public :: ReadFromFile => PES_ReadFromFile  
@@ -168,10 +167,9 @@ contains
       real(dp)           :: Epe_min,Epe_max  
       real(dp)           :: lambda_esc=0.0_dp      
       real(dp)           :: eta_smear=1.0e-3_dp
-      real(dp)           :: Zeff=0.0_dp
       real(dp)           :: polvec_real(3),polvec_imag(3)
       namelist/PESPARAMS/file_orbs,gauge,Nepe,wphot,Eshift,Epe_min,Epe_max,lambda_esc,&
-         eta_smear,Zeff,polvec_real,polvec_imag,kpts_reduced,scatt_type
+         eta_smear,polvec_real,polvec_imag,kpts_reduced,scatt_type
       integer :: unit_inp
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
@@ -189,7 +187,6 @@ contains
       me%Epe_max = Epe_max
       me%lambda_esc = lambda_esc
       me%eta_smear = eta_smear
-      me%Zeff = Zeff
       me%polvec = polvec_real + iu * polvec_imag
 
    end subroutine PES_ReadFromFile

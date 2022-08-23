@@ -18,7 +18,8 @@ module Mwannier_orbitals
       integer :: natoms,norb,nr
       integer,allocatable,dimension(:)    :: atom_indx
       integer,allocatable,dimension(:)    :: L_indx,M_indx,N_indx
-      real(dp),allocatable,dimension(:)   :: rs,Zeff
+      real(dp),allocatable,dimension(:)   :: weight
+      real(dp),allocatable,dimension(:)   :: rs,Zorb,Zscatt
       real(dp),allocatable,dimension(:,:) :: Rrad
    contains
       procedure,public  :: ReadFromTXT
@@ -50,11 +51,15 @@ contains
       read(unit_inp,*) me%L_indx
       read(unit_inp,*) me%M_indx           
 
+      allocate(me%weight(me%norb))
+      read(unit_inp,*) me%weight
+
       select case(me%wf_type)
       case(wf_slater)
-         allocate(me%N_indx(me%norb),me%Zeff(me%norb))
+         allocate(me%N_indx(me%norb),me%Zorb(me%norb),me%Zscatt(me%norb))
          read(unit_inp,*) me%N_indx
-         read(unit_inp,*) me%Zeff
+         read(unit_inp,*) me%Zorb
+         read(unit_inp,*) me%Zscatt
       case(wf_grid) 
          read(unit_inp,*) me%nr         
          allocate(me%rs(me%nr),me%Rrad(me%nr,me%norb))
@@ -95,11 +100,17 @@ contains
       call hdf_read_dataset(file_id,'l_indx',me%L_indx)
       call hdf_read_dataset(file_id,'m_indx',me%M_indx)
 
+      allocate(me%weight(me%norb))
+      call hdf_read_dataset(file_id,'weight',me%weight)
+
+      allocate(me%Zscatt(me%norb))
+      call hdf_read_dataset(file_id,'zscatt',me%Zscatt)
+
       select case(me%wf_type)
       case(wf_slater)
-         allocate(me%N_indx(me%norb),me%Zeff(me%norb))
+         allocate(me%N_indx(me%norb),me%Zorb(me%norb))
          call hdf_read_dataset(file_id,'n_indx',me%N_indx)
-         call hdf_read_dataset(file_id,'zeff',me%Zeff)
+         call hdf_read_dataset(file_id,'zorb',me%Zorb)
       case(wf_grid) 
          call hdf_read_attribute(file_id,'','nr', me%nr)
          allocate(me%rs(me%nr),me%Rrad(me%nr,me%norb))

@@ -50,7 +50,7 @@ program arpes
    end if
 
    call calc%Init(par_ham,par_pes,kpts)
- 
+
    write(output_unit,*)
    call Timer_Toc(N=2)
 !--------------------------------------------------------------------------------------

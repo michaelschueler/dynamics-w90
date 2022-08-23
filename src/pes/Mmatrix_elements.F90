@@ -9,14 +9,23 @@ module Mmatrix_elements
    use Mangcoeff,only: ClebGord,ThreeYlm
    use Mradialwf,only: radialwf_t
    use Mscattwf,only: scattwf_t
+   use Mradialintegral,only: radialintegral_t
    implicit none
    include "../units_inc.f90"
    include "../formats.h"
 !--------------------------------------------------------------------------------------
    private
    public :: ScattMatrixElement_Momentum, ScattMatrixElement_Length
+
+   interface ScattMatrixElement_Momentum
+      module procedure ScattMatrixElement_Momentum_comp, ScattMatrixElement_Momentum_precomp
+   end interface ScattMatrixElement_Momentum
+
+   interface ScattMatrixElement_Length
+      module procedure ScattMatrixElement_Length_comp, ScattMatrixElement_Length_precomp
+   end interface ScattMatrixElement_Length
 !-------------------------------------------------------------------------------------- 
-   real(dp),parameter :: quad_tol=1.0e-12_dp
+   real(dp),parameter :: quad_tol=1.0e-8_dp
 !--------------------------------------------------------------------------------------   
 contains
 !--------------------------------------------------------------------------------------
@@ -87,7 +96,7 @@ contains
 
    end function AngularMatrixElement
 !--------------------------------------------------------------------------------------
-   function ScattMatrixElement_Momentum(swf,rwf,l0,m0,kvec) result(Md)
+   function ScattMatrixElement_Momentum_comp(swf,rwf,l0,m0,kvec) result(Md)
       type(scattwf_t),intent(in)   :: swf
       type(radialwf_t),intent(in)  :: rwf
       integer,intent(in)           :: l0,m0
@@ -111,7 +120,7 @@ contains
          l_indx = l      
          call integral_1d(radfunc1,0.0_dp,rwf%Rmax,quad_tol,radint1)
          call integral_1d(radfunc2,0.0_dp,rwf%Rmax,quad_tol,radint2)         
-         radint(l) = radint1 + (0.5_dp* (l*(l+1) - l0*(l0+1)) + 1.0_dp) * radint2
+         radint(l) = radint1 + (0.5_dp* (l0*(l0+1) - l*(l+1)) + 1.0_dp) * radint2
       end do
 
       do l=l_min,l_max
@@ -142,9 +151,38 @@ contains
       end function radfunc2
       !.................................................
 
-   end function ScattMatrixElement_Momentum
+   end function ScattMatrixElement_Momentum_comp
 !--------------------------------------------------------------------------------------
-   function ScattMatrixElement_Length(swf,rwf,l0,m0,kvec) result(Mk)
+   function ScattMatrixElement_Momentum_precomp(swf,radialintegral,l0,m0,kvec) result(Md)
+      type(scattwf_t),intent(in)        :: swf
+      type(radialintegral_t),intent(in) :: radialintegral
+      integer,intent(in)                :: l0,m0
+      real(dp),intent(in)               :: kvec(3)
+      complex(dp),dimension(3)          :: Md
+      integer :: l_min,l_max,l,m
+      real(dp) :: knrm,radint
+      complex(dp) :: mel_ang(3),exphi
+
+      Md = zero
+      l_min = max(l0 - 1, 0)
+      l_max = l0 + 1
+      knrm = norm2(kvec)
+
+      do l=l_min,l_max
+         if(l == l0) cycle
+         radint = radialintegral%Eval_mom(l,l0,knrm)
+         exphi = conjg(swf%Phase(l,knrm))
+         do m=-l,l
+            mel_ang = AngularMatrixElement(l,m,l0,m0)
+            Md(1:3) = Md(1:3) + exphi * mel_ang(1:3) * radint * Ylm_cart(l,m,kvec)
+         end do
+      end do
+
+      Md = QPI * Md
+
+   end function ScattMatrixElement_Momentum_precomp
+!--------------------------------------------------------------------------------------
+   function ScattMatrixElement_Length_comp(swf,rwf,l0,m0,kvec) result(Mk)
       real(dp),parameter :: small=1.0e-10_dp
       type(scattwf_t),intent(in)   :: swf
       type(radialwf_t),intent(in)  :: rwf
@@ -195,7 +233,44 @@ contains
       end function radfunc
       !.................................................
 
-   end function ScattMatrixElement_Length
+   end function ScattMatrixElement_Length_comp
+!-------------------------------------------------------------------------------------- 
+   function ScattMatrixElement_Length_precomp(swf,radialintegral,l0,m0,kvec) result(Mk)
+      type(scattwf_t),intent(in)        :: swf
+      type(radialintegral_t),intent(in) :: radialintegral
+      integer,intent(in)                :: l0,m0
+      real(dp),intent(in)               :: kvec(3)
+      complex(dp)                       :: Mk(3)
+      integer :: l,l_min,l_max
+      real(dp) :: knrm,rint
+      real(dp) :: gnt(3)
+      complex(dp) :: exphi
+
+      Mk = zero
+      l_min = max(l0 - 1, 0)
+      l_max = l0 + 1
+      knrm = norm2(kvec)
+
+      ! evaluate 
+      do l=l_min,l_max
+         if(l == l0) cycle
+         rint = radialintegral%Eval_len(l,knrm)
+         ! call integral_1d(radfunc,0.0_dp,rwf%Rmax,quad_tol,rint)         
+         gnt(1) = ThreeYlm(l,-m0+1,1,-1,l0,m0)
+         gnt(2) = ThreeYlm(l,-m0-1,1,1,l0,m0)
+         gnt(3) = ThreeYlm(l,-m0,1,0,l0,m0)
+         exphi = conjg(swf%Phase(l,knrm))
+
+         Mk(1) = Mk(1) + exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
+            - gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint / sqrt(2.0d0)
+         Mk(2) = Mk(2) + iu*exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
+            + gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint / sqrt(2.0d0)
+         Mk(3) = Mk(3) + exphi * gnt(3) * rint * conjg(Ylm_cart(l,-m0,kvec))
+      end do
+
+      Mk = QPI * sqrt(QPI/3.0d0) * Mk
+
+   end function ScattMatrixElement_Length_precomp
 !-------------------------------------------------------------------------------------- 
 
 

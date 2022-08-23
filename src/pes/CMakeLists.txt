@@ -10,6 +10,7 @@ set(OBJECT_FILES
 	Mradialwf.F90
 	Mscattwf.F90
 	Mwignerd.f90
+	Mradialintegral.F90
 	Mpes_intensity.F90
 )
 
