@@ -159,26 +159,33 @@ contains
       integer,intent(in)                :: l0,m0
       real(dp),intent(in)               :: kvec(3)
       complex(dp),dimension(3)          :: Md
-      integer :: l_min,l_max,l,m
-      real(dp) :: knrm,radint
+      integer :: l,m
+      real(dp) :: knrm,rint(2)
       complex(dp) :: mel_ang(3),exphi
 
       Md = zero
-      l_min = max(l0 - 1, 0)
-      l_max = l0 + 1
       knrm = norm2(kvec)
 
-      do l=l_min,l_max
-         if(l == l0) cycle
-         radint = radialintegral%Eval_mom(l,l0,knrm)
-         exphi = conjg(swf%Phase(l,knrm))
+      call radialintegral%Eval_mom(knrm,rint)
+
+      l = l0 - 1
+      exphi = conjg(swf%Phase(l,knrm))
+      if(l >= 0) then
          do m=-l,l
             mel_ang = AngularMatrixElement(l,m,l0,m0)
-            Md(1:3) = Md(1:3) + exphi * mel_ang(1:3) * radint * Ylm_cart(l,m,kvec)
-         end do
-      end do
+            Md(1:3) = Md(1:3) + exphi * mel_ang(1:3) * rint(1) * Ylm_cart(l,m,kvec)
+         end do         
+      end if
+
+      l = l0 + 1
+      exphi = conjg(swf%Phase(l,knrm))
+      do m=-l,l
+         mel_ang = AngularMatrixElement(l,m,l0,m0)
+         Md(1:3) = Md(1:3) + exphi * mel_ang(1:3) * rint(2) * Ylm_cart(l,m,kvec)
+      end do          
 
       Md = QPI * Md
+
 
    end function ScattMatrixElement_Momentum_precomp
 !--------------------------------------------------------------------------------------
@@ -241,32 +248,41 @@ contains
       integer,intent(in)                :: l0,m0
       real(dp),intent(in)               :: kvec(3)
       complex(dp)                       :: Mk(3)
-      integer :: l,l_min,l_max
-      real(dp) :: knrm,rint
+      integer :: l
+      real(dp) :: knrm,rint(2)
       real(dp) :: gnt(3)
       complex(dp) :: exphi
 
       Mk = zero
-      l_min = max(l0 - 1, 0)
-      l_max = l0 + 1
       knrm = norm2(kvec)
 
-      ! evaluate 
-      do l=l_min,l_max
-         if(l == l0) cycle
-         rint = radialintegral%Eval_len(l,knrm)
-         ! call integral_1d(radfunc,0.0_dp,rwf%Rmax,quad_tol,rint)         
+      call radialintegral%Eval_len(knrm,rint)
+
+      l = l0 - 1
+      if(l >= 0) then
          gnt(1) = ThreeYlm(l,-m0+1,1,-1,l0,m0)
          gnt(2) = ThreeYlm(l,-m0-1,1,1,l0,m0)
          gnt(3) = ThreeYlm(l,-m0,1,0,l0,m0)
          exphi = conjg(swf%Phase(l,knrm))
 
          Mk(1) = Mk(1) + exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
-            - gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint / sqrt(2.0d0)
+            - gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(1) / sqrt(2.0d0)
          Mk(2) = Mk(2) + iu*exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
-            + gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint / sqrt(2.0d0)
-         Mk(3) = Mk(3) + exphi * gnt(3) * rint * conjg(Ylm_cart(l,-m0,kvec))
-      end do
+            + gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(1) / sqrt(2.0d0)
+         Mk(3) = Mk(3) + exphi * gnt(3) * rint(1) * conjg(Ylm_cart(l,-m0,kvec))
+      end if
+
+      l = l0 + 1
+      gnt(1) = ThreeYlm(l,-m0+1,1,-1,l0,m0)
+      gnt(2) = ThreeYlm(l,-m0-1,1,1,l0,m0)
+      gnt(3) = ThreeYlm(l,-m0,1,0,l0,m0)
+      exphi = conjg(swf%Phase(l,knrm))
+
+      Mk(1) = Mk(1) + exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
+         - gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(2) / sqrt(2.0d0)
+      Mk(2) = Mk(2) + iu*exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
+         + gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(2) / sqrt(2.0d0)
+      Mk(3) = Mk(3) + exphi * gnt(3) * rint(2) * conjg(Ylm_cart(l,-m0,kvec))              
 
       Mk = QPI * sqrt(QPI/3.0d0) * Mk
 

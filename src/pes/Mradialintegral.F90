@@ -17,9 +17,10 @@ module Mradialintegral
    real(dp),parameter :: quad_tol=1.0e-8_dp
 !--------------------------------------------------------------------------------------   
    type radialintegral_t   
-      integer  :: lmin,lmax
+      integer  :: l0
       real(dp) :: kmin,kmax
-      type(spline1d_t),allocatable,dimension(:) :: len_spl,mom1_spl,mom2_spl
+      type(spline1d_t) :: len_spl_m1,len_spl_p1
+      type(spline1d_t) :: mom1_spl_m1,mom1_spl_p1,mom2_spl_m1,mom2_spl_p1
    contains
       procedure,public :: Init
       procedure,public :: Eval_len
@@ -28,18 +29,18 @@ module Mradialintegral
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,lmin,lmax,kmin,kmax,swf,rwf,nk,gauge)
+   subroutine Init(me,l0,kmin,kmax,swf,rwf,nk,gauge)
       use Mutils,only: linspace
       integer,parameter   :: kx=4
       class(radialintegral_t)     :: me
-      integer,intent(in)          :: lmin,lmax
+      integer,intent(in)          :: l0
       real(dp),intent(in)         :: kmin,kmax
       type(scattwf_t),intent(in)  :: swf
       type(radialwf_t),intent(in) :: rwf
       integer,intent(in),optional :: nk
       integer,intent(in),optional :: gauge      
       integer :: nk_,gauge_
-      integer :: l,l_indx,ik
+      integer :: l_indx,ik
       integer :: iflag
       real(dp) :: knrm
       real(dp),allocatable :: ks(:),rint(:),rint1(:),rint2(:)
@@ -50,43 +51,70 @@ contains
       gauge_ = gauge_len
       if(present(gauge)) gauge_ = gauge
 
-      me%lmin = lmin
-      me%lmax = lmax
+      me%l0 = l0
 
       me%kmin = kmin; me%kmax = kmax
       ks = linspace(kmin, kmax, nk_)
 
       select case(gauge_)
       case(gauge_len)
-         allocate(me%len_spl(lmin:lmax))
          allocate(rint(nk_))
-         do l=lmin,lmax
-            l_indx = l
+
+         l_indx = l0 - 1
+         if(l_indx >= 0) then
             do ik=1,nk_
                knrm = ks(ik)
                call integral_1d(radfunc_len,0.0_dp,rwf%Rmax,quad_tol,rint(ik))  
             end do
+         else
+            rint = 0.0_dp
+         end if
 
-            iflag = 0
-            call me%len_spl(l)%Init(ks,rint,kx,iflag)
+         iflag = 0
+         call me%len_spl_m1%Init(ks,rint,kx,iflag)
+
+         l_indx = l0 + 1
+         do ik=1,nk_
+            knrm = ks(ik)
+            call integral_1d(radfunc_len,0.0_dp,rwf%Rmax,quad_tol,rint(ik))  
          end do
+
+         iflag = 0
+         call me%len_spl_p1%Init(ks,rint,kx,iflag)
+
          deallocate(rint)
+
       case(gauge_mom)
-         allocate(me%mom1_spl(lmin:lmax),me%mom2_spl(lmin:lmax))
          allocate(rint1(nk_),rint2(nk_))
-         do l=lmin,lmax
-            l_indx = l
+         l_indx = l0 - 1
+         if(l_indx >= 0) then
             do ik=1,nk_
                knrm = ks(ik)
                call integral_1d(radfunc_mom1,0.0_dp,rwf%Rmax,quad_tol,rint1(ik))  
-               call integral_1d(radfunc_mom2,0.0_dp,rwf%Rmax,quad_tol,rint2(ik))  
+               call integral_1d(radfunc_mom2,0.0_dp,rwf%Rmax,quad_tol,rint2(ik))
             end do
+         else
+            rint1 = 0.0_dp
+            rint2 = 0.0_dp
+         end if         
 
-            iflag = 0
-            call me%mom1_spl(l)%Init(ks,rint1,kx,iflag)
-            iflag = 0
-            call me%mom2_spl(l)%Init(ks,rint2,kx,iflag)
-         end do
+         iflag = 0
+         call me%mom1_spl_m1%Init(ks,rint1,kx,iflag)        
+         iflag = 0 
+         call me%mom2_spl_m1%Init(ks,rint2,kx,iflag)
+
+         l_indx = l0 + 1
+         do ik=1,nk_
+            knrm = ks(ik)
+            call integral_1d(radfunc_mom1,0.0_dp,rwf%Rmax,quad_tol,rint1(ik))  
+            call integral_1d(radfunc_mom2,0.0_dp,rwf%Rmax,quad_tol,rint2(ik))
+         end do         
+
+         iflag = 0
+         call me%mom1_spl_p1%Init(ks,rint1,kx,iflag)        
+         iflag = 0 
+         call me%mom2_spl_p1%Init(ks,rint2,kx,iflag)
+
          deallocate(rint1,rint2)         
       end select
 
@@ -118,11 +146,10 @@ contains
 
    end subroutine Init
 !--------------------------------------------------------------------------------------
-   function Eval_len(me,l,k) result(rint)
+   subroutine Eval_len(me,k,rint)
       class(radialintegral_t)     :: me
-      integer,intent(in)          :: l
       real(dp),intent(in)         :: k
-      real(dp)                    :: rint
+      real(dp),intent(out)        :: rint(2)
       integer :: iflag,inbvx
 
       ! print*, k, me%kmin, me%kmax
@@ -132,23 +159,19 @@ contains
          return
       end if
 
-      if(l < me%lmin .or. l > me%lmax) then
-         write(output_unit,fmt700) "Eval_len: l out of bounds"         
-         rint = 0.0_dp
-         return
-      end if
-
       inbvx = 1
-      rint = me%len_spl(l)%Eval(k,0,iflag,inbvx)
+      rint(1) = me%len_spl_m1%Eval(k,0,iflag,inbvx)
+      inbvx = 1
+      rint(2) = me%len_spl_p1%Eval(k,0,iflag,inbvx)     
 
-   end function Eval_len
+   end subroutine Eval_len
 !--------------------------------------------------------------------------------------
-   function Eval_mom(me,l,l0,k) result(rint)
+   subroutine Eval_mom(me,k,rint)
       class(radialintegral_t)     :: me
-      integer,intent(in)          :: l,l0
       real(dp),intent(in)         :: k
-      real(dp)                    :: rint
+      real(dp),intent(out)        :: rint(2)
       integer :: iflag,inbvx
+      integer :: l
       real(dp) :: rint1,rint2
 
       if(k < me%kmin .or. k > me%kmax) then
@@ -157,20 +180,27 @@ contains
          return
       end if
 
-      if(l < me%lmin .or. l > me%lmax) then
-         write(output_unit,fmt700) "Eval_mom: l out of bounds"         
-         rint = 0.0_dp
-         return
-      end if
+      l = me%l0 - 1
 
+      if(l >= 0) then
+         inbvx = 1
+         rint1 = me%mom1_spl_m1%Eval(k,0,iflag,inbvx)
+         inbvx = 1
+         rint2 = me%mom2_spl_m1%Eval(k,0,iflag,inbvx)
+
+         rint(1) = rint1 + (0.5_dp* (me%l0*(me%l0+1) - l*(l+1)) + 1.0_dp) * rint2 
+      else
+         rint(1) = 0.0_Dp
+      end if 
+
+      l = me%l0 + 1
       inbvx = 1
-      rint1 = me%mom1_spl(l)%Eval(k,0,iflag,inbvx)
+      rint1 = me%mom1_spl_p1%Eval(k,0,iflag,inbvx)
       inbvx = 1
-      rint2 = me%mom2_spl(l)%Eval(k,0,iflag,inbvx)
+      rint2 = me%mom2_spl_p1%Eval(k,0,iflag,inbvx)
+      rint(2) = rint1 + (0.5_dp* (me%l0*(me%l0+1) - l*(l+1)) + 1.0_dp) * rint2 
 
-      rint = rint1 + (0.5_dp* (l0*(l0+1) - l*(l+1)) + 1.0_dp) * rint2      
-
-   end function Eval_mom
+   end subroutine Eval_mom
 !--------------------------------------------------------------------------------------
  
 !======================================================================================

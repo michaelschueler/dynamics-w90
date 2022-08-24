@@ -71,7 +71,7 @@ contains
       type(HamiltonianParams_t),intent(in) :: par_ham
       type(PESParams_t),intent(in)         :: par_pes
       real(dp),intent(in)                  :: kpts(:,:)
-      integer :: ik,iorb,lmin,lmax
+      integer :: ik,iorb
       real(dp) :: kmin,kmax
       real(dp) :: kvec(3),kred(3)
       type(radialwf_t) :: rwf
@@ -118,11 +118,8 @@ contains
   
       allocate(me%radints(me%nbnd))
       do iorb=1,me%nbnd
-         lmin = max(me%orbs%L_indx(iorb) - 1, 0)
-         lmax = me%orbs%L_indx(iorb) + 1
-
          call WannOrb_to_RadialWF(me%orbs,iorb,rwf)
-         call me%radints(iorb)%Init(lmin,lmax,kmin,kmax,me%chis(iorb),rwf,gauge=me%gauge)
+         call me%radints(iorb)%Init(me%orbs%L_indx(iorb),kmin,kmax,me%chis(iorb),rwf,gauge=me%gauge)
          call rwf%Clean()
       end do
 
