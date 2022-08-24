@@ -10,7 +10,6 @@ module Mutils
        stop_error, arange, loadtxt, savetxt, newunit, assert, str, &
        load_griddata, save_griddata,checkoption, linspace, print_header,&
        print_tag, print_title, get_file_ext,remove_file_ext, check_file_ext
-
   interface str
      module procedure str_int, str_real, str_real_n
   end interface str

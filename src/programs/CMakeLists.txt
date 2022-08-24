@@ -16,6 +16,7 @@ set( project_EXECUTABLES
 if(mpi)
 	set(mpi_EXECUTABLES
         wann_evol_mpi.x
+        arpes_mpi.x
 	)
 endif(mpi)
 
@@ -34,6 +35,7 @@ endforeach()
 
 # ---- MPI programs ----
 set( EXE_wann_evol_mpi.x_SOURCES Mwann_evol_mpi.F90 wann_evol_mpi.F90)
+set( EXE_arpes_mpi.x_SOURCES Marpes_calc_mpi.F90 arpes_mpi.F90)
 
 foreach( exe ${mpi_EXECUTABLES} )
     # declare the target...
