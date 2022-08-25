@@ -11,6 +11,8 @@ set(OBJECT_FILES
 	Mroot.f90
 	Mrungekutta.f90
 	Mspecial.F90
+	Mlebedev_weights.F90
+	Mlebedev_quad.F90
 )
 
 

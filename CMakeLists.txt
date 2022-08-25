@@ -78,6 +78,12 @@ if (modernquad)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DMODERNQUAD")
 endif (modernquad)
 
+# ~~ Test programs ~~
+option(compile_test "Compiling test programs" OFF)
+if (compile_test)
+  message(STATUS "Building test programs")
+endif (compile_test)
+
 # ~~ CMake Configuration ~~
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
