@@ -3,19 +3,24 @@ module Mmatrix_elements
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
    use Mdef,only: dp,iu,zero,one
+   use Mutils,only: linspace
    use Mquadrature,only: integral_1d
    use Mspecial,only: spherical_bessel_jn
-   use Mwignerd,only: ylm_cart
+   use Mlebedev_quad,only: Lebedev_integral
+   use Mwignerd,only: ylm,ylm_cart
    use Mangcoeff,only: ClebGord,ThreeYlm
    use Mradialwf,only: radialwf_t
+   use Mvector_bsplines,only: cplx_vector_spline_t, cplx_matrix_spline_t
    use Mscattwf,only: scattwf_t
-   use Mradialintegral,only: radialintegral_t
+   use Mradialintegral,only: radialinteg_t
    implicit none
    include "../units_inc.f90"
    include "../formats.h"
 !--------------------------------------------------------------------------------------
    private
    public :: ScattMatrixElement_Momentum, ScattMatrixElement_Length
+   public :: ApplyDipoleOp, ApplyMomentumOp, ApplyLengthOp
+   public :: dipole_lambda_projection, dipole_lambda_BesselTransform, ScattMatrixElement_Lambda
 
    interface ScattMatrixElement_Momentum
       module procedure ScattMatrixElement_Momentum_comp, ScattMatrixElement_Momentum_precomp
@@ -24,8 +29,13 @@ module Mmatrix_elements
    interface ScattMatrixElement_Length
       module procedure ScattMatrixElement_Length_comp, ScattMatrixElement_Length_precomp
    end interface ScattMatrixElement_Length
+
+   interface ScattMatrixElement_Lambda
+      module procedure ScattMatrixElement_Lambda_comp, ScattMatrixElement_Lambda_precomp
+   end interface ScattMatrixElement_Lambda   
 !-------------------------------------------------------------------------------------- 
    real(dp),parameter :: quad_tol=1.0e-8_dp
+   integer,parameter :: wf_slater=0, wf_grid=1
 !--------------------------------------------------------------------------------------   
 contains
 !--------------------------------------------------------------------------------------
@@ -153,9 +163,9 @@ contains
 
    end function ScattMatrixElement_Momentum_comp
 !--------------------------------------------------------------------------------------
-   function ScattMatrixElement_Momentum_precomp(swf,radialintegral,l0,m0,kvec) result(Md)
+   function ScattMatrixElement_Momentum_precomp(swf,radialinteg,l0,m0,kvec) result(Md)
       type(scattwf_t),intent(in)        :: swf
-      type(radialintegral_t),intent(in) :: radialintegral
+      type(radialinteg_t),intent(in) :: radialinteg
       integer,intent(in)                :: l0,m0
       real(dp),intent(in)               :: kvec(3)
       complex(dp),dimension(3)          :: Md
@@ -166,7 +176,7 @@ contains
       Md = zero
       knrm = norm2(kvec)
 
-      call radialintegral%Eval_mom(knrm,rint)
+      call radialinteg%Eval_mom(knrm,rint)
 
       l = l0 - 1
       exphi = conjg(swf%Phase(l,knrm))
@@ -242,9 +252,9 @@ contains
 
    end function ScattMatrixElement_Length_comp
 !-------------------------------------------------------------------------------------- 
-   function ScattMatrixElement_Length_precomp(swf,radialintegral,l0,m0,kvec) result(Mk)
+   function ScattMatrixElement_Length_precomp(swf,radialinteg,l0,m0,kvec) result(Mk)
       type(scattwf_t),intent(in)        :: swf
-      type(radialintegral_t),intent(in) :: radialintegral
+      type(radialinteg_t),intent(in)    :: radialinteg
       integer,intent(in)                :: l0,m0
       real(dp),intent(in)               :: kvec(3)
       complex(dp)                       :: Mk(3)
@@ -256,7 +266,7 @@ contains
       Mk = zero
       knrm = norm2(kvec)
 
-      call radialintegral%Eval_len(knrm,rint)
+      call radialinteg%Eval_len(knrm,rint)
 
       l = l0 - 1
       if(l >= 0) then
@@ -288,8 +298,418 @@ contains
 
    end function ScattMatrixElement_Length_precomp
 !-------------------------------------------------------------------------------------- 
+   subroutine ApplyDipoleOp(rwf,l0,m0,dipwf_m1,dipwf_p1,gauge)
+      integer,parameter :: gauge_len=0, gauge_mom=1
+      type(radialwf_t),intent(in)            :: rwf
+      integer,intent(in)                     :: l0,m0
+      type(cplx_matrix_spline_t),intent(out) :: dipwf_m1,dipwf_p1
+      integer,intent(in)                     :: gauge
+
+      select case(gauge)
+      case(gauge_len)
+         call ApplyLengthOp(rwf,l0,m0,dipwf_m1,dipwf_p1)
+      case(gauge_mom)
+         call ApplyMomentumOp(rwf,l0,m0,dipwf_m1,dipwf_p1)
+      end select
+
+   end subroutine ApplyDipoleOp
+!-------------------------------------------------------------------------------------- 
+   subroutine ApplyLengthOp(rwf,l0,m0,dipwf_m1,dipwf_p1)
+      integer,parameter :: Nr=400
+      type(radialwf_t),intent(in)            :: rwf
+      integer,intent(in)                     :: l0,m0
+      type(cplx_matrix_spline_t),intent(out) :: dipwf_m1,dipwf_p1
+      integer :: l,m,i,ir,sig
+      real(dp) :: rmax,rv
+      real(dp) :: gnt(3)
+      real(dp),allocatable :: rs(:)
+      complex(dp),allocatable :: Rfun(:,:,:)
+
+      Rmax = rwf%Rmax
+      rs = linspace(0.0_dp, Rmax, Nr)
+
+      !.......................................
+      !            l = l0 + 1
+      !.......................................
+      l = l0 + 1
+
+      gnt(1) = ThreeYlm(l,-m0+1,1,-1,l0,m0)
+      gnt(2) = ThreeYlm(l,-m0-1,1,1,l0,m0)
+      gnt(3) = ThreeYlm(l,-m0,1,0,l0,m0)      
+
+      allocate(Rfun(Nr,2*l+1,3)); Rfun = zero
+      do m= -l, l
+         i = m + l + 1
+         sig = minusone_n(m)
+         if(m == m0-1) then
+            do ir=1,Nr
+               rv = rs(ir) * rwf%Eval(rs(ir))
+               Rfun(ir,i,1) = sig * gnt(1) * rv / sqrt(2.0d0)
+               Rfun(ir,i,2) = sig * iu * gnt(1) * rv / sqrt(2.0d0)
+            end do
+         elseif(m == m0 + 1) then
+            do ir=1,Nr
+               rv = rs(ir) * rwf%Eval(rs(ir))
+               Rfun(ir,i,1) = -sig * gnt(2) * rv / sqrt(2.0d0)
+               Rfun(ir,i,2) = sig * iu * gnt(2) * rv / sqrt(2.0d0)
+            end do            
+         elseif(m == m0) then
+            do ir=1,Nr
+               rv = rs(ir) * rwf%Eval(rs(ir))
+               Rfun(ir,i,3) = sig * gnt(3) * rv
+            end do
+         end if
+      end do
+      Rfun = sqrt(QPI/3.0d0) * Rfun 
+
+      call dipwf_p1%Init(rs, Rfun, 2*l+1, 3)
+
+      deallocate(Rfun)
+
+      !.......................................
+      !            l = l0 - 1
+      !.......................................
+      l = l0 - 1
+
+      if(l0 > 0) then
+         allocate(Rfun(Nr,2*l+1,3)); Rfun = zero
+
+         do m= -l, l
+            i = m + l + 1
+            sig = minusone_n(m)
+            if(m == m0-1) then
+               do ir=1,Nr
+                  rv = rs(ir) * rwf%Eval(rs(ir))
+                  Rfun(ir,i,1) = sig * gnt(1) * rv / sqrt(2.0d0)
+                  Rfun(ir,i,2) = sig * iu * gnt(1) * rv / sqrt(2.0d0)
+               end do
+            elseif(m == m0 + 1) then
+               do ir=1,Nr
+                  rv = rs(ir) * rwf%Eval(rs(ir))
+                  Rfun(ir,i,1) = -sig * gnt(2) * rv / sqrt(2.0d0)
+                  Rfun(ir,i,2) = sig * iu * gnt(2) * rv / sqrt(2.0d0)
+               end do            
+            elseif(m == m0) then
+               do ir=1,Nr
+                  rv = rs(ir) * rwf%Eval(rs(ir))
+                  Rfun(ir,i,3) = sig * gnt(3) * rv
+               end do
+            end if
+         end do
+         Rfun = sqrt(QPI/3.0d0) * Rfun 
+
+         call dipwf_m1%Init(rs, Rfun, 2*l+1, 3)
+      else
+         allocate(Rfun(Nr,1,3)); Rfun = zero
+         call dipwf_m1%Init(rs, Rfun, 1, 3)
+      end if
+
+      deallocate(Rfun)
+      deallocate(rs)
+
+   end subroutine ApplyLengthOp
+!-------------------------------------------------------------------------------------- 
+
+!-------------------------------------------------------------------------------------- 
+   subroutine ApplyMomentumOp(rwf,l0,m0,dipwf_m1,dipwf_p1)
+      integer,parameter :: Nr=400
+      real(dp),parameter :: rsmall=1.0e-6_dp
+      type(radialwf_t),intent(in)            :: rwf
+      integer,intent(in)                     :: l0,m0
+      type(cplx_matrix_spline_t),intent(out) :: dipwf_m1,dipwf_p1
+      integer :: l,m,i,ir,idir
+      real(dp) :: rmax,rv1,rv2
+      complex(dp) :: mel_ang(3)
+      real(dp),allocatable :: rs(:)
+      complex(dp),allocatable :: Rfun(:,:,:)
+
+      Rmax = rwf%Rmax
+      rs = linspace(0.0_dp, Rmax, Nr)
+
+      !.......................................
+      !            l = l0 + 1
+      !.......................................
+      l = l0 + 1 
+
+      allocate(Rfun(Nr,2*l+1,3)); Rfun = zero
+      do m= -l, l
+         i = m + l + 1
+         mel_ang = AngularMatrixElement(l,m,l0,m0)
+         do ir=1,Nr
+            rv1 = rwf%Eval(rs(ir),idx=1)
+            if(rs(ir) < rsmall) then
+               rv2 = rwf%Eval(rs(ir))/(rs(ir) + rsmall)
+            else
+               rv2 = rwf%Eval(rs(ir))/rs(ir)
+            end if
+
+            do idir=1,3
+               Rfun(ir,i,idir) = rv1 + (0.5_dp* (l0*(l0+1) - l*(l+1)) + 1.0_dp) * rv2
+            end do
+         end do
+      end do
+
+      call dipwf_p1%Init(rs, Rfun, 2*l+1, 3)
+
+      deallocate(Rfun)
+      !.......................................
+      !            l = l0 - 1
+      !.......................................
+      l = l0 - 1
+
+      if(l0 > 0) then
+         allocate(Rfun(Nr,2*l+1,3)); Rfun = zero
+         do m= -l, l
+            i = m + l + 1
+            mel_ang = AngularMatrixElement(l,m,l0,m0)
+            do ir=1,Nr
+               rv1 = rwf%Eval(rs(ir),idx=1)
+               if(rs(ir) < rsmall) then
+                  rv2 = rwf%Eval(rs(ir))/(rs(ir) + rsmall)
+               else
+                  rv2 = rwf%Eval(rs(ir))/rs(ir)
+               end if
+
+               do idir=1,3
+                  Rfun(ir,i,idir) = rv1 + (0.5_dp* (l0*(l0+1) - l*(l+1)) + 1.0_dp) * rv2
+               end do
+            end do
+         end do
+
+         call dipwf_m1%Init(rs, Rfun, 2*l+1, 3)
+      else
+         allocate(Rfun(Nr,1,3)); Rfun = zero
+         call dipwf_m1%Init(rs, Rfun, 1, 3)
+      end if
+
+      deallocate(Rfun)
+      deallocate(rs)
+
+   end subroutine ApplyMomentumOp
+!-------------------------------------------------------------------------------------- 
+   subroutine dipole_lambda_projection(lmax,l1,dipwf,lambda,rc,lam_dip_Rfun)
+      real(dp),parameter :: epsabs=1.0e-8_dp,lam_small=1.0e-6_dp
+      integer,intent(in)                     :: lmax
+      integer,intent(in)                     :: l1
+      type(cplx_matrix_spline_t),intent(in)  :: dipwf
+      real(dp),intent(in)                    :: lambda
+      real(dp),intent(in)                    :: rc
+      complex(dp),intent(inout)              :: lam_dip_Rfun(:,:)
+      integer :: nstep,idir,l,m,icmp
+      integer :: inbvx(2)
+      complex(dp),allocatable :: Rfun(:,:)
+
+      nstep = max(nint(lambda * rc),1)
+
+      lam_dip_Rfun = zero
+      do idir=1,3
+         icmp = 0
+         do l=0,lmax
+            do m=-l,l
+               icmp = icmp + 1
+               if(abs(m) > l1) cycle
+               inbvx = 1
+               lam_dip_Rfun(icmp,idir) = QPI * Lebedev_integral(spherical_func,epsabs,.false.)
+            end do
+         end do
+      end do
+
+      !.................................................
+      contains
+      !.................................................
+         complex(dp) function spherical_func(theta,phi)
+            real(dp),intent(in) :: theta,phi
+            integer :: i1,istep
+            complex(dp) :: dfun
+            complex(dp) :: dipr(2*l1+1,3)
+
+            i1 = m + l1 + 1
+            dipr = dipwf%Eval_component(rc,i1,idir,inbvx=inbvx)
+            dfun = ylm(l1,m,phi,theta) * dipr(i1,idir)
+
+            if(lambda > lam_small) then
+               do istep=1,nstep
+                  dfun = dfun * exp(lambda * rc * cos(phi) / nstep)
+               end do
+            end if
+
+            spherical_func = conjg(ylm(l,m,phi,theta)) * dfun
+
+         end function spherical_func
+      !.................................................      
+
+   end subroutine dipole_lambda_projection
+!-------------------------------------------------------------------------------------- 
+   function ScattMatrixElement_Lambda_comp(lmax,swf,lam_dip,kvec) result(Mk)
+      integer,intent(in)                    :: lmax
+      type(scattwf_t),intent(in)            :: swf
+      type(cplx_matrix_spline_t),intent(in) :: lam_dip
+      real(dp),intent(in)                   :: kvec(3)
+      complex(dp)                           :: Mk(3)
+      integer :: l,m,ncmp,icmp,idir
+      integer :: inbvx(2)
+      real(dp) :: Rmax,knrm,rint_re,rint_im
+      complex(dp) :: rintz,exphi
+
+      ncmp = 0
+      do l=0,lmax
+         do m=-l,l
+            ncmp = ncmp + 1      
+         end do
+      end do
+
+      Mk = zero
+      knrm = norm2(kvec)
+      Rmax = lam_dip%xlim(2)
+
+      icmp = 0
+      do l=0,lmax
+         exphi = conjg(swf%Phase(l,knrm))
+         do m=-l,l
+            icmp = icmp + 1      
+
+            do idir=1,3
+               inbvx = 1
+               call integral_1d(radial_func_re,0.0_dp,Rmax,quad_tol,rint_re)
+               call integral_1d(radial_func_im,0.0_dp,Rmax,quad_tol,rint_im)    
+               rintz = cmplx(rint_re, rint_im, kind=dp)
+               Mk(idir) = Mk(idir) + QPI * exphi * rintz * Ylm_cart(l,m,kvec)
+            end do
+
+         end do
+      end do      
+
+      !.................................................
+      contains
+      !.................................................
+         real(dp) function radial_func_re(r)
+            real(dp),intent(in) :: r
+            complex(dp) :: y
+
+            y = lam_dip%Eval_component(r,icmp,idir,inbvx=inbvx)
+            radial_func_re = r**2 * dble(y) * swf%Eval(l, knrm, r)
+
+         end function radial_func_re
+      !.................................................      
+         real(dp) function radial_func_im(r)
+            real(dp),intent(in) :: r
+            complex(dp) :: y
+
+            y = lam_dip%Eval_component(r,icmp,idir,inbvx=inbvx)
+            radial_func_im = r**2 * aimag(y) * swf%Eval(l, knrm, r)
+
+         end function radial_func_im
+      !.................................................      
+
+   end function ScattMatrixElement_Lambda_comp
+!-------------------------------------------------------------------------------------- 
+   function ScattMatrixElement_Lambda_precomp(lmax,swf,lam_dip_integ,kvec) result(Mk)
+      integer,intent(in)                    :: lmax
+      type(scattwf_t),intent(in)            :: swf
+      type(cplx_matrix_spline_t),intent(in) :: lam_dip_integ
+      real(dp),intent(in)                   :: kvec(3)
+      complex(dp)                           :: Mk(3)
+      integer :: l,m,ncmp,icmp,idir
+      real(dp) :: Rmax,knrm
+      complex(dp) :: rintz,exphi
+
+      ncmp = 0
+      do l=0,lmax
+         do m=-l,l
+            ncmp = ncmp + 1      
+         end do
+      end do
+
+      Mk = zero
+      knrm = norm2(kvec)
+      Rmax = lam_dip%xlim(2)
+
+      icmp = 0
+      do l=0,lmax
+         exphi = conjg(swf%Phase(l,knrm))
+         do m=-l,l
+            icmp = icmp + 1      
+
+            do idir=1,3
+               rintz = lam_dip_integ%Eval_component(knrm,icmp,idir)
+               Mk(idir) = Mk(idir) + QPI * exphi * rintz * Ylm_cart(l,m,kvec)
+            end do
+
+         end do
+      end do      
+ 
+   end function ScattMatrixElement_Lambda_precomp
+!-------------------------------------------------------------------------------------- 
+   subroutine dipole_lambda_BesselTransform(lmax,lam_dip,kmin,kmax,nk,lam_dip_bessel)
+      integer,intent(in)                     :: lmax
+      type(cplx_matrix_spline_t),intent(in)  :: lam_dip
+      real(dp),intent(in)                    :: kmin,kmax
+      integer,intent(in)                     :: nk
+      type(cplx_matrix_spline_t),intent(out) :: lam_dip_bessel
+      real(dp),allocatable :: ks(:)
+      integer :: ik,nlm,ilm,idir,l,m
+      integer :: inbvx(2)
+      real(dp) :: Rmax,yr,yi
+      integer,allocatable :: lvals(:)
+      complex(dp),allocatable :: besslk(:,:,:)
+
+      nlm = (lmax+1)**2
+      Rmax = lam_dip%xlim(2)
+      allocate(lvals(nlm))
 
 
+      ilm = 0
+      do l=0,lmax
+         do m=-l,l
+            ilm = ilm + 1
+            lvals(ilm) = l
+         end do
+      end do
+
+      ks = linspace(kmin,kmax,nk)
+      allocate(besslk(nk,nlm,3))
+
+      do ilm=1,nlm
+         do idir=1,3
+            do ik=1,nk
+               inbvx = 1
+               call integral_1d(radial_func_re,0.0_dp,Rmax,quad_tol,yr)
+               call integral_1d(radial_func_im,0.0_dp,Rmax,quad_tol,yi)    
+               besslk(ik,ilm,idir) = cmplx(yr, yi, kind=dp)
+            end do
+         end do
+      end do
+
+      call lam_dip_bessel%Init(ks, besslk, nlm, 3)
+
+      deallocate(besslk)
+      deallocate(ks)
+      deallocate(lvals)
+
+      !.................................................
+      contains
+      !.................................................
+         real(dp) function radial_func_re(r)
+            real(dp),intent(in) :: r
+            complex(dp) :: y
+
+            y = lam_dip%Eval_component(r,icmp,idir,inbvx=inbvx)
+            radial_func_re = r**2 * dble(y) * swf%Eval(lvals(ilm), knrm, r)
+
+         end function radial_func_re
+      !.................................................      
+         real(dp) function radial_func_im(r)
+            real(dp),intent(in) :: r
+            complex(dp) :: y
+
+            y = lam_dip%Eval_component(r,icmp,idir,inbvx=inbvx)
+            radial_func_im = r**2 * aimag(y) * swf%Eval(lvals(ilm), knrm, r)
+
+         end function radial_func_im
+      !.................................................    
+
+   end subroutine dipole_lambda_BesselTransform
+!-------------------------------------------------------------------------------------- 
 
 !======================================================================================
 end module Mmatrix_elements

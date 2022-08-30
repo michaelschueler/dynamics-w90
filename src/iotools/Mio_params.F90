@@ -56,6 +56,7 @@ module Mio_params
       integer            :: gauge=gauge_len
       integer            :: scatt_type=wf_pw
       integer            :: Nepe=1
+      integer            :: radint_numpoints=40
       real(dp)           :: wphot=1.0_dp
       real(dp)           :: Eshift=0.0_dp
       real(dp)           :: Epe_min,Epe_max  
@@ -162,6 +163,7 @@ contains
       integer            :: gauge=gauge_len
       integer            :: scatt_type=wf_pw
       integer            :: Nepe=1
+      integer            :: radint_numpoints=40
       real(dp)           :: wphot=1.0_dp
       real(dp)           :: Eshift=0.0_dp
       real(dp)           :: Epe_min,Epe_max  
@@ -169,7 +171,7 @@ contains
       real(dp)           :: eta_smear=1.0e-3_dp
       real(dp)           :: polvec_real(3),polvec_imag(3)
       namelist/PESPARAMS/file_orbs,gauge,Nepe,wphot,Eshift,Epe_min,Epe_max,lambda_esc,&
-         eta_smear,polvec_real,polvec_imag,kpts_reduced,scatt_type
+         eta_smear,polvec_real,polvec_imag,kpts_reduced,scatt_type,radint_numpoints
       integer :: unit_inp
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
@@ -181,6 +183,7 @@ contains
       me%gauge = gauge
       me%scatt_type = scatt_type
       me%Nepe = Nepe
+      me%radint_numpoints = radint_numpoints
       me%wphot = wphot
       me%Eshift = Eshift
       me%Epe_min = Epe_min

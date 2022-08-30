@@ -9,7 +9,7 @@ module Marpes_calc
    use Mwannier_orbitals,only: wannier_orbs_t
    use Mradialwf,only: radialwf_t
    use Mscattwf,only: scattwf_t
-   use Mradialintegral,only: radialintegral_t
+   use Mradialintegral,only: radialinteg_t
    use Mpes_intensity,only: PES_Intensity
    use Mio_params,only: HamiltonianParams_t, PESParams_t
    use Mio_hamiltonian,only: ReadHamiltonian
@@ -32,7 +32,7 @@ module Marpes_calc
       type(wann90_tb_t)    :: ham
       type(wannier_orbs_t) :: orbs
       type(scattwf_t),allocatable,dimension(:)        :: chis
-      type(radialintegral_t),allocatable,dimension(:) :: radints
+      type(radialinteg_t),allocatable,dimension(:) :: radints
    contains
       procedure,public  :: Init
       procedure,public  :: CalcPES
@@ -119,7 +119,8 @@ contains
       allocate(me%radints(me%nbnd))
       do iorb=1,me%nbnd
          call WannOrb_to_RadialWF(me%orbs,iorb,rwf)
-         call me%radints(iorb)%Init(me%orbs%L_indx(iorb),kmin,kmax,me%chis(iorb),rwf,gauge=me%gauge)
+         call me%radints(iorb)%Init(me%orbs%L_indx(iorb),kmin,kmax,me%chis(iorb),rwf,&
+            nk=par_pes%radint_numpoints,gauge=me%gauge)
          call rwf%Clean()
       end do
 

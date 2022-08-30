@@ -6,9 +6,10 @@ module Mradialwf
    use Mbsplines,only: spline1d_t
    use Matomic,only: SlaterWF_radial,SlaterWF_radial_deriv
    implicit none
+   include "../formats.h"
 !--------------------------------------------------------------------------------------
    private
-   public :: radialwf_t
+   public :: radialwf_t, radialwf_multi_t
 
    integer,parameter :: wf_slater=0, wf_grid=1
 !--------------------------------------------------------------------------------------   
@@ -18,15 +19,25 @@ module Mradialwf
       real(dp) :: Zeff=1.0_dp,Rmax=100.0_dp
       type(spline1d_t) :: spl
    contains
-      procedure,public :: InitGrid
-      procedure,public :: InitSlater
-      procedure,public :: Eval
-      procedure,public :: Clean
+      procedure,public :: InitGrid => radialwf_InitGrid
+      procedure,public :: InitSlater => radialwf_InitSlater
+      procedure,public :: Eval => radialwf_Eval
+      procedure,public :: Clean => radialwf_Clean
    end type radialwf_t
+!--------------------------------------------------------------------------------------   
+   type radialwf_multi_t   
+      integer  :: l0
+      real(dp) :: Rmax
+      type(spline1d_t),allocatable,dimension(:) :: xspl,yspl
+   contains
+      procedure,public :: Init => radialwf_multi_Init
+      procedure,public :: Eval => radialwf_multi_Eval
+      procedure,public :: Clean => radialwf_multi_Clean
+   end type radialwf_multi_t
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine InitGrid(me,rs,wf)
+   subroutine radialwf_InitGrid(me,rs,wf)
       integer,parameter   :: kx=4
       class(radialwf_t)   :: me
       real(dp),intent(in) :: rs(:),wf(:)
@@ -38,9 +49,9 @@ contains
       iflag = 0
       call me%spl%Init(rs,wf,kx,iflag)
 
-   end subroutine InitGrid
+   end subroutine radialwf_InitGrid
 !--------------------------------------------------------------------------------------
-   subroutine InitSlater(me,Zeff,neff,L)
+   subroutine radialwf_InitSlater(me,Zeff,neff,L)
       class(radialwf_t)   :: me   
       real(dp),intent(in) :: Zeff
       integer,intent(in)  :: neff,L
@@ -53,18 +64,18 @@ contains
 
       me%Rmax = (me%neff - me%L) * (me%L + 1) * 30.0_dp/me%Zeff
 
-   end subroutine InitSlater
+   end subroutine radialwf_InitSlater
 !--------------------------------------------------------------------------------------
-   subroutine Clean(me)
+   subroutine radialwf_Clean(me)
       class(radialwf_t)   :: me   
 
       if(me%wf_type == wf_grid) then
          call me%spl%Clean()
       end if
 
-   end subroutine Clean
+   end subroutine radialwf_Clean
 !--------------------------------------------------------------------------------------
-   function Eval(me,r,idx) result(Rr)
+   function radialwf_Eval(me,r,idx) result(Rr)
       class(radialwf_t)           :: me  
       real(dp),intent(in)         :: r
       integer,intent(in),optional :: idx
@@ -96,10 +107,64 @@ contains
          Rr = 0.0_dp
       end select
 
-   end function Eval
+   end function radialwf_Eval
 !--------------------------------------------------------------------------------------
+   subroutine radialwf_multi_Init(me,rs,l0,wf)
+      integer,parameter   :: kx=4
+      class(radialwf_multi_t)   :: me
+      real(dp),intent(in)       :: rs(:)
+      integer,intent(in)        :: l0
+      complex(dp),intent(in)    :: wf(:,:)
+      integer :: m,i
+      integer :: iflag
 
+      me%Rmax = maxval(rs)
+      me%l0 = l0
 
+      allocate(me%xspl(2*me%l0 + 1),me%yspl(2*me%l0 + 1))
+      do m=-l0,l0
+         i = m + l0 + 1
+         iflag = 0
+         call me%xspl(i)%Init(rs,dble(wf(:,i)),kx,iflag)
+         call me%yspl(i)%Init(rs,aimag(wf(:,i)),kx,iflag)
+      end do
+
+   end subroutine radialwf_multi_Init
+!--------------------------------------------------------------------------------------
+   subroutine radialwf_multi_Eval(me,r,wf_lm)
+      class(radialwf_multi_t)   :: me
+      real(dp),intent(in) :: r
+      complex(dp),intent(inout) :: wf_lm(:)
+      integer :: m,i
+      integer :: inbvx,iflag
+      real(dp) :: wx,wy
+
+      call assert(size(wf_lm) >= 2*me%l0+1)
+
+      do m=-me%l0, me%l0
+         i = m + me%l0 + 1
+         inbvx = 1
+         wx = me%xspl(i)%Eval(r,0,iflag,inbvx)
+         inbvx = 1
+         wy = me%yspl(i)%Eval(r,0,iflag,inbvx)
+         wf_lm(i) = cmplx(wx,wy,kind=dp)
+      end do
+
+   end subroutine radialwf_multi_Eval
+!--------------------------------------------------------------------------------------
+   subroutine radialwf_multi_Clean(me)
+      class(radialwf_multi_t)   :: me
+      integer :: n,i
+
+      n = size(me%xspl)
+      do i=1,n
+         call me%xspl(i)%Clean()
+         call me%yspl(i)%Clean()
+      end do
+      deallocate(me%xspl,me%yspl)
+
+   end subroutine radialwf_multi_Clean
+!--------------------------------------------------------------------------------------
 
 !======================================================================================
 end module Mradialwf

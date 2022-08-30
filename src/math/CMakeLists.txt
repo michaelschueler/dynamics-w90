@@ -4,6 +4,7 @@ include_directories(
 
 set(OBJECT_FILES
 	Mbsplines.f90
+	Mvector_bsplines.F90
 	Mintegration.f90
 	Mquadpack.f90
 	Mgausslegendre.F90

@@ -11,28 +11,37 @@ module Mradialintegral
    include "../formats.h"
 !--------------------------------------------------------------------------------------
    private
-   public :: radialintegral_t
+   public :: radialinteg_t, radialinteg_gen_t
 
    integer,parameter :: gauge_len=0, gauge_mom=1
    real(dp),parameter :: quad_tol=1.0e-8_dp
 !--------------------------------------------------------------------------------------   
-   type radialintegral_t   
+   type radialinteg_t   
       integer  :: l0
       real(dp) :: kmin,kmax
       type(spline1d_t) :: len_spl_m1,len_spl_p1
       type(spline1d_t) :: mom1_spl_m1,mom1_spl_p1,mom2_spl_m1,mom2_spl_p1
    contains
-      procedure,public :: Init
-      procedure,public :: Eval_len
-      procedure,public :: Eval_mom      
-   end type radialintegral_t
+      procedure,public :: Init => radialinteg_init
+      procedure,public :: Eval_len => radialinteg_Eval_len
+      procedure,public :: Eval_mom => radialinteg_Eval_mom
+   end type radialinteg_t
+
+   type radialinteg_gen_t   
+      integer  :: Lmax
+      real(dp) :: kmin,kmax
+      type(spline1d_t),allocatable,dimension(:) :: spl
+   contains
+      procedure,public :: Init => radialinteg_gen_init
+      procedure,public :: Eval => radialinteg_gen_eval
+   end type radialinteg_gen_t
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,l0,kmin,kmax,swf,rwf,nk,gauge)
+   subroutine radialinteg_Init(me,l0,kmin,kmax,swf,rwf,nk,gauge)
       use Mutils,only: linspace
       integer,parameter   :: kx=4
-      class(radialintegral_t)     :: me
+      class(radialinteg_t)     :: me
       integer,intent(in)          :: l0
       real(dp),intent(in)         :: kmin,kmax
       type(scattwf_t),intent(in)  :: swf
@@ -45,7 +54,7 @@ contains
       real(dp) :: knrm
       real(dp),allocatable :: ks(:),rint(:),rint1(:),rint2(:)
 
-      nk_ = 100
+      nk_ = 50
       if(present(nk)) nk_ = nk
 
       gauge_ = gauge_len
@@ -144,10 +153,10 @@ contains
       end function radfunc_mom2
       !.................................................
 
-   end subroutine Init
+   end subroutine radialinteg_Init
 !--------------------------------------------------------------------------------------
-   subroutine Eval_len(me,k,rint)
-      class(radialintegral_t)     :: me
+   subroutine radialinteg_Eval_len(me,k,rint)
+      class(radialinteg_t)     :: me
       real(dp),intent(in)         :: k
       real(dp),intent(out)        :: rint(2)
       integer :: iflag,inbvx
@@ -164,10 +173,10 @@ contains
       inbvx = 1
       rint(2) = me%len_spl_p1%Eval(k,0,iflag,inbvx)     
 
-   end subroutine Eval_len
+   end subroutine radialinteg_Eval_len
 !--------------------------------------------------------------------------------------
-   subroutine Eval_mom(me,k,rint)
-      class(radialintegral_t)     :: me
+   subroutine radialinteg_Eval_mom(me,k,rint)
+      class(radialinteg_t)     :: me
       real(dp),intent(in)         :: k
       real(dp),intent(out)        :: rint(2)
       integer :: iflag,inbvx
@@ -200,8 +209,84 @@ contains
       rint2 = me%mom2_spl_p1%Eval(k,0,iflag,inbvx)
       rint(2) = rint1 + (0.5_dp* (me%l0*(me%l0+1) - l*(l+1)) + 1.0_dp) * rint2 
 
-   end subroutine Eval_mom
+   end subroutine radialinteg_Eval_mom
 !--------------------------------------------------------------------------------------
  
+!--------------------------------------------------------------------------------------
+   subroutine radialinteg_gen_Init(me,Lmax,kmin,kmax,swf,rwf,nk)
+      use Mutils,only: linspace
+      integer,parameter   :: kx=4
+      class(radialinteg_gen_t)    :: me
+      integer,intent(in)          :: Lmax
+      real(dp),intent(in)         :: kmin,kmax
+      type(scattwf_t),intent(in)  :: swf
+      type(radialwf_t),intent(in) :: rwf
+      integer,intent(in),optional :: nk
+      integer :: nk_
+      integer :: l,n,l_indx,ik
+      integer :: iflag
+      real(dp) :: knrm
+      real(dp),allocatable :: ks(:),rint(:)
+
+      nk_ = 40
+      if(present(nk)) nk_ = nk
+
+      me%Lmax = Lmax
+
+      me%kmin = kmin; me%kmax = kmax
+      ks = linspace(kmin, kmax, nk_)
+
+      allocate(me%spl(0:Lmax))
+      allocate(rint(nk_))
+
+      do l=0,me%Lmax
+         l_indx = l
+         do ik=1,nk_
+            knrm = ks(ik)
+            call integral_1d(radfunc,0.0_dp,rwf%Rmax,quad_tol,rint(ik))  
+         end do         
+         iflag = 0
+         call me%spl(l)%Init(ks,rint,kx,iflag)         
+      end do
+
+      deallocate(rint)
+      deallocate(ks)
+      !.................................................
+      contains
+      !.................................................
+      real(dp) function radfunc(r)
+         real(dp),intent(in) :: r
+
+         radfunc = r**2 * rwf%Eval(r) * swf%Eval(l_indx, knrm, r)
+
+      end function radfunc
+      !.................................................
+   end subroutine radialinteg_gen_Init
+!--------------------------------------------------------------------------------------
+   function radialinteg_gen_eval(me,l,k) result(integ)
+      class(radialinteg_gen_t)    :: me
+      integer,intent(in)          :: l
+      real(dp),intent(in)         :: k
+      real(dp) :: integ
+      integer :: iflag,inbvx
+
+      if(k < me%kmin .or. k > me%kmax) then
+         write(output_unit,fmt700) "Eval: out of bounds"
+         integ = 0.0_dp
+         return
+      end if
+
+      if(l < 0 .or. l > me%Lmax) then
+         write(output_unit,fmt700) "Eval: l out of bounds"
+         integ = 0.0_dp
+         return         
+      end if
+
+      inbvx = 1
+      integ = me%spl(l)%Eval(k,0,iflag,inbvx)
+
+   end function radialinteg_gen_eval
+!--------------------------------------------------------------------------------------
+
 !======================================================================================
 end module Mradialintegral
