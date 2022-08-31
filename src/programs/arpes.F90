@@ -56,6 +56,10 @@ program arpes
 !--------------------------------------------------------------------------------------
 !                               ++  Calculation ++
 !--------------------------------------------------------------------------------------
+   call Timer_Tic('integrals', 2)
+   call calc%CalcIntegrals()
+   call Timer_Toc(N=2)
+
    call Timer_Tic('spectrum', 2)
    call calc%CalcPES()
    call Timer_Toc(N=2)

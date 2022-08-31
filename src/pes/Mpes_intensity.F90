@@ -12,20 +12,22 @@ module Mpes_intensity
    use Mscattwf,only: scattwf_t
    use Mradialintegral,only: radialinteg_t
    use Mmatrix_elements,only: ScattMatrixElement_Momentum, ScattMatrixElement_Length, &
-      ApplyDipoleOp, Dipole_lambda_projection, ScattMatrixElement_Lambda
+      ApplyDipoleOp, Dipole_lambda_projection, ScattMatrixElement_Lambda, &
+      dipole_lambda_BesselTransform
    use Mwannier_orbitals,only: wannier_orbs_t
    use Mham_w90,only: wann90_tb_t
    implicit none
 !--------------------------------------------------------------------------------------
    private
    public :: PES_MatrixElements, PES_Intensity, PES_Intensity_escapedepth
+   public :: PES_AtomicIntegrals_lambda, PES_Intensity_besselinteg
 
    interface PES_MatrixElements
-      module procedure PES_MatrixElements_comp, PES_MatrixElements_precomp
+      module procedure PES_MatrixElements_comp, PES_MatrixElements_precomp, PES_MatrixElements_besselinteg
    end interface PES_MatrixElements
 
    interface PES_Intensity
-      module procedure PES_Intensity_comp, PES_Intensity_precomp
+      module procedure PES_Intensity_comp, PES_Intensity_precomp, PES_Intensity_besselinteg
    end interface PES_Intensity   
 !--------------------------------------------------------------------------------------
    integer,parameter :: gauge_len=0, gauge_mom=1
@@ -48,28 +50,25 @@ contains
 
    end subroutine WannOrb_to_RadialWF
 !--------------------------------------------------------------------------------------
-   subroutine PES_MatrixElements_lambda(orbs,wann,scwf,kvec,vectk,lam,Matel,gauge,lmax,Nr)
+   subroutine PES_AtomicIntegrals_lambda(orbs,scwfs,lam,lmax,kmin,kmax,bessel_integ,gauge,Nr,Nk)
+      use Mtime,only: Timer_Tic,Timer_toc
       type(wannier_orbs_t),intent(in) :: orbs
-      type(wann90_tb_t),intent(in)    :: wann
       type(scattwf_t),intent(in)      :: scwfs(:)
-      real(dp),intent(in)             :: kvec(3)
-      complex(dp),intent(inout)       :: vectk(:,:)
       real(dp),intent(in)             :: lam
-      complex(dp),intent(inout)       :: matel(:,:)
+      integer,intent(in)              :: lmax
+      real(dp),intent(in)             :: kmin,kmax
+      type(cplx_matrix_spline_t),allocatable,intent(out) :: bessel_integ(:)
       integer,intent(in),optional     :: gauge
-      integer,intent(in),optional     :: lmax
       integer,intent(in),optional     :: Nr
-      integer :: gauge_,lmax_,Nr_
-      logical :: large_size
-      integer :: norb,nbnd,iorb,ibnd,mabs,idir,ncmp
-      real(dp) :: phi,z0
-      complex(dp) :: mat_m(3),mat_mm(3)
+      integer,intent(in),optional     :: Nk
+      integer :: gauge_,Nr_,nk_
+      integer :: norb,nbnd,iorb,ibnd,mabs,idir,ncmp,sig,ir
       real(dp),allocatable :: rs(:)
-      complex(dp),allocatable :: matomic(:,:)
-      complex(dp),allocatable,dimension(:,:,:) :: lam_dip_Rfun_p1,lam_dip_Rfun_m1
+      complex(dp),allocatable,dimension(:,:) :: integlm
+      complex(dp),allocatable,dimension(:,:,:) :: lam_dip_Rfun_p1,lam_dip_Rfun_m1,lam_dip_Rfun
       type(radialwf_t) :: rwf
       type(cplx_matrix_spline_t) :: dipwf_m1,dipwf_p1
-      type(cplx_vector_spline_t) :: lam_dip
+      type(cplx_matrix_spline_t) :: lam_dip
 
       gauge_ = gauge_len
       if(present(gauge)) gauge_ = gauge
@@ -77,94 +76,152 @@ contains
       Nr_ = 256
       if(present(Nr)) Nr_ = Nr
 
-      large_size = get_large_size(norb)
+      Nk_ = 40
+      if(present(Nk)) Nk_ = Nk
 
-      norb = wann%num_wann
+      norb = orbs%norb
       nbnd = norb
-      call assert(orbs%norb == norb, "PES_MatrixElements: orbs%norb == norb")
-      call assert_shape(matel, [norb,3], "PES_MatrixElements", "matel")
-      call assert_shape(vectk, [norb,norb], "PES_MatrixElements", "vectk")     
 
-      allocate(matomic(norb,3)); matomic = zero
+      allocate(bessel_integ(norb))
+
+      ncmp = (lmax + 1)**2
+      allocate(lam_dip_Rfun_m1(Nr_,ncmp,3)); lam_dip_Rfun_m1 = zero
+      allocate(lam_dip_Rfun_p1(Nr_,ncmp,3)); lam_dip_Rfun_p1 = zero
+      allocate(lam_dip_Rfun(Nr_,ncmp,3)); lam_dip_Rfun = zero
+
       do iorb=1,norb
-         if(orbs%weight(iorb) < 1.0e-5_dp) cycle
+         ! if(orbs%weight(iorb) < 1.0e-5_dp) cycle
+
          call WannOrb_to_RadialWF(orbs,iorb,rwf)
 
          rs = linspace(0.0_dp, rwf%Rmax, Nr_)
 
-         lmax_ = 2 * orbs%L_indx(iorb)
-         if(present(lmax)) lamx_ = lmax
-         ncmp = (lmax_ + 1)**2
-         allocate(lam_dip_Rfun_m1(Nr_,ncmp,3)); lam_dip_Rfun_m1 = zero
-         allocate(lam_dip_Rfun_p1(Nr_,ncmp,3)); lam_dip_Rfun_p1 = zero
+         lam_dip_Rfun_m1 = zero
+         lam_dip_Rfun_p1 = zero
+         lam_dip_Rfun = zero
 
+         if(orbs%weight(iorb) > 1.0e-5_dp) then
 
-         if(orbs%real_lm) then
-            mabs = abs(orbs%M_indx(iorb))
+            if(orbs%real_lm) then
+               mabs = abs(orbs%M_indx(iorb))
+               sig = 1
+               if(mod(orbs%M_indx(iorb),2) /= 0) sig = -1
 
-            call ApplyDipoleOp(rwf,orbs%L_indx(iorb),mabs,dipwf_m1,dipwf_p1,gauge_)
-            do ir=1,Nr_
-               call Dipole_lambda_projection(lmax_,orbs%L_indx(iorb)+1,lam,lam_dip_Rfun_p1(ir,:,:))
-            end do
+               ! m = |m0|
+               call ApplyDipoleOp(rwf,orbs%L_indx(iorb),mabs,dipwf_m1,dipwf_p1,gauge_)
 
-            if(orbs%L_indx(iorb) > 0) then
+               !$OMP PARALLEL PRIVATE(integlm)
+               allocate(integlm(ncmp,3))
+               !$OMP DO
                do ir=1,Nr_
-                  call Dipole_lambda_projection(lmax_,orbs%L_indx(iorb)-1,lam,lam_dip_Rfun_m1(ir,:,:)) 
+                  call Dipole_lambda_projection(lmax,orbs%L_indx(iorb)+1,dipwf_p1,lam,rs(ir),integlm)
+                  lam_dip_Rfun_p1(ir,:,:) = integlm
+                  print*, "L+1","|M|",iorb,rs(ir),maxval(Abs(integlm))
                end do
+               !$OMP END DO
+
+               if(orbs%L_indx(iorb) > 0) then
+                  !$OMP DO
+                  do ir=1,Nr_
+                     call Dipole_lambda_projection(lmax,orbs%L_indx(iorb)-1,dipwf_m1,lam,rs(ir),integlm) 
+                     lam_dip_Rfun_m1(ir,:,:) = integlm
+                     print*, "L-1","|M|",iorb,rs(ir),maxval(Abs(integlm))
+                  end do
+                  !$OMP END DO
+               end if
+               deallocate(integlm)
+               !$OMP END PARALLEL
+
+               lam_dip_Rfun = lam_dip_Rfun_p1 + lam_dip_Rfun_m1
+
+               ! m = -|m0|
+               if(mabs /= 0) then
+                  lam_dip_Rfun_m1 = zero
+                  lam_dip_Rfun_p1 = zero
+
+                  call ApplyDipoleOp(rwf,orbs%L_indx(iorb),-mabs,dipwf_m1,dipwf_p1,gauge_)
+
+                  !$OMP PARALLEL PRIVATE(integlm)
+                  allocate(integlm(ncmp,3))
+                  !$OMP DO
+                  do ir=1,Nr_
+                     call Dipole_lambda_projection(lmax,orbs%L_indx(iorb)+1,dipwf_p1,lam,rs(ir),integlm)
+                     lam_dip_Rfun_p1(ir,:,:) = integlm
+                     print*, "L+1","-|M|",iorb,rs(ir),maxval(Abs(integlm))
+                  end do
+                  !$OMP END DO
+
+                  if(orbs%L_indx(iorb) > 0) then
+                     !$OMP DO
+                     do ir=1,Nr_
+                        call Dipole_lambda_projection(lmax,orbs%L_indx(iorb)-1,dipwf_m1,lam,rs(ir),integlm) 
+                        lam_dip_Rfun_m1(ir,:,:) = integlm
+                        print*, "L-1","-|M|",iorb,rs(ir),maxval(Abs(integlm))
+                     end do
+                      !$OMP END DO
+                  end if
+                  deallocate(integlm)
+                  !$OMP END PARALLEL
+
+                  ! transform to real basis
+                  if(orbs%M_indx(iorb) < 0) then
+                     lam_dip_Rfun = iu/sqrt(2.0_dp) * (lam_dip_Rfun_p1 + lam_dip_Rfun_m1 - sig * lam_dip_Rfun)
+                  else
+                     lam_dip_Rfun = 1.0_dp/sqrt(2.0_dp) * (lam_dip_Rfun_p1 + lam_dip_Rfun_m1 + sig * lam_dip_Rfun)
+                  end if
+
+               end if
+
+            else
+
+               call ApplyDipoleOp(rwf,orbs%L_indx(iorb),orbs%M_indx(iorb),dipwf_m1,dipwf_p1,gauge_)
+               !$OMP PARALLEL PRIVATE(integlm)
+               allocate(integlm(ncmp,3))
+               !$OMP DO
+               do ir=1,Nr_
+                  call Dipole_lambda_projection(lmax,orbs%L_indx(iorb)+1,dipwf_p1,lam,rs(ir),integlm)
+                  lam_dip_Rfun_p1(ir,:,:) = integlm
+               end do
+               !$OMP END DO
+
+               if(orbs%L_indx(iorb) > 0) then
+                  !$OMP DO
+                  do ir=1,Nr_
+                     call Dipole_lambda_projection(lmax,orbs%L_indx(iorb)-1,dipwf_m1,lam,rs(ir),integlm) 
+                     lam_dip_Rfun_m1(ir,:,:) = integlm
+                  end do
+                  !$OMP END DO
+               end if
+               deallocate(integlm)
+               !$OMP END PARALLEL
+
+               lam_dip_Rfun = lam_dip_Rfun_p1 + lam_dip_Rfun_m1
+
             end if
 
-            lam_dip_Rfun_p1 = lam_dip_Rfun_p1 + lam_dip_Rfun_m1
-
-            call lam_dip%Init(rs, lam_dip_Rfun_p1, ncmp, 3)
-            mat_m(1:3) = ScattMatrixElement_Lambda(lmax_,scwfs(iorb),lam_dip,kvec)
-            call lam_dip%Clean()
-
-            call ApplyDipoleOp(rwf,orbs%L_indx(iorb),-mabs,dipwf_m1,dipwf_p1,gauge_)
-            do ir=1,Nr_
-               call Dipole_lambda_projection(lmax_,orbs%L_indx(iorb)+1,lam,lam_dip_Rfun_p1(ir,:,:))
-            end do
-
-            if(orbs%L_indx(iorb) > 0) then
-               do ir=1,Nr_
-                  call Dipole_lambda_projection(lmax_,orbs%L_indx(iorb)-1,lam,lam_dip_Rfun_m1(ir,:,:)) 
-               end do
-            end if
-
-            lam_dip_Rfun_p1 = lam_dip_Rfun_p1 + lam_dip_Rfun_m1
-
-            call lam_dip%Init(rs, lam_dip_Rfun_p1, ncmp, 3)
-            mat_mm(1:3) = ScattMatrixElement_Lambda(lmax_,scwfs(iorb),lam_dip,kvec)
-            call lam_dip%Clean()
-
-            do idir=1,3
-               Matomic(iorb,idir) = Transform_Y2X(orbs%M_indx(iorb),mat_m(idir),mat_mm(idir))
-            end do
-         else
-            call ApplyDipoleOp(rwf,orbs%L_indx(iorb),orbs%M_indx(iorb),dipwf_m1,dipwf_p1,gauge_)
-            do ir=1,Nr_
-               call Dipole_lambda_projection(lmax_,orbs%L_indx(iorb)+1,lam,lam_dip_Rfun_p1(ir,:,:))
-            end do
-
-            if(orbs%L_indx(iorb) > 0) then
-               do ir=1,Nr_
-                  call Dipole_lambda_projection(lmax_,orbs%L_indx(iorb)-1,lam,lam_dip_Rfun_m1(ir,:,:)) 
-               end do
-            end if
-
-            lam_dip_Rfun_p1 = lam_dip_Rfun_p1 + lam_dip_Rfun_m1
-
-            call lam_dip%Init(rs, lam_dip_Rfun_p1, ncmp, 3)
-            matomic(iorb,1:3) = ScattMatrixElement_Lambda(lmax_,scwfs(iorb),lam_dip,kvec)
-            call lam_dip%Clean()
          end if
 
-         matomic(iorb,1:3) = matomic(iorb,1:3) * orbs%weight(iorb)
+         ! multiply orbital weight
+         lam_dip_Rfun = lam_dip_Rfun * orbs%weight(iorb)
 
+         ! construct spline object
+         call lam_dip%Init(rs, lam_dip_Rfun, ncmp, 3)
+
+         ! radial integrals
+         call dipole_lambda_BesselTransform(lmax,lam_dip,scwfs(iorb),kmin,kmax,nk_,bessel_integ(iorb))
+
+         ! clean up for next orbital
          call rwf%Clean()
+         call lam_dip%Clean()
+         deallocate(rs)
 
       end do
 
-   end subroutine PES_MatrixElements_lambda
+      deallocate(lam_dip_Rfun_p1)
+      deallocate(lam_dip_Rfun_m1)
+      deallocate(lam_dip_Rfun)
+
+   end subroutine PES_AtomicIntegrals_lambda
 !--------------------------------------------------------------------------------------
    subroutine PES_MatrixElements_comp(orbs,wann,scwfs,kvec,vectk,lam,Matel,gauge)
       type(wannier_orbs_t),intent(in) :: orbs
@@ -309,6 +366,8 @@ contains
 
          matomic(iorb,1:3) = matomic(iorb,1:3) * orbs%weight(iorb)
 
+         print*, kvec, iorb, matomic(iorb,1)
+
       end do
 
       z0 = maxval(wann%coords(:,3))
@@ -322,12 +381,55 @@ contains
 
       matel = zero
       call util_zgemm(vectk, matomic, matel, transa_opt='T')
-      ! call util_matmul(vectk(1:norb,1:norb), matomic(1:norb,1:3), matel(1:norb,1:3), &
-      !    large_size=large_size)
+
 
       deallocate(matomic)
 
    end subroutine PES_MatrixElements_precomp
+!--------------------------------------------------------------------------------------
+   subroutine PES_MatrixElements_besselinteg(wann,scwfs,lmax,bessel_integ,kvec,vectk,lam,Matel)
+      type(wann90_tb_t),intent(in)           :: wann
+      type(scattwf_t),intent(in)             :: scwfs(:)
+      integer,intent(in)                     :: lmax
+      type(cplx_matrix_spline_t),intent(in)  :: bessel_integ(:)
+      real(dp),intent(in)                    :: kvec(3)
+      complex(dp),intent(inout)              :: vectk(:,:)
+      real(dp),intent(in)                    :: lam
+      complex(dp),intent(inout)              :: matel(:,:)
+      logical :: large_size
+      integer :: norb,nbnd,ibnd,iorb,mabs,idir
+      real(dp) :: phi,z0
+      complex(dp),allocatable :: matomic(:,:)    
+
+      large_size = get_large_size(norb)
+
+      norb = wann%num_wann
+      call assert_shape(matel, [norb,3], "PES_MatrixElements_besselinteg", "matel")
+      call assert_shape(vectk, [norb,norb], "PES_MatrixElements_besselinteg", "vectk")      
+
+      allocate(matomic(norb,3)); matomic = zero
+      do iorb=1,norb
+         matomic(iorb,1:3) = ScattMatrixElement_Lambda(lmax,scwfs(iorb),bessel_integ(iorb),kvec)
+
+         print*, kvec, iorb, matomic(iorb,1)
+
+      end do
+
+      z0 = maxval(wann%coords(:,3))
+
+      do iorb=1,norb
+         phi = dot_product(kvec,wann%coords(iorb,1:3))
+         do ibnd=1,nbnd
+            vectk(iorb,ibnd) = exp(-iu * phi) * exp(lam * (wann%coords(iorb,3) - z0) ) * vectk(iorb,ibnd) 
+         end do
+      end do
+
+      matel = zero
+      call util_zgemm(vectk, matomic, matel, transa_opt='T')
+
+      deallocate(matomic)
+
+   end subroutine PES_MatrixElements_besselinteg
 !--------------------------------------------------------------------------------------
    subroutine MatrixElements_Atomic_escape(orbs,wann,scwfs,radints,kvec2d,kperps,lam,lam_order,matel_atomic,gauge)
       type(wannier_orbs_t),intent(in)   :: orbs
@@ -532,7 +634,7 @@ contains
       type(wannier_orbs_t),intent(in)   :: orbs
       type(wann90_tb_t),intent(in)      :: wann
       type(scattwf_t),intent(in)        :: scwfs(:)
-      type(radialinteg_t),intent(in) :: radints(:)      
+      type(radialinteg_t),intent(in)    :: radints(:)      
       real(dp),intent(in)               :: kpar(2)
       real(dp),intent(in)               :: wphot    
       complex(dp),intent(in)            :: pol(3)  
@@ -591,7 +693,63 @@ contains
 
    end function PES_Intensity_precomp
 !--------------------------------------------------------------------------------------
+   function PES_Intensity_besselinteg(wann,scwfs,lmax,bessel_integ,kpar,wphot,pol,Epe,epsk,&
+      vectk,mu,lam,eta) result(inten)
+      type(wann90_tb_t),intent(in)           :: wann
+      type(scattwf_t),intent(in)             :: scwfs(:)
+      integer,intent(in)                     :: lmax
+      type(cplx_matrix_spline_t),intent(in)  :: bessel_integ(:)   
+      real(dp),intent(in)                    :: kpar(2)
+      real(dp),intent(in)                    :: wphot    
+      complex(dp),intent(in)                 :: pol(3)  
+      real(dp),intent(in)                    :: Epe
+      real(dp),intent(in)                    :: epsk(:)   
+      complex(dp),intent(inout)              :: vectk(:,:)        
+      real(dp),intent(in)                    :: mu      
+      real(dp),intent(in)                    :: lam       
+      real(dp),intent(in)                    :: eta           
+      real(dp)                               :: inten
+      integer :: idir,nbnd,ibnd
+      real(dp) :: Ez,kvec(3)
+      complex(dp),allocatable :: matel(:,:),matel_pol(:)
 
+      nbnd = wann%num_wann
+      call assert_shape(vectk,[nbnd,nbnd],"PES_Intensity_besselinteg","vectk")
+
+      Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2)
+      if(Ez < 1.0e-5_dp) then
+         inten = 0.0_dp
+         return
+      end if
+
+      kvec(1:2) = kpar
+      kvec(3) = sqrt(2.0_dp * Ez)
+
+      if(all(abs(epsk + wphot - Epe) > 6 * eta)) then
+         inten = 0.0_dp
+         return
+      end if
+
+      allocate(matel(nbnd,3),matel_pol(nbnd))
+
+      call PES_MatrixElements(wann,scwfs,lmax,bessel_integ,kvec,vectk,lam,Matel)
+
+      matel_pol = zero
+      do idir=1,3
+         matel_pol(:) = matel_pol(:) + pol(idir) * matel(:,idir)
+      end do
+
+      inten = 0.0_dp
+      do ibnd=1,nbnd
+         if(epsk(ibnd) > mu) cycle
+         inten = inten + abs(matel_pol(ibnd))**2 * gauss(eta, epsk(ibnd) + wphot - Epe)   
+      end do
+
+      deallocate(matel,matel_pol)
+
+
+   end function PES_Intensity_besselinteg
+!--------------------------------------------------------------------------------------
 
 !--------------------------------------------------------------------------------------
    subroutine PES_Intensity_escapedepth(orbs,wann,scwfs,radints,kpar,wphot,pol,Epe,epsk,&

@@ -16,7 +16,7 @@ set( project_EXECUTABLES
 if(mpi)
 	set(mpi_EXECUTABLES
         wann_evol_mpi.x
-        arpes_mpi.x
+        #arpes_mpi.x
 	)
 endif(mpi)
 

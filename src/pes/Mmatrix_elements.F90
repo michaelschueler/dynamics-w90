@@ -28,11 +28,7 @@ module Mmatrix_elements
 
    interface ScattMatrixElement_Length
       module procedure ScattMatrixElement_Length_comp, ScattMatrixElement_Length_precomp
-   end interface ScattMatrixElement_Length
-
-   interface ScattMatrixElement_Lambda
-      module procedure ScattMatrixElement_Lambda_comp, ScattMatrixElement_Lambda_precomp
-   end interface ScattMatrixElement_Lambda   
+   end interface ScattMatrixElement_Length  
 !-------------------------------------------------------------------------------------- 
    real(dp),parameter :: quad_tol=1.0e-8_dp
    integer,parameter :: wf_slater=0, wf_grid=1
@@ -444,7 +440,8 @@ contains
             end if
 
             do idir=1,3
-               Rfun(ir,i,idir) = rv1 + (0.5_dp* (l0*(l0+1) - l*(l+1)) + 1.0_dp) * rv2
+               Rfun(ir,i,idir) = (rv1 + (0.5_dp* (l0*(l0+1) - l*(l+1)) + 1.0_dp) * rv2) &
+                  * mel_ang(idir)
             end do
          end do
       end do
@@ -471,7 +468,8 @@ contains
                end if
 
                do idir=1,3
-                  Rfun(ir,i,idir) = rv1 + (0.5_dp* (l0*(l0+1) - l*(l+1)) + 1.0_dp) * rv2
+                  Rfun(ir,i,idir) = (rv1 + (0.5_dp* (l0*(l0+1) - l*(l+1)) + 1.0_dp) * rv2) &
+                      * mel_ang(idir)
                end do
             end do
          end do
@@ -507,9 +505,10 @@ contains
          do l=0,lmax
             do m=-l,l
                icmp = icmp + 1
-               if(abs(m) > l1) cycle
-               inbvx = 1
-               lam_dip_Rfun(icmp,idir) = QPI * Lebedev_integral(spherical_func,epsabs,.false.)
+               if(abs(m) <= l1) then
+                  inbvx = 1
+                  lam_dip_Rfun(icmp,idir) = QPI * Lebedev_integral(spherical_func,epsabs,.false.)
+               end if
             end do
          end do
       end do
@@ -521,11 +520,11 @@ contains
             real(dp),intent(in) :: theta,phi
             integer :: i1,istep
             complex(dp) :: dfun
-            complex(dp) :: dipr(2*l1+1,3)
+            complex(dp) :: dipr
 
             i1 = m + l1 + 1
             dipr = dipwf%Eval_component(rc,i1,idir,inbvx=inbvx)
-            dfun = ylm(l1,m,phi,theta) * dipr(i1,idir)
+            dfun = ylm(l1,m,phi,theta) * dipr
 
             if(lambda > lam_small) then
                do istep=1,nstep
@@ -540,27 +539,20 @@ contains
 
    end subroutine dipole_lambda_projection
 !-------------------------------------------------------------------------------------- 
-   function ScattMatrixElement_Lambda_comp(lmax,swf,lam_dip,kvec) result(Mk)
+   function ScattMatrixElement_Lambda(lmax,swf,bessel_integ,kvec) result(Mk)
       integer,intent(in)                    :: lmax
       type(scattwf_t),intent(in)            :: swf
-      type(cplx_matrix_spline_t),intent(in) :: lam_dip
+      type(cplx_matrix_spline_t),intent(in) :: bessel_integ
       real(dp),intent(in)                   :: kvec(3)
       complex(dp)                           :: Mk(3)
       integer :: l,m,ncmp,icmp,idir
-      integer :: inbvx(2)
-      real(dp) :: Rmax,knrm,rint_re,rint_im
+      real(dp) :: knrm
       complex(dp) :: rintz,exphi
 
-      ncmp = 0
-      do l=0,lmax
-         do m=-l,l
-            ncmp = ncmp + 1      
-         end do
-      end do
+      ncmp = (lmax+1)**2
 
       Mk = zero
       knrm = norm2(kvec)
-      Rmax = lam_dip%xlim(2)
 
       icmp = 0
       do l=0,lmax
@@ -569,94 +561,33 @@ contains
             icmp = icmp + 1      
 
             do idir=1,3
-               inbvx = 1
-               call integral_1d(radial_func_re,0.0_dp,Rmax,quad_tol,rint_re)
-               call integral_1d(radial_func_im,0.0_dp,Rmax,quad_tol,rint_im)    
-               rintz = cmplx(rint_re, rint_im, kind=dp)
-               Mk(idir) = Mk(idir) + QPI * exphi * rintz * Ylm_cart(l,m,kvec)
-            end do
-
-         end do
-      end do      
-
-      !.................................................
-      contains
-      !.................................................
-         real(dp) function radial_func_re(r)
-            real(dp),intent(in) :: r
-            complex(dp) :: y
-
-            y = lam_dip%Eval_component(r,icmp,idir,inbvx=inbvx)
-            radial_func_re = r**2 * dble(y) * swf%Eval(l, knrm, r)
-
-         end function radial_func_re
-      !.................................................      
-         real(dp) function radial_func_im(r)
-            real(dp),intent(in) :: r
-            complex(dp) :: y
-
-            y = lam_dip%Eval_component(r,icmp,idir,inbvx=inbvx)
-            radial_func_im = r**2 * aimag(y) * swf%Eval(l, knrm, r)
-
-         end function radial_func_im
-      !.................................................      
-
-   end function ScattMatrixElement_Lambda_comp
-!-------------------------------------------------------------------------------------- 
-   function ScattMatrixElement_Lambda_precomp(lmax,swf,lam_dip_integ,kvec) result(Mk)
-      integer,intent(in)                    :: lmax
-      type(scattwf_t),intent(in)            :: swf
-      type(cplx_matrix_spline_t),intent(in) :: lam_dip_integ
-      real(dp),intent(in)                   :: kvec(3)
-      complex(dp)                           :: Mk(3)
-      integer :: l,m,ncmp,icmp,idir
-      real(dp) :: Rmax,knrm
-      complex(dp) :: rintz,exphi
-
-      ncmp = 0
-      do l=0,lmax
-         do m=-l,l
-            ncmp = ncmp + 1      
-         end do
-      end do
-
-      Mk = zero
-      knrm = norm2(kvec)
-      Rmax = lam_dip%xlim(2)
-
-      icmp = 0
-      do l=0,lmax
-         exphi = conjg(swf%Phase(l,knrm))
-         do m=-l,l
-            icmp = icmp + 1      
-
-            do idir=1,3
-               rintz = lam_dip_integ%Eval_component(knrm,icmp,idir)
+               rintz = bessel_integ%Eval_component(knrm,icmp,idir)
                Mk(idir) = Mk(idir) + QPI * exphi * rintz * Ylm_cart(l,m,kvec)
             end do
 
          end do
       end do      
  
-   end function ScattMatrixElement_Lambda_precomp
+   end function ScattMatrixElement_Lambda
 !-------------------------------------------------------------------------------------- 
-   subroutine dipole_lambda_BesselTransform(lmax,lam_dip,kmin,kmax,nk,lam_dip_bessel)
+   subroutine dipole_lambda_BesselTransform(lmax,lam_dip,swf,kmin,kmax,nk,lam_dip_bessel)
+      real(dp),parameter :: small=1.0e-10_dp
       integer,intent(in)                     :: lmax
       type(cplx_matrix_spline_t),intent(in)  :: lam_dip
+      type(scattwf_t),intent(in)             :: swf
       real(dp),intent(in)                    :: kmin,kmax
       integer,intent(in)                     :: nk
       type(cplx_matrix_spline_t),intent(out) :: lam_dip_bessel
       real(dp),allocatable :: ks(:)
-      integer :: ik,nlm,ilm,idir,l,m
+      integer :: ik,nlm,ilm,icmp,idir,dir_flag,l,m
       integer :: inbvx(2)
-      real(dp) :: Rmax,yr,yi
+      real(dp) :: Rmax,yr,yi,knrm
       integer,allocatable :: lvals(:)
       complex(dp),allocatable :: besslk(:,:,:)
 
       nlm = (lmax+1)**2
-      Rmax = lam_dip%xlim(2)
+      Rmax = lam_dip%xlim(2) - small
       allocate(lvals(nlm))
-
 
       ilm = 0
       do l=0,lmax
@@ -672,10 +603,14 @@ contains
       do ilm=1,nlm
          do idir=1,3
             do ik=1,nk
+               icmp = ilm
+               dir_flag = idir
+               knrm = ks(ik)
                inbvx = 1
-               call integral_1d(radial_func_re,0.0_dp,Rmax,quad_tol,yr)
-               call integral_1d(radial_func_im,0.0_dp,Rmax,quad_tol,yi)    
-               besslk(ik,ilm,idir) = cmplx(yr, yi, kind=dp)
+               ! call integral_1d(radial_func_re,0.0_dp,Rmax,quad_tol,yr)
+               ! call integral_1d(radial_func_im,0.0_dp,Rmax,quad_tol,yi) 
+               ! besslk(ik,ilm,idir) = cmplx(yr, yi, kind=dp)
+               besslk(ik,ilm,idir) = ZGregoryKintegral(radial_func,knrm,0.0_dp,Rmax)
             end do
          end do
       end do
@@ -688,13 +623,24 @@ contains
 
       !.................................................
       contains
+      !.................................................      
+         complex(dp) function radial_func(r)
+            real(dp),intent(in) :: r
+            complex(dp) :: y
+
+            y = lam_dip%Eval_component(r,icmp,dir_flag,inbvx=inbvx)
+            ! y = lam_dip%Eval_component(r,icmp,dir_flag)
+            radial_func = r**2 * y * swf%Eval(lvals(ilm), knrm, r)
+
+         end function radial_func
       !.................................................
          real(dp) function radial_func_re(r)
             real(dp),intent(in) :: r
             complex(dp) :: y
 
-            y = lam_dip%Eval_component(r,icmp,idir,inbvx=inbvx)
-            radial_func_re = r**2 * dble(y) * swf%Eval(lvals(ilm), knrm, r)
+            y = lam_dip%Eval_component(r,icmp,dir_flag,inbvx=inbvx)
+            ! y = lam_dip%Eval_component(r,icmp,dir_flag)
+            radial_func_re = r**2 * dble(y)* swf%Eval(lvals(ilm), knrm, r)
 
          end function radial_func_re
       !.................................................      
@@ -702,7 +648,8 @@ contains
             real(dp),intent(in) :: r
             complex(dp) :: y
 
-            y = lam_dip%Eval_component(r,icmp,idir,inbvx=inbvx)
+            y = lam_dip%Eval_component(r,icmp,dir_flag,inbvx=inbvx)
+            ! y = lam_dip%Eval_component(r,icmp,dir_flag)
             radial_func_im = r**2 * aimag(y) * swf%Eval(lvals(ilm), knrm, r)
 
          end function radial_func_im
@@ -710,6 +657,44 @@ contains
 
    end subroutine dipole_lambda_BesselTransform
 !-------------------------------------------------------------------------------------- 
+   function ZGregoryKintegral(f,k,a,b,nsample) result(res)
+      use Mintegration,only: GregoryIntegral
+      real(dp),intent(in) :: k
+      real(dp),intent(in) :: a,b
+      integer,intent(in),optional :: nsample
+      complex(dp) :: res
+      interface 
+         function f(x) 
+            use Mdef,only: dp
+            real(dp),intent(in) :: x
+            complex(dp) :: f
+         end function f
+      end interface
+      integer :: nsample_
+      integer :: n,i
+      real(dp) :: dx,xi
+      complex(dp),allocatable :: fx(:)
+
+      nsample_ = 30
+      if(present(nsample)) nsample_ = nsample
+
+      dx = DPI/k / nsample_
+      n = max(nint((b-a) / dx), 80)
+      allocate(fx(0:n))
+      do i=0,n
+         xi = a + (b-a) * i / dble(n)
+         fx(i) = f(xi)
+      end do
+
+      dx = (b-a) / dble(n)
+
+      res = GregoryIntegral(n,dx,fx)
+
+      deallocate(fx)
+
+   end function ZGregoryKintegral
+!-------------------------------------------------------------------------------------- 
+
 
 !======================================================================================
 end module Mmatrix_elements

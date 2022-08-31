@@ -53,10 +53,13 @@ module Mio_params
    type :: PESParams_t
       character(len=256) :: file_orbs=""
       logical            :: kpts_reduced=.true.
+      logical            :: lambda_orbital_term=.false.
       integer            :: gauge=gauge_len
       integer            :: scatt_type=wf_pw
       integer            :: Nepe=1
-      integer            :: radint_numpoints=40
+      integer            :: radint_numpoints_k=40
+      integer            :: radint_numpoints_r=256
+      integer            :: expansion_lmax=8
       real(dp)           :: wphot=1.0_dp
       real(dp)           :: Eshift=0.0_dp
       real(dp)           :: Epe_min,Epe_max  
@@ -160,10 +163,13 @@ contains
       character(len=*),intent(in)  :: fname
       character(len=256) :: file_orbs=""
       logical            :: kpts_reduced=.true.
+      logical            :: lambda_orbital_term=.false.
       integer            :: gauge=gauge_len
       integer            :: scatt_type=wf_pw
       integer            :: Nepe=1
-      integer            :: radint_numpoints=40
+      integer            :: radint_numpoints_k=40
+      integer            :: radint_numpoints_r=256
+      integer            :: expansion_lmax=8
       real(dp)           :: wphot=1.0_dp
       real(dp)           :: Eshift=0.0_dp
       real(dp)           :: Epe_min,Epe_max  
@@ -171,7 +177,8 @@ contains
       real(dp)           :: eta_smear=1.0e-3_dp
       real(dp)           :: polvec_real(3),polvec_imag(3)
       namelist/PESPARAMS/file_orbs,gauge,Nepe,wphot,Eshift,Epe_min,Epe_max,lambda_esc,&
-         eta_smear,polvec_real,polvec_imag,kpts_reduced,scatt_type,radint_numpoints
+         eta_smear,polvec_real,polvec_imag,kpts_reduced,scatt_type,radint_numpoints_k,&
+         radint_numpoints_r,lambda_orbital_term,expansion_lmax
       integer :: unit_inp
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
@@ -180,10 +187,13 @@ contains
 
       me%file_orbs = file_orbs
       me%kpts_reduced = kpts_reduced
+      me%lambda_orbital_term = lambda_orbital_term
       me%gauge = gauge
       me%scatt_type = scatt_type
       me%Nepe = Nepe
-      me%radint_numpoints = radint_numpoints
+      me%radint_numpoints_k = radint_numpoints_k
+      me%radint_numpoints_r = radint_numpoints_r
+      me%expansion_lmax = expansion_lmax
       me%wphot = wphot
       me%Eshift = Eshift
       me%Epe_min = Epe_min

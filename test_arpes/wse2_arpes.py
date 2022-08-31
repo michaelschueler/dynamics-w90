@@ -27,7 +27,8 @@ def run_calc(wphot,mu,Eshift,Epe,Zsc,alpha,phi=0.0):
 	pes_param = {
 		'file_orbs': file_orbs,
 		'kpts_reduced': kpts_reduced,
-		'gauge': 0,
+		'lambda_orbital_term': False,
+		'gauge': 1,
 		'scatt_type': 0,
 		'Nepe': len(Epe),
 		'wphot': wphot,
@@ -36,7 +37,8 @@ def run_calc(wphot,mu,Eshift,Epe,Zsc,alpha,phi=0.0):
 		'Epe_max': np.amax(Epe),
 		'lambda_esc': 0.0,
 		'eta_smear': eta,
-		'Zeff': Zsc,
+		'radint_numpoints_k': 10,
+		'radint_numpoints_r': 128,
 		'polvec_real': list(np.real(pol_p)),
 		'polvec_imag': list(np.imag(pol_p))		
 	}
@@ -62,6 +64,8 @@ def run_calc(wphot,mu,Eshift,Epe,Zsc,alpha,phi=0.0):
 	outpref = "out/wse2_arpes_path_polp"
 	os.system(exe + ' ' + file_inp + ' ' + outpref)
 
+	exit()
+
 	pes_param['polvec_real'] = list(np.real(pol_m))
 	pes_param['polvec_imag'] = list(np.imag(pol_m))	
 
@@ -81,14 +85,14 @@ def run_calc(wphot,mu,Eshift,Epe,Zsc,alpha,phi=0.0):
 def main():
 	Ry = 27.211
 
-	alpha = 65.0 / 180.0 * np.pi
+	alpha = 0.0 / 180.0 * np.pi
 
 	wphot = 20.0 / Ry
 	Eshift = -3.0 / Ry
 	mu = -3.0 / Ry
 
-	Emin, Emax = -8.0, -3.0
-	Nepe = 400
+	Emin, Emax = -5.0, -3.0
+	Nepe = 20
 	Epe = wphot + np.linspace(Emin, Emax, Nepe) / Ry
 
 	Zsc = 0.0

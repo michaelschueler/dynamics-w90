@@ -20,7 +20,7 @@ contains
       real(dp) :: rho,Expr
       character(len=2) :: orb
 
-      lam_z_ = 0d0
+      lam_z_ = 0.0d0
       if(present(lam_z)) lam_z_ = lam_z
 
       write(orb,'(I0,A1)') n, angular(l)
@@ -82,7 +82,7 @@ contains
       real(dp) :: rho,Prho,dPdrho,Expr
       character(len=2) :: orb
 
-      lam_z_ = 0d0
+      lam_z_ = 0.0d0
       if(present(lam_z)) lam_z_ = lam_z
 
       write(orb,'(I0,A1)') n, angular(l)

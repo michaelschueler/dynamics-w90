@@ -156,6 +156,7 @@ contains
       call db1val(x,idx_,me%tx,me%nx,me%kx,me%cff(:,ic),y,iflag_,inbvx_)
 
       if(present(iflag)) iflag = iflag_
+      if(present(inbvx)) inbvx = inbvx_
 
    end function real_vector_Eval_comp
 !--------------------------------------------------------------------------------------
@@ -252,6 +253,7 @@ contains
       call db1val(x,idx_,me%tx,me%nx,me%kx,me%cff(:,ic,jc),y,iflag_,inbvx_)
 
       if(present(iflag)) iflag = iflag_
+      if(present(inbvx)) inbvx = inbvx_
 
    end function real_matrix_Eval_comp
 !--------------------------------------------------------------------------------------
@@ -319,6 +321,7 @@ contains
       do i=1,me%nc
          inbvx = 1
          call db1val(x,idx_,me%tx,me%nx,me%kx,me%cffr(:,i),yr,iflag_,inbvx)
+         inbvx = 1
          call db1val(x,idx_,me%tx,me%nx,me%kx,me%cffi(:,i),yi,iflag_,inbvx)
          y(i) = cmplx(yr, yi, kind=dp)
       end do
@@ -355,6 +358,7 @@ contains
       y = cmplx(yr, yi, kind=dp)
 
       if(present(iflag)) iflag = iflag_
+      if(present(inbvx)) inbvx = inbvx_
 
    end function cplx_vector_Eval_comp
 !--------------------------------------------------------------------------------------
@@ -384,6 +388,7 @@ contains
          do j=1,me%mc
             iflag = 1
             call db1ink(x,me%nx,dble(y(:,i,j)),me%kx,me%tx,me%Cffr(:,i,j),iflag)
+            iflag = 1
             call db1ink(x,me%nx,aimag(y(:,i,j)),me%kx,me%tx,me%Cffi(:,i,j),iflag)
          end do
       end do
@@ -423,6 +428,7 @@ contains
          do j=1,me%mc
             inbvx = 1
             call db1val(x,idx_,me%tx,me%nx,me%kx,me%cffr(:,i,j),yr,iflag_,inbvx)
+            inbvx = 1
             call db1val(x,idx_,me%tx,me%nx,me%kx,me%cffi(:,i,j),yi,iflag_,inbvx)
             y(i,j) = cmplx(yr, yi, kind=dp)
          end do
@@ -455,11 +461,13 @@ contains
 
       inbvx_ = 1
       if(present(inbvx)) inbvx_ = inbvx
+
       call db1val(x,idx_,me%tx,me%nx,me%kx,me%cffr(:,ic,jc),yr,iflag_,inbvx_(1))
       call db1val(x,idx_,me%tx,me%nx,me%kx,me%cffi(:,ic,jc),yi,iflag_,inbvx_(2))
       y = cmplx(yr, yi, kind=dp)
 
       if(present(iflag)) iflag = iflag_
+      if(present(inbvx)) inbvx = inbvx_
 
    end function cplx_matrix_Eval_comp
 !--------------------------------------------------------------------------------------
