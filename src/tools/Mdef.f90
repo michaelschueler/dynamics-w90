@@ -16,8 +16,22 @@ module MDef
    public :: dp, iu, one, zero, large_int
    public :: nfermi, nnfermi, nbose
    public :: Lorentz, Gauss, GaussOne
+   public :: save_exp
 !--------------------------------------------------------------------------------------
 contains
+!--------------------------------------------------------------------------------------
+   pure elemental real(dp) function save_exp(x)
+      real(dp),intent(in) :: x 
+
+      if(x > 30.0_dp) then
+         save_exp = Huge(1.0_dp)
+      elseif(x < -30.0_dp) then
+         save_exp = 0.0_dp
+      else
+         save_exp = exp(x)
+      end if
+
+   end function save_exp
 !--------------------------------------------------------------------------------------
    pure elemental real(dp) function nfermi(b,x)
       !! Fermi distribution function

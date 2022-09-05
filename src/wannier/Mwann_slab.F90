@@ -20,7 +20,7 @@ contains
       integer :: ijmax_
       integer :: nwan,nrpts_2d,irpt,irpt2d
       integer :: i1,i2,i3,i,j,idir
-      real(dp) :: e3p(3),Ua(3,3)
+      real(dp) :: e3p(3),oop_vec(3),Ua(3,3)
       complex(dp),allocatable :: Hij(:,:,:,:),pos_r(:,:,:,:)
       complex(dp),allocatable :: Dij(:,:,:,:,:)
 
@@ -31,6 +31,10 @@ contains
       slab_w90%real_lattice = bulk_w90%real_lattice
       call GetDipoleRotation(bulk_w90%real_lattice,e3p,Ua)
       slab_w90%real_lattice(3,:) = e3p
+
+      ! call GetOutOfPlaneVector(bulk_w90%real_lattice,oop_vec)
+      !!! CHECK
+      oop_vec = bulk_w90%real_lattice(3,:)
 
       call utility_recip_lattice(slab_w90%real_lattice, slab_w90%recip_lattice)
       call utility_recip_reduced(slab_w90%recip_lattice, slab_w90%recip_reduced)
@@ -94,15 +98,39 @@ contains
          end do
       end do
 
+      if(bulk_w90%coords_present) then
+         slab_w90%coords_present = .true.
+
+         allocate(slab_w90%coords(slab_w90%num_wann,3))
+         do i=1,nlayer
+            slab_w90%coords((i-1)*nwan+1:i*nwan,1) = bulk_w90%coords(1:nwan,1) &
+               - (i-1) * oop_vec(1)
+            slab_w90%coords((i-1)*nwan+1:i*nwan,2) = bulk_w90%coords(1:nwan,2) &
+               - (i-1) * oop_vec(2)
+            slab_w90%coords((i-1)*nwan+1:i*nwan,3) = bulk_w90%coords(1:nwan,3) &
+               - (i-1) * oop_vec(3)
+         end do
+      end if
+
       deallocate(pos_r,Hij,Dij)
 
    end subroutine Wannier_BulkToSlab
+!--------------------------------------------------------------------------------------
+   subroutine GetOutOfPlaneVector(real_lattice,a3)
+      real(dp),intent(in)    :: real_lattice(3,3)
+      real(dp),intent(out)   :: a3(3)
+      real(dp),dimension(3)  :: a1,a2
+
+      a1 = real_lattice(1,:)
+      a2 = real_lattice(2,:)
+      a3 = cross(a1,a2)
+
+   end subroutine GetOutOfPlaneVector
 !--------------------------------------------------------------------------------------
    subroutine GetDipoleRotation(real_lattice,e3p,Ua)
       real(dp),intent(in)    :: real_lattice(3,3)
       real(dp),intent(out)   :: e3p(3)
       real(dp),intent(out)   :: Ua(3,3)
-      real(dp) :: n1, n2, n3, n2p, n3p
       real(dp),dimension(3) :: e1,e2,e3,e1p,e2p
 
       e1 = real_lattice(1,:) / norm2(real_lattice(1,:))
