@@ -35,13 +35,14 @@ contains
    end subroutine Init
 !--------------------------------------------------------------------------------------
    function Eval(me,l,k,r) result(Rr)
+      real(dp),parameter :: small=1.0e-6_dp
       class(scattwf_t),intent(in) :: me  
       integer,intent(in)          :: l
       real(dp),intent(in)         :: k     
       real(dp),intent(in)         :: r
       real(dp)                    :: Rr
       integer :: IFAIL
-      real(dp) :: eta
+      real(dp) :: eta,x
       real(dp),dimension(0:l) :: FC,GC,FCP,GCP
 
       select case(me%wf_type)
@@ -49,8 +50,13 @@ contains
          Rr = spherical_bessel_jn(l,k * r)
       case(wf_coul)
          eta = -me%Z / k
-         call COUL90(k*r, eta, 0.0_dp, l, FC, GC, FCP, GCP, 0, IFAIL)
-         Rr = FC(l)
+         x = k * r
+         if(x < small) then
+            Rr = Coulomb_smallx(x, eta, l)
+         else
+            call COUL90(k*r, eta, 0.0_dp, l, FC, GC, FCP, GCP, 0, IFAIL)
+            Rr = FC(l)
+         end if
       case default
          Rr = 0.0_dp
       end select
@@ -108,7 +114,55 @@ contains
       end if
    end function lacz_gamma
 !--------------------------------------------------------------------------------------
+   function Coulomb_smallx(x,eta,l) result(Fl)
+      real(dp),intent(in) :: x
+      real(dp),intent(in) :: eta
+      integer,intent(in)  :: l  
+      real(dp) :: Fl
+      real(dp) :: Ceta
 
+      Ceta = Coulomb_prefac(eta,l)
+
+      Fl = Ceta * x**(l+1)
+
+   end function Coulomb_smallx
+!------------------------------------------------------------------------
+   pure real(dp) function fac10(n)
+      integer, intent(in) :: n
+      integer :: i
+      real(dp) :: q
+
+      if (n == 0) then
+         fac10 = 1.0D0
+      else
+         fac10 = 1.0D0
+         q = 1.0D0
+         do i = 1, n
+            fac10 = fac10 * q / 10.0D0
+            q = q + 1.0D0
+         end do
+      end if
+
+   end function fac10
+!--------------------------------------------------------------------------------------
+   function Coulomb_prefac(eta,l) result(ceta)
+      real(dp),intent(in) :: eta
+      integer,intent(in)  :: l
+      real(dp) :: ceta
+      real(dp) :: agm,lnfac
+      complex(dp) :: zl,gm
+
+      zl = cmplx(dble(l) + 1.0_dp, eta ,kind=dp)
+      gm = lacz_gamma(zl)
+      agm = abs(gm)
+
+      lnfac = log(agm) + l * log(2.0_dp) - 0.5_dp*Pi*eta &
+         -(fac10(2*l+1) + (2*l+1)*log(10.0_dp))
+
+      ceta = exp(lnfac)
+
+   end function Coulomb_prefac
+!--------------------------------------------------------------------------------------
 
 !======================================================================================
 end module Mscattwf

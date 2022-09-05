@@ -5,13 +5,14 @@ module Marpes_calc_mpi
    use Mdebug
    use Mdef,only: dp,iu,zero
    use Mutils,only: str
+   use Mvector_bsplines,only: cplx_matrix_spline_t
    use Mlatt_utils,only: utility_Cart2Red_2D                   
    use Mham_w90,only: wann90_tb_t
    use Mwannier_orbitals,only: wannier_orbs_t
    use Mradialwf,only: radialwf_t
    use Mscattwf,only: scattwf_t
    use Mradialintegral,only: radialinteg_t
-   use Mpes_intensity,only: PES_Intensity
+   use Mpes_intensity,only: PES_Intensity, PES_AtomicIntegrals_lambda_mpi, PES_AtomicIntegrals_lambda
    use Mio_params,only: HamiltonianParams_t, PESParams_t
    use Mio_hamiltonian,only: ReadHamiltonian
    use Mio_orbitals,only: ReadWannierOrbitals
@@ -23,9 +24,11 @@ module Marpes_calc_mpi
    public :: arpes_calc_t
 !--------------------------------------------------------------------------------------
    type arpes_calc_t
+      logical     :: lambda_mode=.false.
       integer     :: nbnd
       integer     :: gauge
       integer     :: Nepe      
+      integer     :: lmax,radint_nk,radint_nr
       real(dp)    :: wphot,MuChem,Eshift,lambda_esc,eta_smear
       complex(dp) :: polvec(3)       
       integer     :: Nk,Nk_loc
@@ -35,8 +38,12 @@ module Marpes_calc_mpi
       type(wannier_orbs_t) :: orbs
       type(scattwf_t),allocatable,dimension(:)     :: chis
       type(radialinteg_t),allocatable,dimension(:) :: radints
+      type(cplx_matrix_spline_t),allocatable,dimension(:) :: bessel_integ
    contains
       procedure,public  :: Init
+      procedure,public  :: CalcIntegrals
+      procedure,private :: CalcIntegrals_radial
+      procedure,private :: CalcIntegrals_lambda
       procedure,public  :: CalcPES
       procedure,public  :: WriteSpectrum     
    end type arpes_calc_t
@@ -96,6 +103,10 @@ contains
       me%lambda_esc = par_pes%lambda_esc
       me%eta_smear = par_pes%eta_smear    
       me%polvec = par_pes%polvec
+      me%radint_nk = par_pes%radint_numpoints_k
+      me%radint_nr = par_pes%radint_numpoints_r
+      me%lmax = par_pes%expansion_lmax
+      me%lambda_mode = par_pes%lambda_orbital_term
 
       allocate(me%Epe(me%Nepe))
       if(me%Nepe == 1) then
@@ -130,17 +141,6 @@ contains
          me%kpts_loc(ik,1:2) = me%kpts(ik_glob,1:2)
       end do
 
-      kmin = 0.999999_dp * sqrt(2.0_dp * par_pes%Epe_min)
-      kmax = 1.000001_dp * sqrt(2.0_dp * par_pes%Epe_max)      
-  
-      allocate(me%radints(me%nbnd))
-      do iorb=1,me%nbnd
-         call WannOrb_to_RadialWF(me%orbs,iorb,rwf)
-         call me%radints(iorb)%Init(me%orbs%L_indx(iorb),kmin,kmax,me%chis(iorb),rwf,&
-            nk=par_pes%radint_numpoints,gauge=me%gauge)
-         call rwf%Clean()
-      end do
-
       if(on_root) then
          select case(par_pes%gauge)
          case(gauge_len)
@@ -158,6 +158,54 @@ contains
       end if
 
    end subroutine Init
+!--------------------------------------------------------------------------------------
+   subroutine CalcIntegrals(me)
+      class(arpes_calc_t) :: me
+
+      if(me%lambda_mode) then
+         call me%CalcIntegrals_lambda()
+      else
+         call me%CalcIntegrals_radial()
+      end if
+
+   end subroutine CalcIntegrals
+!--------------------------------------------------------------------------------------
+   subroutine CalcIntegrals_radial(me)
+      class(arpes_calc_t) :: me
+      integer :: iorb
+      type(radialwf_t) :: rwf
+      real(dp) :: kmin,kmax
+
+      kmin = 0.999999_dp * sqrt(2.0_dp * minval(me%Epe))
+      kmax = 1.000001_dp * sqrt(2.0_dp * maxval(me%Epe))  
+
+      allocate(me%radints(me%nbnd))
+      do iorb=1,me%nbnd
+         call WannOrb_to_RadialWF(me%orbs,iorb,rwf)
+         call me%radints(iorb)%Init(me%orbs%L_indx(iorb),kmin,kmax,me%chis(iorb),rwf,&
+            nk=me%radint_nk,gauge=me%gauge)
+         call rwf%Clean()
+      end do
+
+   end subroutine CalcIntegrals_radial
+!--------------------------------------------------------------------------------------
+   subroutine CalcIntegrals_lambda(me)
+      class(arpes_calc_t) :: me
+      integer :: iorb
+      type(radialwf_t) :: rwf
+      real(dp) :: kmin,kmax
+
+      kmin = 0.999999_dp * sqrt(2.0_dp * minval(me%Epe))
+      kmax = 1.000001_dp * sqrt(2.0_dp * maxval(me%Epe))  
+
+      call PES_AtomicIntegrals_lambda_mpi(me%orbs,me%chis,me%lambda_esc,me%lmax,kmin,kmax,me%bessel_integ,&
+         gauge=me%gauge,Nr=me%radint_nr,Nk=me%radint_nk)
+
+      ! call PES_AtomicIntegrals_lambda(me%orbs,me%chis,me%lambda_esc,me%lmax,kmin,kmax,me%bessel_integ,&
+      !    gauge=me%gauge,Nr=me%radint_nr,Nk=me%radint_nk)
+
+
+   end subroutine CalcIntegrals_lambda
 !--------------------------------------------------------------------------------------
    subroutine CalcPES(me)
       use Mlinalg,only: EigHE
@@ -179,11 +227,27 @@ contains
          call EigHE(Hk,epsk,vectk)
          epsk = epsk + me%Eshift
 
-         !$OMP PARALLEL DO
-         do iepe=1,me%Nepe
-            me%spect(iepe,ik) = PES_Intensity(me%orbs,me%ham,me%chis,me%radints,kpar,me%wphot,&
-               me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge)
-         end do
+         if(me%lambda_mode) then
+            !$OMP PARALLEL
+            !$OMP DO
+            do iepe=1,me%Nepe
+               me%spect(iepe,ik) = PES_Intensity(me%ham,me%chis,me%lmax,me%bessel_integ,kpar,me%wphot,&
+                  me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear)
+            end do
+            !$OMP END DO
+            !$OMP END PARALLEL
+         else
+            !$OMP PARALLEL
+            !$OMP DO
+            do iepe=1,me%Nepe
+               ! me%spect(iepe,ik) = PES_Intensity(me%orbs,me%ham,me%chi,kpar,me%wphot,&
+               !    me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge)
+               me%spect(iepe,ik) = PES_Intensity(me%orbs,me%ham,me%chis,me%radints,kpar,me%wphot,&
+                  me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge)
+            end do
+            !$OMP END DO
+            !$OMP END PARALLEL
+         end if
       end do
 
       deallocate(epsk,Hk,vectk)

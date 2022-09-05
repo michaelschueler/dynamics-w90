@@ -31,7 +31,7 @@ program arpes
 !--------------------------------------------------------------------------------------
    call Timer_Tic('Initialize calculation', 2)
    Narg=command_argument_count()
-   if(Narg>=1) then
+   if(Narg >= 1) then
       call get_command_argument(1,FlIn)
       call par_ham%ReadFromFile(FlIn)
       call par_pes%ReadFromFile(FlIn)

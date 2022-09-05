@@ -21,6 +21,9 @@ module Mmatrix_elements
    public :: ScattMatrixElement_Momentum, ScattMatrixElement_Length
    public :: ApplyDipoleOp, ApplyMomentumOp, ApplyLengthOp
    public :: dipole_lambda_projection, dipole_lambda_BesselTransform, ScattMatrixElement_Lambda
+#ifdef MPI
+   public :: dipole_lambda_BesselTransform_mpi
+#endif
 
    interface ScattMatrixElement_Momentum
       module procedure ScattMatrixElement_Momentum_comp, ScattMatrixElement_Momentum_precomp
@@ -692,6 +695,120 @@ contains
       !.................................................    
 
    end subroutine dipole_lambda_BesselTransform
+
+!-------------------------------------------------------------------------------------- 
+#ifdef MPI
+   subroutine dipole_lambda_BesselTransform_mpi(lmax,lam_dip,swf,kmin,kmax,nk,lam_dip_bessel)
+      use mpi
+      use Marray1d_dist,only: dist_array1d_t,GetDisplSize1D 
+      real(dp),parameter :: small=1.0e-10_dp
+      integer,intent(in)                     :: lmax
+      type(cplx_matrix_spline_t),intent(in)  :: lam_dip
+      type(scattwf_t),intent(in)             :: swf
+      real(dp),intent(in)                    :: kmin,kmax
+      integer,intent(in)                     :: nk
+      type(cplx_matrix_spline_t),intent(out) :: lam_dip_bessel
+      real(dp),allocatable :: ks(:)
+      integer :: ik,nlm,ilm,idir,l,m,ix,ix_glob
+      integer :: num_indx,num_indx_loc
+      integer :: inbvx(2)
+      real(dp) :: Rmax,yr,yi,knrm
+      integer,allocatable :: lvals(:),indx_tab(:,:)
+      complex(dp),allocatable :: besslk_loc(:),besslk_glob(:),besslk(:,:,:)
+      ! .. parallelization ..
+      integer,parameter  :: master=0,from_master=1,from_worker=2
+      integer :: ntasks,taskid,ierr
+      integer :: nsize
+      integer,allocatable :: size_loc(:),displ(:)
+      type(dist_array1d_t) :: indx_dist
+
+      call MPI_COMM_RANK(MPI_COMM_WORLD, taskid, ierr)
+      call MPI_COMM_SIZE(MPI_COMM_WORLD, ntasks, ierr)
+
+      nlm = (lmax+1)**2
+      Rmax = lam_dip%xlim(2) - small
+      allocate(lvals(nlm))
+
+      ilm = 0
+      do l=0,lmax
+         do m=-l,l
+            ilm = ilm + 1
+            lvals(ilm) = l
+         end do
+      end do
+
+      ks = linspace(kmin,kmax,nk)
+
+      num_indx = nlm * 3 * nk
+      allocate(indx_tab(num_indx,3))
+
+      ix = 0
+      do ilm=1,nlm
+         do idir=1,3
+            do ik=1,nk
+               ix = ix + 1
+               indx_tab(ix,1) = ilm
+               indx_tab(ix,2) = idir
+               indx_tab(ix,3) = ik
+            end do
+         end do
+      end do      
+
+      call indx_dist%Init(ntasks,taskid,num_indx)
+      num_indx_loc = indx_dist%N_loc(taskid)
+
+      allocate(besslk_loc(num_indx_loc))
+
+      do ix=1,num_indx_loc
+         ix_glob = indx_dist%Indx_Loc2Glob(taskid,ix)
+         ilm = indx_tab(ix_glob,1)
+         idir = indx_tab(ix_glob,2)
+         ik = indx_tab(ix_glob,3)
+         knrm = ks(ik)
+         inbvx = 1
+         besslk_loc(ix) = ZGregoryKintegral(radial_func,knrm,0.0_dp,Rmax)
+      end do
+
+      allocate(displ(0:ntasks-1),size_loc(0:ntasks-1))
+      call GetDisplSize1D(indx_dist%N_loc,1,displ,nsize,size_loc)
+
+      allocate(besslk_glob(num_indx))
+      call MPI_Allgatherv(besslk_loc,nsize,MPI_DOUBLE_COMPLEX,besslk_glob,size_loc,displ,&
+            MPI_DOUBLE_COMPLEX,MPI_COMM_WORLD,ierr)
+
+      allocate(besslk(nk,nlm,3))
+      do ix=1,num_indx
+         ilm = indx_tab(ix,1)
+         idir = indx_tab(ix,2)
+         ik = indx_tab(ix,3)
+         besslk(ik,ilm,idir) = besslk_glob(ix)         
+      end do
+
+      call lam_dip_bessel%Init(ks, besslk, nlm, 3)
+
+      deallocate(indx_tab)
+      deallocate(displ,size_loc)
+      deallocate(besslk_loc)
+      deallocate(besslk_glob)
+      deallocate(besslk)
+      deallocate(ks)
+      deallocate(lvals)
+      call indx_dist%Clean()
+
+      !.................................................
+      contains
+      !.................................................      
+         complex(dp) function radial_func(r)
+            real(dp),intent(in) :: r
+            complex(dp) :: y
+
+            y = lam_dip%Eval_component(r,ilm,idir,inbvx=inbvx)
+            radial_func = r**2 * y * swf%Eval(lvals(ilm), knrm, r)
+
+         end function radial_func
+      !.................................................
+   end subroutine dipole_lambda_BesselTransform_mpi
+#endif
 !-------------------------------------------------------------------------------------- 
    function ZGregoryKintegral(f,k,a,b,nsample) result(res)
       use Mintegration,only: GregoryIntegral

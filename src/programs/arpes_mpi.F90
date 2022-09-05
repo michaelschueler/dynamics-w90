@@ -44,7 +44,7 @@ program arpes_mpi
    ! call Timer_Tic('Initialize calculation', 2)
    tic = MPI_Wtime()
    Narg=command_argument_count()
-   if(Narg>=1) then
+   if(Narg >= 1) then
       call get_command_argument(1,FlIn)
       call par_ham%ReadFromFile(FlIn)
       call par_pes%ReadFromFile(FlIn)
@@ -72,6 +72,11 @@ program arpes_mpi
 !--------------------------------------------------------------------------------------
 !                               ++  Calculation ++
 !--------------------------------------------------------------------------------------
+   tic = MPI_Wtime()
+   call calc%CalcIntegrals()
+   toc = MPI_Wtime()
+   if(on_root) call PrintTime('integrals',toc-tic,FlUnt=output_unit)
+
    tic = MPI_Wtime()
    call calc%CalcPES()
    toc = MPI_Wtime()

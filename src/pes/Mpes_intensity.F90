@@ -21,6 +21,9 @@ module Mpes_intensity
    private
    public :: PES_MatrixElements, PES_Intensity, PES_Intensity_escapedepth
    public :: PES_AtomicIntegrals_lambda, PES_Intensity_besselinteg
+#ifdef MPI
+   public :: PES_AtomicIntegrals_lambda_mpi
+#endif
 
    interface PES_MatrixElements
       module procedure PES_MatrixElements_comp, PES_MatrixElements_precomp, PES_MatrixElements_besselinteg
@@ -218,6 +221,192 @@ contains
       deallocate(lam_dip_Rfun)
 
    end subroutine PES_AtomicIntegrals_lambda
+!--------------------------------------------------------------------------------------
+
+
+
+!--------------------------------------------------------------------------------------
+#ifdef MPI
+   subroutine PES_AtomicIntegrals_lambda_mpi(orbs,scwfs,lam,lmax,kmin,kmax,bessel_integ,gauge,Nr,Nk)
+      use mpi
+      use Marray1d_dist,only: dist_array1d_t,GetDisplSize1D 
+      use Mmatrix_elements,only: dipole_lambda_BesselTransform_mpi
+      type(wannier_orbs_t),intent(in) :: orbs
+      type(scattwf_t),intent(in)      :: scwfs(:)
+      real(dp),intent(in)             :: lam
+      integer,intent(in)              :: lmax
+      real(dp),intent(in)             :: kmin,kmax
+      type(cplx_matrix_spline_t),allocatable,intent(out) :: bessel_integ(:)
+      integer,intent(in),optional     :: gauge
+      integer,intent(in),optional     :: Nr
+      integer,intent(in),optional     :: Nk
+      integer :: gauge_,Nr_,nk_
+      integer :: Nr_loc
+      integer :: norb,nbnd,iorb,ibnd,mabs,idir,ncmp,sig,ir,ir_glob
+      real(dp),allocatable :: rs(:),rs_loc(:)
+      complex(dp),allocatable,dimension(:,:,:) :: lam_dip_Rfun_p1,lam_dip_Rfun_m1
+      complex(dp),allocatable,dimension(:,:,:) :: lam_dip_Rfun_loc, lam_dip_Rfun_trs, lam_dip_Rfun
+      type(radialwf_t) :: rwf
+      type(cplx_matrix_spline_t) :: dipwf_m1,dipwf_p1
+      type(cplx_matrix_spline_t) :: lam_dip
+      ! .. parallelization ..
+      integer,parameter  :: master=0,from_master=1,from_worker=2
+      integer :: ntasks,taskid,ierr
+      integer :: nsize
+      integer,allocatable :: size_loc(:),displ(:)
+      type(dist_array1d_t) :: rdist
+
+      call MPI_COMM_RANK(MPI_COMM_WORLD, taskid, ierr)
+      call MPI_COMM_SIZE(MPI_COMM_WORLD, ntasks, ierr)
+
+      gauge_ = gauge_len
+      if(present(gauge)) gauge_ = gauge
+
+      Nr_ = 256
+      if(present(Nr)) Nr_ = Nr
+
+      call rdist%Init(ntasks,taskid,Nr_)
+      Nr_loc = rdist%N_loc(taskid)
+
+      Nk_ = 40
+      if(present(Nk)) Nk_ = Nk
+
+      norb = orbs%norb
+      nbnd = norb
+
+      allocate(bessel_integ(norb))
+
+      ncmp = (lmax + 1)**2
+      allocate(lam_dip_Rfun_m1(ncmp,3,Nr_loc)); lam_dip_Rfun_m1 = zero
+      allocate(lam_dip_Rfun_p1(ncmp,3,Nr_loc)); lam_dip_Rfun_p1 = zero
+      allocate(lam_dip_Rfun_loc(ncmp,3,Nr_loc)); lam_dip_Rfun_loc = zero
+      allocate(lam_dip_Rfun_trs(ncmp,3,Nr_)); lam_dip_Rfun_trs = zero
+      allocate(lam_dip_Rfun(Nr_,ncmp,3)); lam_dip_Rfun = zero
+
+      allocate(displ(0:ntasks-1),size_loc(0:ntasks-1))
+      call GetDisplSize1D(rdist%N_loc,ncmp*3,displ,nsize,size_loc)
+
+      do iorb=1,norb
+         ! if(orbs%weight(iorb) < 1.0e-5_dp) cycle
+
+         call WannOrb_to_RadialWF(orbs,iorb,rwf)
+
+         rs = linspace(0.0_dp, rwf%Rmax, Nr_)
+         allocate(rs_loc(Nr_loc))
+         do ir=1,Nr_loc
+            ir_glob = rdist%Indx_Loc2Glob(taskid,ir)
+            rs_loc(ir) = rs(ir_glob)
+         end do
+
+         lam_dip_Rfun_m1 = zero
+         lam_dip_Rfun_p1 = zero
+         lam_dip_Rfun_loc = zero
+
+         if(orbs%weight(iorb) > 1.0e-5_dp) then
+
+            if(orbs%real_lm) then
+               mabs = abs(orbs%M_indx(iorb))
+               sig = 1
+               if(mod(orbs%M_indx(iorb),2) /= 0) sig = -1
+
+               ! m = |m0|
+               call ApplyDipoleOp(rwf,orbs%L_indx(iorb),mabs,dipwf_m1,dipwf_p1,gauge_)
+
+               do ir=1,Nr_loc
+                  call Dipole_lambda_projection(lmax,orbs%L_indx(iorb)+1,dipwf_p1,lam,rs_loc(ir),lam_dip_Rfun_p1(:,:,ir))
+               end do
+
+               if(orbs%L_indx(iorb) > 0) then
+                  do ir=1,Nr_loc
+                     call Dipole_lambda_projection(lmax,orbs%L_indx(iorb)-1,dipwf_m1,lam,rs_loc(ir),lam_dip_Rfun_m1(:,:,ir)) 
+                  end do
+               end if
+
+               lam_dip_Rfun_loc = lam_dip_Rfun_p1 + lam_dip_Rfun_m1
+
+               ! m = -|m0|
+               if(mabs /= 0) then
+                  lam_dip_Rfun_m1 = zero
+                  lam_dip_Rfun_p1 = zero
+
+                  call ApplyDipoleOp(rwf,orbs%L_indx(iorb),-mabs,dipwf_m1,dipwf_p1,gauge_)
+
+                  do ir=1,Nr_loc
+                     call Dipole_lambda_projection(lmax,orbs%L_indx(iorb)+1,dipwf_p1,lam,rs_loc(ir),lam_dip_Rfun_p1(:,:,ir) )
+                  end do
+
+                  if(orbs%L_indx(iorb) > 0) then
+                     do ir=1,Nr_loc
+                        call Dipole_lambda_projection(lmax,orbs%L_indx(iorb)-1,dipwf_m1,lam,rs_loc(ir),lam_dip_Rfun_m1(:,:,ir)) 
+                     end do
+                  end if
+
+                  ! transform to real basis
+                  if(orbs%M_indx(iorb) < 0) then
+                     lam_dip_Rfun_loc = iu/sqrt(2.0_dp) * (lam_dip_Rfun_p1 + lam_dip_Rfun_m1 - sig * lam_dip_Rfun_loc)
+                  else
+                     lam_dip_Rfun_loc = 1.0_dp/sqrt(2.0_dp) * (lam_dip_Rfun_p1 + lam_dip_Rfun_m1 + sig * lam_dip_Rfun_loc)
+                  end if
+
+               end if
+
+            else
+
+               call ApplyDipoleOp(rwf,orbs%L_indx(iorb),orbs%M_indx(iorb),dipwf_m1,dipwf_p1,gauge_)
+               do ir=1,Nr_loc
+                  call Dipole_lambda_projection(lmax,orbs%L_indx(iorb)+1,dipwf_p1,lam,rs_loc(ir),lam_dip_Rfun_p1(:,:,ir))
+               end do
+
+               if(orbs%L_indx(iorb) > 0) then
+                  do ir=1,Nr_loc
+                     call Dipole_lambda_projection(lmax,orbs%L_indx(iorb)-1,dipwf_m1,lam,rs_loc(ir),lam_dip_Rfun_m1(:,:,ir)) 
+                  end do
+               end if
+
+               lam_dip_Rfun_loc = lam_dip_Rfun_p1 + lam_dip_Rfun_m1
+
+            end if
+
+         end if
+
+         ! multiply orbital weight
+         lam_dip_Rfun_loc = lam_dip_Rfun_loc * orbs%weight(iorb)
+
+         ! construct spline object
+
+         call MPI_Allgatherv(lam_dip_Rfun_loc,nsize,MPI_DOUBLE_COMPLEX,lam_dip_Rfun_trs,size_loc,displ,&
+            MPI_DOUBLE_COMPLEX,MPI_COMM_WORLD,ierr)
+
+         do ir=1,Nr_
+            lam_dip_Rfun(ir,:,:) = lam_dip_Rfun_trs(:,:,ir)
+         end do
+
+         call lam_dip%Init(rs, lam_dip_Rfun, ncmp, 3)
+
+         ! radial integrals
+         call dipole_lambda_BesselTransform_mpi(lmax,lam_dip,scwfs(iorb),kmin,kmax,nk_,bessel_integ(iorb))
+
+         ! clean up for next orbital
+         call rwf%Clean()
+         call lam_dip%Clean()
+         deallocate(rs)
+         deallocate(rs_loc)
+
+      end do
+
+      deallocate(lam_dip_Rfun_p1)
+      deallocate(lam_dip_Rfun_m1)
+      deallocate(lam_dip_Rfun_loc)
+      deallocate(lam_dip_Rfun_trs)
+      deallocate(lam_dip_Rfun)
+      deallocate(displ,size_loc)
+
+      call rdist%Clean()
+
+   end subroutine PES_AtomicIntegrals_lambda_mpi
+#endif
+!--------------------------------------------------------------------------------------
+
 !--------------------------------------------------------------------------------------
    subroutine PES_MatrixElements_comp(orbs,wann,scwfs,kvec,vectk,lam,Matel,gauge)
       type(wannier_orbs_t),intent(in) :: orbs
