@@ -116,7 +116,6 @@ contains
                do ir=1,Nr_
                   call Dipole_lambda_projection(lmax,orbs%L_indx(iorb)+1,dipwf_p1,lam,rs(ir),integlm)
                   lam_dip_Rfun_p1(ir,:,:) = integlm
-                  print*, "L+1","|M|",iorb,rs(ir),maxval(Abs(integlm))
                end do
                !$OMP END DO
 
@@ -125,7 +124,6 @@ contains
                   do ir=1,Nr_
                      call Dipole_lambda_projection(lmax,orbs%L_indx(iorb)-1,dipwf_m1,lam,rs(ir),integlm) 
                      lam_dip_Rfun_m1(ir,:,:) = integlm
-                     print*, "L-1","|M|",iorb,rs(ir),maxval(Abs(integlm))
                   end do
                   !$OMP END DO
                end if
@@ -147,7 +145,6 @@ contains
                   do ir=1,Nr_
                      call Dipole_lambda_projection(lmax,orbs%L_indx(iorb)+1,dipwf_p1,lam,rs(ir),integlm)
                      lam_dip_Rfun_p1(ir,:,:) = integlm
-                     print*, "L+1","-|M|",iorb,rs(ir),maxval(Abs(integlm))
                   end do
                   !$OMP END DO
 
@@ -156,7 +153,6 @@ contains
                      do ir=1,Nr_
                         call Dipole_lambda_projection(lmax,orbs%L_indx(iorb)-1,dipwf_m1,lam,rs(ir),integlm) 
                         lam_dip_Rfun_m1(ir,:,:) = integlm
-                        print*, "L-1","-|M|",iorb,rs(ir),maxval(Abs(integlm))
                      end do
                       !$OMP END DO
                   end if
@@ -366,8 +362,6 @@ contains
 
          matomic(iorb,1:3) = matomic(iorb,1:3) * orbs%weight(iorb)
 
-         print*, kvec, iorb, matomic(iorb,1)
-
       end do
 
       z0 = maxval(wann%coords(:,3))
@@ -410,9 +404,6 @@ contains
       allocate(matomic(norb,3)); matomic = zero
       do iorb=1,norb
          matomic(iorb,1:3) = ScattMatrixElement_Lambda(lmax,scwfs(iorb),bessel_integ(iorb),kvec)
-
-         print*, kvec, iorb, matomic(iorb,1)
-
       end do
 
       z0 = maxval(wann%coords(:,3))

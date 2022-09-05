@@ -220,17 +220,25 @@ contains
       do l=l_min,l_max
          if(l == l0) cycle
          l_indx = l
-         call integral_1d(radfunc,0.0_dp,rwf%Rmax,quad_tol,rint)         
-         gnt(1) = ThreeYlm(l,-m0+1,1,-1,l0,m0)
-         gnt(2) = ThreeYlm(l,-m0-1,1,1,l0,m0)
-         gnt(3) = ThreeYlm(l,-m0,1,0,l0,m0)
+         call integral_1d(radfunc,0.0_dp,rwf%Rmax,quad_tol,rint)       
+         gnt(1) = minusone_n(-m0+1) * ThreeYlm(l,-m0+1,1,-1,l0,m0)  
+         gnt(2) = minusone_n(-m0-1) * ThreeYlm(l,-m0-1,1,1,l0,m0)
+         gnt(3) = minusone_n(-m0) * ThreeYlm(l,-m0,1,0,l0,m0)
          exphi = conjg(swf%Phase(l,knrm))
 
-         Mk(1) = Mk(1) + exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
-            - gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint / sqrt(2.0d0)
-         Mk(2) = Mk(2) + iu*exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
-            + gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint / sqrt(2.0d0)
-         Mk(3) = Mk(3) + exphi * gnt(3) * rint * conjg(Ylm_cart(l,-m0,kvec))
+         Mk(1) = Mk(1) + exphi * rint * (gnt(1) * Ylm_cart(l,-m0+1,kvec) &
+            - gnt(2) * Ylm_cart(l,-m0-1,kvec)) / sqrt(2.0d0)
+
+         Mk(2) = Mk(2) + iu * exphi * rint * (gnt(1) * Ylm_cart(l,-m0+1,kvec) &
+            + gnt(2) * Ylm_cart(l,-m0-1,kvec)) / sqrt(2.0d0)
+
+         Mk(3) = Mk(3) + exphi * rint * gnt(3) * Ylm_cart(l,-m0,kvec)
+
+         ! Mk(1) = Mk(1) + exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
+         !    - gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint / sqrt(2.0d0)
+         ! Mk(2) = Mk(2) + iu*exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
+         !    + gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint / sqrt(2.0d0)
+         ! Mk(3) = Mk(3) + exphi * gnt(3) * rint * conjg(Ylm_cart(l,-m0,kvec))
       end do
 
       Mk = QPI * sqrt(QPI/3.0d0) * Mk
@@ -266,29 +274,53 @@ contains
 
       l = l0 - 1
       if(l >= 0) then
-         gnt(1) = ThreeYlm(l,-m0+1,1,-1,l0,m0)
-         gnt(2) = ThreeYlm(l,-m0-1,1,1,l0,m0)
-         gnt(3) = ThreeYlm(l,-m0,1,0,l0,m0)
+         ! gnt(1) = ThreeYlm(l,-m0+1,1,-1,l0,m0)
+         ! gnt(2) = ThreeYlm(l,-m0-1,1,1,l0,m0)
+         ! gnt(3) = ThreeYlm(l,-m0,1,0,l0,m0)
+         gnt(1) = minusone_n(-m0+1) * ThreeYlm(l,-m0+1,1,-1,l0,m0)  
+         gnt(2) = minusone_n(-m0-1) * ThreeYlm(l,-m0-1,1,1,l0,m0)
+         gnt(3) = minusone_n(-m0) * ThreeYlm(l,-m0,1,0,l0,m0)
          exphi = conjg(swf%Phase(l,knrm))
 
-         Mk(1) = Mk(1) + exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
-            - gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(1) / sqrt(2.0d0)
-         Mk(2) = Mk(2) + iu*exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
-            + gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(1) / sqrt(2.0d0)
-         Mk(3) = Mk(3) + exphi * gnt(3) * rint(1) * conjg(Ylm_cart(l,-m0,kvec))
+         Mk(1) = Mk(1) + exphi * rint(1) * (gnt(1) * Ylm_cart(l,m0-1,kvec) &
+            - gnt(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
+
+         Mk(2) = Mk(2) + iu * exphi * rint(1) * (gnt(1) * Ylm_cart(l,m0-1,kvec) &
+            + gnt(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
+
+         Mk(3) = Mk(3) + exphi * rint(1) * gnt(3) * Ylm_cart(l,m0,kvec)
+
+         ! Mk(1) = Mk(1) + exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
+         !    - gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(1) / sqrt(2.0d0)
+         ! Mk(2) = Mk(2) + iu*exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
+         !    + gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(1) / sqrt(2.0d0)
+         ! Mk(3) = Mk(3) + exphi * gnt(3) * rint(1) * conjg(Ylm_cart(l,-m0,kvec))
       end if
 
       l = l0 + 1
-      gnt(1) = ThreeYlm(l,-m0+1,1,-1,l0,m0)
-      gnt(2) = ThreeYlm(l,-m0-1,1,1,l0,m0)
-      gnt(3) = ThreeYlm(l,-m0,1,0,l0,m0)
+      ! gnt(1) = ThreeYlm(l,-m0+1,1,-1,l0,m0)
+      ! gnt(2) = ThreeYlm(l,-m0-1,1,1,l0,m0)
+      ! gnt(3) = ThreeYlm(l,-m0,1,0,l0,m0)
+      gnt(1) = minusone_n(-m0+1) * ThreeYlm(l,-m0+1,1,-1,l0,m0)  
+      gnt(2) = minusone_n(-m0-1) * ThreeYlm(l,-m0-1,1,1,l0,m0)
+      gnt(3) = minusone_n(-m0) * ThreeYlm(l,-m0,1,0,l0,m0)
       exphi = conjg(swf%Phase(l,knrm))
 
-      Mk(1) = Mk(1) + exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
-         - gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(2) / sqrt(2.0d0)
-      Mk(2) = Mk(2) + iu*exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
-         + gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(2) / sqrt(2.0d0)
-      Mk(3) = Mk(3) + exphi * gnt(3) * rint(2) * conjg(Ylm_cart(l,-m0,kvec))              
+      exphi = conjg(swf%Phase(l,knrm))
+
+      ! Mk(1) = Mk(1) + exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
+      !    - gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(2) / sqrt(2.0d0)
+      ! Mk(2) = Mk(2) + iu*exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
+      !    + gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(2) / sqrt(2.0d0)
+      ! Mk(3) = Mk(3) + exphi * gnt(3) * rint(2) * conjg(Ylm_cart(l,-m0,kvec))              
+
+      Mk(1) = Mk(1) + exphi * rint(2) * (gnt(1) * Ylm_cart(l,m0-1,kvec) &
+         - gnt(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
+
+      Mk(2) = Mk(2) + iu * exphi * rint(2) * (gnt(1) * Ylm_cart(l,m0-1,kvec) &
+         + gnt(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
+
+      Mk(3) = Mk(3) + exphi * rint(2) * gnt(3) * Ylm_cart(l,m0,kvec)
 
       Mk = QPI * sqrt(QPI/3.0d0) * Mk
 
@@ -340,19 +372,19 @@ contains
          if(m == m0-1) then
             do ir=1,Nr
                rv = rs(ir) * rwf%Eval(rs(ir))
-               Rfun(ir,i,1) = sig * gnt(1) * rv / sqrt(2.0d0)
-               Rfun(ir,i,2) = sig * iu * gnt(1) * rv / sqrt(2.0d0)
+               Rfun(ir,i,1) = Rfun(ir,i,1) + sig * gnt(1) * rv / sqrt(2.0d0)
+               Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(1) * rv / sqrt(2.0d0)
             end do
          elseif(m == m0 + 1) then
             do ir=1,Nr
                rv = rs(ir) * rwf%Eval(rs(ir))
-               Rfun(ir,i,1) = -sig * gnt(2) * rv / sqrt(2.0d0)
-               Rfun(ir,i,2) = sig * iu * gnt(2) * rv / sqrt(2.0d0)
+               Rfun(ir,i,1) = Rfun(ir,i,1) - sig * gnt(2) * rv / sqrt(2.0d0)
+               Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(2) * rv / sqrt(2.0d0)
             end do            
          elseif(m == m0) then
             do ir=1,Nr
                rv = rs(ir) * rwf%Eval(rs(ir))
-               Rfun(ir,i,3) = sig * gnt(3) * rv
+               Rfun(ir,i,3) = Rfun(ir,i,3) + sig * gnt(3) * rv
             end do
          end if
       end do
@@ -368,6 +400,10 @@ contains
       l = l0 - 1
 
       if(l0 > 0) then
+         gnt(1) = ThreeYlm(l,-m0+1,1,-1,l0,m0)
+         gnt(2) = ThreeYlm(l,-m0-1,1,1,l0,m0)
+         gnt(3) = ThreeYlm(l,-m0,1,0,l0,m0)    
+
          allocate(Rfun(Nr,2*l+1,3)); Rfun = zero
 
          do m= -l, l
@@ -376,19 +412,19 @@ contains
             if(m == m0-1) then
                do ir=1,Nr
                   rv = rs(ir) * rwf%Eval(rs(ir))
-                  Rfun(ir,i,1) = sig * gnt(1) * rv / sqrt(2.0d0)
-                  Rfun(ir,i,2) = sig * iu * gnt(1) * rv / sqrt(2.0d0)
+                  Rfun(ir,i,1) = Rfun(ir,i,1) + sig * gnt(1) * rv / sqrt(2.0d0)
+                  Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(1) * rv / sqrt(2.0d0)
                end do
             elseif(m == m0 + 1) then
                do ir=1,Nr
                   rv = rs(ir) * rwf%Eval(rs(ir))
-                  Rfun(ir,i,1) = -sig * gnt(2) * rv / sqrt(2.0d0)
-                  Rfun(ir,i,2) = sig * iu * gnt(2) * rv / sqrt(2.0d0)
+                  Rfun(ir,i,1) = Rfun(ir,i,1) - sig * gnt(2) * rv / sqrt(2.0d0)
+                  Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(2) * rv / sqrt(2.0d0)
                end do            
             elseif(m == m0) then
                do ir=1,Nr
                   rv = rs(ir) * rwf%Eval(rs(ir))
-                  Rfun(ir,i,3) = sig * gnt(3) * rv
+                  Rfun(ir,i,3) = Rfun(ir,i,3) + sig * gnt(3) * rv
                end do
             end if
          end do
@@ -630,7 +666,7 @@ contains
 
             y = lam_dip%Eval_component(r,icmp,dir_flag,inbvx=inbvx)
             ! y = lam_dip%Eval_component(r,icmp,dir_flag)
-            radial_func = r**2 * y * swf%Eval(lvals(ilm), knrm, r)
+            radial_func = r**2 * y * swf%Eval(lvals(icmp), knrm, r)
 
          end function radial_func
       !.................................................
