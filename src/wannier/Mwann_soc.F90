@@ -3,10 +3,10 @@ module Mwann_soc
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
    use Mdef,only: dp,iu,zero
-   use Munits,only: DPi
    use Mham_w90,only: wann90_tb_t
    implicit none
    include "../formats.h"
+   include "../units_inc.f90"
 !--------------------------------------------------------------------------------------
    private
    public :: ham_soc_t

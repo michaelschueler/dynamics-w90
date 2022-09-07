@@ -3,13 +3,13 @@ module Mwann_evol
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
    use Mdef,only: dp,iu,one,zero,nfermi
-   use Munits,only: DPi
    use Mlinalg,only: get_large_size,util_matmul,util_rotate,util_rotate_cc
    use Mrungekutta,only: ODE_step_rk5
    use Mham_w90,only: wann90_tb_t
    use Mwann_dyn
    implicit none
    include '../formats.h'
+   include '../units_inc.f90'
 !--------------------------------------------------------------------------------------
    ! .. external vector potential ..
    procedure(vecpot_efield_func),pointer :: field => null()
@@ -89,7 +89,7 @@ contains
    end subroutine SetLaserpulse
 !--------------------------------------------------------------------------------------
    subroutine SolveEquilibrium(me,filling)
-      use Mlinalg,only: EigHE,TRace
+      use Mlinalg,only: EigH,TRace
       use Mroot,only: brent
       real(dp),parameter :: mu_tol=1.0e-8_dp
       class(wann_evol_t)      :: me
@@ -109,7 +109,7 @@ contains
 
       call Wann_GenHk(me%ham,me%Nk,me%kcoord,Hk)
       do ik=1,me%Nk
-         call EigHE(Hk(:,:,ik),Ek(:,ik),me%wan_rot(:,:,ik))
+         call EigH(Hk(:,:,ik),Ek(:,ik),me%wan_rot(:,:,ik))
          Ek(:,ik) = me%ham%get_eig(me%kcoord(ik,:))
       end do
 
@@ -174,7 +174,7 @@ contains
    end subroutine SolveEquilibrium
 !--------------------------------------------------------------------------------------
    subroutine Timestep_RelaxTime(me,T1,T2,tstp,dt)
-      use Mlinalg,only: EigHE
+      use Mlinalg,only: EigH
       integer,parameter :: qc=1
       class(wann_evol_t)      :: me
       real(dp),intent(in)       :: T1,T2
@@ -228,7 +228,7 @@ contains
 
          ht = Wann_GetHk_dip(me%ham,AF,EF,kpt,reducedA=.false.,&
             Peierls_only=emperical)
-         call EigHE(ht,occk,Uk)
+         call EigH(ht,occk,Uk)
 
          rho_off = util_rotate(nst,Uk,yt,large_size=large_size)
          do i=1,nst

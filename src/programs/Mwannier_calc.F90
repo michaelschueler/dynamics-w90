@@ -4,7 +4,7 @@ module Mwannier_calc
    use Mdebug
    use Mdef,only: dp,iu,zero
    use Mutils,only: str
-   use Mlinalg,only: EigHE
+   use Mlinalg,only: EigH
    use Mham_w90,only: wann90_tb_t
    use Mwann_compress,only: PruneHoppings
    use Mwann_slab,only: Wannier_BulkToSlab
@@ -104,12 +104,12 @@ contains
          end select 
          do ik=1,me%Nk
             Hk = me%Ham%get_ham_field(me%kpts(ik,:),par_ham%Efield,par_ham%field_mode)
-            call EigHE(Hk,me%epsk(:,ik),me%vectk(:,:,ik))
+            call EigH(Hk,me%epsk(:,ik),me%vectk(:,:,ik))
          end do
       else
          do ik=1,me%Nk
             Hk = me%Ham%get_ham(me%kpts(ik,:))
-            call EigHE(Hk,me%epsk(:,ik),me%vectk(:,:,ik))
+            call EigH(Hk,me%epsk(:,ik),me%vectk(:,:,ik))
          end do
       end if
       deallocate(Hk)

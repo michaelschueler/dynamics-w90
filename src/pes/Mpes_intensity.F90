@@ -4,7 +4,7 @@ module Mpes_intensity
    use Mdebug
    use Mdef,only: dp, iu, zero, one, gauss, save_exp
    use Mutils,only: linspace
-   use Mlinalg,only: get_large_size, util_matmul, util_zgemm, EigvalsHE, EigHE
+   use Mlinalg,only: get_large_size, util_matmul, util_zgemm, EigvalsHE
    use Mbsplines,only: spline1d_t
    use Mvector_bsplines,only: cplx_vector_spline_t, cplx_matrix_spline_t
    use Mangcoeff,only: Transform_Y2X

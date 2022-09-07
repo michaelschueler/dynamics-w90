@@ -21,6 +21,7 @@ module MDef
 contains
 !--------------------------------------------------------------------------------------
    pure elemental real(dp) function save_exp(x)
+   !! evaluates exp(x) avoiding overflow or underflow
       real(dp),intent(in) :: x 
 
       if(x > 30.0_dp) then

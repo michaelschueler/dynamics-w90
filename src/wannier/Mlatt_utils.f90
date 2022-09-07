@@ -3,6 +3,7 @@ module Mlatt_utils
    use Mdef,only: dp
    use Mlinalg,only: Inv
    implicit none
+   include '../units_inc.f90'
 !--------------------------------------------------------------------------------------   
    private
    public :: utility_recip_lattice, utility_recip_reduced
@@ -16,7 +17,6 @@ contains
       !!  Calculates the reciprical lattice vectors and the cell volume
       !                                                                  !
       !===================================================================
-      use Munits,only: DPI
       implicit none
       real(kind=dp), intent(in)  :: real_lat(3, 3)
       real(kind=dp), intent(out) :: recip_lat(3, 3)

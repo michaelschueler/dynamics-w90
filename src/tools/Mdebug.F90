@@ -78,7 +78,8 @@ contains
    end subroutine dassert_shape_1
 !--------------------------------------------------------------------------------------
   subroutine zassert_shape_1(A, shap, routine, matname)
-    ! make sure a given real matrix has a given shape
+      !! Checks if given real vector has a given shape; otherwise an error is returned
+      !! Only active if compiled in debug mode.
     complex(dp), intent(in) :: A(:)
     integer, intent(in) :: shap(:)
     character(len=*) :: routine, matname
@@ -94,7 +95,8 @@ contains
   end subroutine zassert_shape_1
 !--------------------------------------------------------------------------------------
   subroutine dassert_shape_2(A, shap, routine, matname)
-    ! make sure a given real matrix has a given shape
+      !! Checks if given real vector has a given shape; otherwise an error is returned
+      !! Only active if compiled in debug mode.
     real(dp), intent(in) :: A(:,:)
     integer, intent(in) :: shap(:)
     character(len=*) :: routine, matname
@@ -112,7 +114,8 @@ contains
   end subroutine dassert_shape_2
 !--------------------------------------------------------------------------------------
   subroutine zassert_shape_2(A, shap, routine, matname)
-    ! make sure a given real matrix has a given shape
+      !! Checks if given real vector has a given shape; otherwise an error is returned
+      !! Only active if compiled in debug mode.
     complex(dp), intent(in) :: A(:,:)
     integer, intent(in) :: shap(:)
     character(len=*) :: routine, matname
@@ -128,7 +131,8 @@ contains
   end subroutine zassert_shape_2
 !--------------------------------------------------------------------------------------
   subroutine dassert_shape_3(A, shap, routine, matname)
-    ! make sure a given real matrix has a given shape
+      !! Checks if given real vector has a given shape; otherwise an error is returned
+      !! Only active if compiled in debug mode.
     real(dp), intent(in) :: A(:,:,:)
     integer, intent(in) :: shap(:)
     character(len=*) :: routine, matname
@@ -146,7 +150,8 @@ contains
   end subroutine dassert_shape_3
 !--------------------------------------------------------------------------------------
   subroutine zassert_shape_3(A, shap, routine, matname)
-    ! make sure a given real matrix has a given shape
+      !! Checks if given real vector has a given shape; otherwise an error is returned
+      !! Only active if compiled in debug mode.
     complex(dp), intent(in) :: A(:,:,:)
     integer, intent(in) :: shap(:)
     character(len=*) :: routine, matname
@@ -162,7 +167,8 @@ contains
   end subroutine zassert_shape_3
 !--------------------------------------------------------------------------------------
   subroutine dassert_shape_4(A, shap, routine, matname)
-    ! make sure a given real matrix has a given shape
+      !! Checks if given real vector has a given shape; otherwise an error is returned
+      !! Only active if compiled in debug mode.
     real(dp), intent(in) :: A(:,:,:,:)
     integer, intent(in) :: shap(:)
     character(len=*) :: routine, matname
@@ -180,7 +186,8 @@ contains
   end subroutine dassert_shape_4
 !--------------------------------------------------------------------------------------
   subroutine zassert_shape_4(A, shap, routine, matname)
-    ! make sure a given real matrix has a given shape
+      !! Checks if given real vector has a given shape; otherwise an error is returned
+      !! Only active if compiled in debug mode.
     complex(dp), intent(in) :: A(:,:,:,:)
     integer, intent(in) :: shap(:)
     character(len=*) :: routine, matname
@@ -196,7 +203,8 @@ contains
   end subroutine zassert_shape_4
 !--------------------------------------------------------------------------------------
   subroutine dassert_shape_5(A, shap, routine, matname)
-    ! make sure a given real matrix has a given shape
+      !! Checks if given real vector has a given shape; otherwise an error is returned
+      !! Only active if compiled in debug mode.
     real(dp), intent(in) :: A(:,:,:,:,:)
     integer, intent(in) :: shap(:)
     character(len=*) :: routine, matname
@@ -214,7 +222,8 @@ contains
   end subroutine dassert_shape_5
 !--------------------------------------------------------------------------------------
   subroutine zassert_shape_5(A, shap, routine, matname)
-    ! make sure a given real matrix has a given shape
+      !! Checks if given real vector has a given shape; otherwise an error is returned
+      !! Only active if compiled in debug mode.
     complex(dp), intent(in) :: A(:,:,:,:,:)
     integer, intent(in) :: shap(:)
     character(len=*) :: routine, matname
@@ -230,7 +239,8 @@ contains
   end subroutine zassert_shape_5
 !--------------------------------------------------------------------------------------
   subroutine dassert_shape_6(A, shap, routine, matname)
-    ! make sure a given real matrix has a given shape
+      !! Checks if given real vector has a given shape; otherwise an error is returned
+      !! Only active if compiled in debug mode.
     real(dp), intent(in) :: A(:,:,:,:,:,:)
     integer, intent(in) :: shap(:)
     character(len=*) :: routine, matname
@@ -248,7 +258,8 @@ contains
   end subroutine dassert_shape_6
 !--------------------------------------------------------------------------------------
   subroutine zassert_shape_6(A, shap, routine, matname)
-    ! make sure a given real matrix has a given shape
+      !! Checks if given real vector has a given shape; otherwise an error is returned
+      !! Only active if compiled in debug mode.
     complex(dp), intent(in) :: A(:,:,:,:,:,:)
     integer, intent(in) :: shap(:)
     character(len=*) :: routine, matname

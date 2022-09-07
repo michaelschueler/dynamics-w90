@@ -1,88 +1,114 @@
 module Mlinalg
-  use Mdebug
-  use Mdef, only: dp, one, zero, iu, large_int
-  use Mutils, only: stop_error
-  implicit none
-  private
-  public eig, eighe, eigvals, eigvalshe, eigh, inv, solve, eye, det, lstsq, diag, trace, &
-       svdvals, svd, TransForm, TransFormCC, util_rotate, util_rotate_cc, blas_zgemm, blas_dgemm, &
-       util_zgemm, util_matmul, get_large_size
-
-  ! eigenvalue/-vector problem for general matrices:
+!======================================================================================
+   !! This module contains wrapper routines to call BLAS/LAPACK and some useful tools
+   !! for linear algebra operations
+   use,intrinsic::iso_fortran_env,only: output_unit,error_unit
+   use Mdebug
+   use Mdef, only: dp, one, zero, iu, large_int
+   use Mutils, only: str, stop_error
+   implicit none
+   include "../formats.h"
+!-------------------------------------------------------------------------------------- 
+   private
+   public :: &
+      eig, &
+      eigvals, &
+      eigvalshe, &
+      eigh, &
+      inv, &
+      solve, &
+      eye, &
+      det, &
+      lstsq, &
+      diag, &
+      trace, &
+      svdvals, &
+      svd, &
+      util_rotate, &
+      util_rotate_cc, &
+      blas_zgemm, &
+      blas_dgemm, &
+      util_zgemm, &
+      util_matmul, &
+      get_large_size
+!-------------------------------------------------------------------------------------- 
   interface eig
+     !! eigenvalue/-vector problem for general matrices:
      module procedure deig
      module procedure zeig
   end interface eig
 
-  ! eigenvalue/-vector problem for real symmetric/complex hermitian matrices:
   interface eigh
+    !! eigenvalue/-vector problem for real symmetric/complex hermitian matrices:
      module procedure deigh_generalized
      module procedure deigh_simple
      module procedure zeigh_generalized
      module procedure zeigh_simple
   end interface eigh
 
-  ! eigenvalues for general matrices:
   interface eigvals
+    !! eigenvalues for general matrices:
      module procedure deigvals
      module procedure zeigvals
   end interface eigvals
 
-  ! matrix inversion for real/complex matrices:
   interface inv
+     !! matrix inversion for real/complex matrices:
      module procedure dinv
      module procedure zinv
   end interface inv
 
-  ! solution to linear systems of equation with real/complex coefficients:
   interface solve
+     !! solution to linear systems of equation with real/complex coefficients:
      module procedure dsolve
      module procedure zsolve
   end interface solve
 
-  ! determinants of real/complex square matrices:
   interface det
+     !!  determinants of real/complex square matrices:
      module procedure ddet
      module procedure zdet
   end interface det
 
-  ! least square solutions the real/complex systems of equations of possibly non-square shape:
   interface lstsq
+     !! least square solutions the real/complex systems of equations of possibly non-square shape:
      module procedure dlstsq
      module procedure zlstsq
   end interface lstsq
 
-  ! construction of square matrices from the diagonal elements:
   interface diag
+     !! construction of square matrices from the diagonal elements:
      module procedure ddiag
      module procedure zdiag
   end interface diag
 
-  ! trace of real/complex matrices:
   interface trace
+     !! trace of real/complex matrices:
      module procedure dtrace
      module procedure ztrace
   end interface trace
 
-  ! singular values of real/complex matrices:
   interface svdvals
+     !!  singular values of real/complex matrices:
      module procedure dsvdvals
      module procedure zsvdvals
   end interface svdvals
 
-  ! singular value decomposition of real/complex matrices:
   interface svd
+     !! singular value decomposition of real/complex matrices:
      module procedure dsvd
      module procedure zsvd
   end interface svd
 
   interface util_matmul
+    !! matmul interface, using GEMM for larger matrices
     module procedure dutil_matmul, zutil_matmul
   end interface util_matmul
 
 
   interface blas_zgemm
      pure subroutine zgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+     !! Interfrace to BLAS routine ZGEMM
        import :: dp
        character,intent(in)      :: TRANSA
        character,intent(in)      :: TRANSB
@@ -102,6 +128,7 @@ module Mlinalg
 
   interface blas_dgemm
      pure subroutine dgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+     !! Interfrace to BLAS routine DGEMM
        import :: dp
        character,intent(in)      :: TRANSA
        character,intent(in)      :: TRANSB
@@ -122,19 +149,23 @@ module Mlinalg
 contains
 !--------------------------------------------------------------------------------------
    pure logical function get_large_size(n)
-      integer,intent(in) :: n
+   !! returns .true. if matrix size n is greater than a fixed number (defined in Mdef.f90)
+   !! This is useful for matrix operations: for small matrices, Fortran intrinsic matmul
+   !! is typically faster than BLAS
+      integer,intent(in) :: n !! vector / matrix size
 
       get_large_size = n >= large_int
 
    end function get_large_size
 !--------------------------------------------------------------------------------------
    subroutine util_zgemm(a, b, c, transa_opt, transb_opt)
-      complex(kind=dp), intent(in)            :: a(:, :)
-      complex(kind=dp), intent(in)            :: b(:, :)
-      complex(kind=dp), intent(out)           :: c(:, :)
-      character(len=1), intent(in), optional  :: transa_opt
-      character(len=1), intent(in), optional  :: transb_opt
-
+   !! Simplilfied interface for BLAS ZGEMM
+   !! Computes C = op(A) * op(B)
+      complex(kind=dp), intent(in)            :: a(:, :) !! matrix A
+      complex(kind=dp), intent(in)            :: b(:, :) !! matrix B
+      complex(kind=dp), intent(out)           :: c(:, :) !! matrix C
+      character(len=1), intent(in), optional  :: transa_opt !! operation tag for matrix A
+      character(len=1), intent(in), optional  :: transb_opt !! operation tag for matrix B
       integer          :: m, n, k
       character(len=1) :: transa, transb
 
@@ -160,11 +191,13 @@ contains
    end subroutine util_zgemm
 !--------------------------------------------------------------------------------------
    subroutine dutil_matmul(a,b,c,alpha,beta,large_size)
-      real(kind=dp), intent(in)            :: a(:, :)
-      real(kind=dp), intent(in)            :: b(:, :)
-      real(kind=dp), intent(inout)         :: c(:, :)  
-      real(kind=dp), intent(in),optional   :: alpha, beta
-      logical,intent(in),optional          :: large_size
+   !! computes C = alpha * A * B + beta * C for matrices A, B, C
+   !! for small matrices, matmul is used, otherwise DGEMM
+      real(kind=dp), intent(in)            :: a(:, :) !! matrix A
+      real(kind=dp), intent(in)            :: b(:, :) !! matrix B
+      real(kind=dp), intent(inout)         :: c(:, :) !! matrix C
+      real(kind=dp), intent(in),optional   :: alpha, beta !! constants alpha,beta
+      logical,intent(in),optional          :: large_size !! flag for using BLAS for large matrices
       logical :: large_size_,bt_term
       real(dp) :: al,bt
       integer :: m, n, k
@@ -195,11 +228,13 @@ contains
    end subroutine dutil_matmul
 !--------------------------------------------------------------------------------------
    subroutine zutil_matmul(a,b,c,alpha,beta,large_size)
-      complex(kind=dp), intent(in)            :: a(:, :)
-      complex(kind=dp), intent(in)            :: b(:, :)
-      complex(kind=dp), intent(inout)         :: c(:, :)  
-      complex(kind=dp), intent(in),optional   :: alpha, beta
-      logical,intent(in),optional             :: large_size
+   !! computes C = alpha * A * B + beta * C for matrices A, B, C
+   !! for small matrices, matmul is used, otherwise DGEMM
+      complex(kind=dp), intent(in)            :: a(:, :) !! matrix A
+      complex(kind=dp), intent(in)            :: b(:, :) !! matrix B
+      complex(kind=dp), intent(inout)         :: c(:, :) !! matrix C
+      complex(kind=dp), intent(in),optional   :: alpha, beta !! constants alpha,beta
+      logical,intent(in),optional             :: large_size !! flag for using BLAS for large matrices
       logical :: large_size_,bt_term
       complex(dp) :: al,bt
       integer :: m, n, k
@@ -229,27 +264,12 @@ contains
 
    end subroutine zutil_matmul
 !--------------------------------------------------------------------------------------
-  pure subroutine TransForm(Q,X)
-    complex(dp),intent(in) :: Q(:,:)
-    complex(dp),intent(inout) :: X(:,:)
-
-    X = matmul(Q,matmul(X,conjg(transpose(Q))))
-
-  end subroutine TransForm
-!--------------------------------------------------------------------------------------
-  pure subroutine TransFormCC(Q,X)
-    complex(dp),intent(in) :: Q(:,:)
-    complex(dp),intent(inout) :: X(:,:)
-
-    X = matmul(conjg(transpose(Q)),matmul(X,Q))
-
-  end subroutine TransFormCC
-!--------------------------------------------------------------------------------------
    function util_rotate(nst,rot,A,large_size) result(A_rot)
-      integer,intent(in)     :: nst
-      complex(dp),intent(in) :: rot(:,:)
-      complex(dp),intent(in) :: A(:,:)
-      logical,intent(in),optional :: large_size
+   !! rotates a matrix A: C = Q^H A Q with a unitary square matrix Q
+      integer,intent(in)     :: nst !! matrix size
+      complex(dp),intent(in) :: rot(:,:) !! unitary matrix Q
+      complex(dp),intent(in) :: A(:,:) !! matrix to be rotated
+      logical,intent(in),optional :: large_size !! flag for using BLAS for large matrices
       logical :: use_zgemm
       complex(dp) :: A_rot(nst,nst)
       complex(dp) :: rot_cc(nst,nst)
@@ -269,10 +289,11 @@ contains
    end function util_rotate
 !--------------------------------------------------------------------------------------
    function util_rotate_cc(nst,rot,A,large_size) result(A_rot)
-      integer,intent(in)     :: nst
-      complex(dp),intent(in) :: rot(:,:)
-      complex(dp),intent(in) :: A(:,:)
-      logical,intent(in),optional :: large_size
+   !! rotates a matrix A: C = Q A Q^H with a unitary square matrix Q
+      integer,intent(in)     :: nst !! matrix size
+      complex(dp),intent(in) :: rot(:,:) !! unitary matrix Q
+      complex(dp),intent(in) :: A(:,:) !! matrix to be rotated
+      logical,intent(in),optional :: large_size !! flag for using BLAS for large matrices
       logical :: use_zgemm
       complex(dp) :: A_rot(nst,nst)
       complex(dp) :: rot_cc(nst,nst)
@@ -293,9 +314,10 @@ contains
 !--------------------------------------------------------------------------------------
   ! TODO: add optional switch for left or right eigenvectors in deig() and zeig()?
   subroutine deig(A, lam, c)
-    real(dp), intent(in) :: A(:, :)  ! matrix for eigenvalue compuation
-    complex(dp), intent(out) :: lam(:)  ! eigenvalues: A c = lam c
-    complex(dp), intent(out) :: c(:, :)  ! eigenvectors: A c = lam c; c(i,j) = ith component of jth vec.
+   !! solves real nonsymmetric eigenvalue problem
+    real(dp), intent(in) :: A(:, :)  !! matrix for eigenvalue compuation
+    complex(dp), intent(out) :: lam(:)  !! eigenvalues: A c = lam c
+    complex(dp), intent(out) :: c(:, :)  !! eigenvectors: A c = lam c; c(i,j) = ith component of jth vec.
     ! LAPACK variables for DGEEV:
     real(dp), allocatable ::  At(:,:), vl(:,: ), vr(:,:), wi(:), work(:), wr(:)
     integer :: info, lda, ldvl, ldvr, lwork, n, i
@@ -313,14 +335,14 @@ contains
     call dgeev('N', 'V', n, At, lda, wr, wi, vl, ldvl, vr, ldvr, &
          work, lwork, info)
     if(info /= 0) then
-       print *, "dgeev returned info = ", info
+       write(error_unit,fmt900) "dgeev returned info = ", info
        if (info < 0) then
-          print *, "the", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the", -info, "-th argument had an illegal value"
        else
-          print *, "the QR algorithm failed to compute all the"
-          print *, "eigenvalues, and no eigenvectors have been computed;"
-          print *, "elements ", info+1, ":", n, "of WR and WI contain eigenvalues which"
-          print *, "have converged."
+          write(error_unit,fmt900) "the QR algorithm failed to compute all the"
+          write(error_unit,fmt900) "eigenvalues, and no eigenvectors have been computed;"
+          write(error_unit,fmt900) "elements ", info+1, ":", n, "of WR and WI contain eigenvalues which"
+          write(error_unit,fmt900) "have converged."
        end if
        call stop_error('eig: dgeev error')
     end if
@@ -362,54 +384,19 @@ contains
     call zgeev('N', 'V', n, c, lda, lam, vl, ldvl, vr, ldvr, work, &
          lwork, rwork, info)
     if(info /= 0) then
-       print *, "zgeev returned info = ", info
+       write(error_unit,fmt900) "zgeev returned info = ", info
        if(info < 0) then
-          print *, "the ",-info, "-th argument had an illegal value."
+          write(error_unit,fmt900) "the ",-info, "-th argument had an illegal value."
        else
-          print *, "the QR algorithm failed to compute all the"
-          print *, "eigenvalues, and no eigenvectors have been computed;"
-          print *, "elements and ", info+1, ":", n, " of W contain eigenvalues which have"
-          print *, "converged."
+          write(error_unit,fmt900) "the QR algorithm failed to compute all the"
+          write(error_unit,fmt900) "eigenvalues, and no eigenvectors have been computed;"
+          write(error_unit,fmt900) "elements and ", info+1, ":", n, " of W contain eigenvalues which have"
+          write(error_unit,fmt900) "converged."
        end if
        call stop_error('eig: zgeev error')
     end if
     c = vr
   end subroutine zeig
-
-  subroutine EigHE(A,lam,c)
-    complex(dp), intent(in) :: A(:, :)  ! matrix to solve eigenproblem for
-    real(dp), intent(inout) :: lam(:)  ! eigenvalues: A c = lam c
-    complex(dp), intent(inout) :: c(:,:)  ! eigenvectors: A c = lam c; c(i,j) = ith component of jth vec.
-    ! LAPACK variables:
-    integer :: info, lda, lwork, n, lrwork
-    real(dp), allocatable :: rwork(:)
-    complex(dp), allocatable :: work(:)
-
-    lda = size(A(:,1))
-    n = size(A(1,:))
-    call assert_shape(A, [n, n], "solve", "A")
-    call assert_shape(c, [n, n], "solve", "c")
-    lwork = 2*n  ! TODO: can this size be optimized? query first?
-    lrwork = 3*n
-    allocate(work(lwork), rwork(lrwork))
-    c = A
-    call zheev('V', 'U', n, c, lda, lam, work, lwork, rwork, info)
-    if(info /= 0) then
-       print *, "zheev returned info = ", info
-       if(info < 0) then
-          print *, "the ",-info, "-th argument had an illegal value."
-       else
-          print *, "the QR algorithm failed to compute all the"
-          print *, "eigenvalues, and no eigenvectors have been computed;"
-          print *, "elements and ", info+1, ":", n, " of W contain eigenvalues which have"
-          print *, "converged."
-       end if
-       call stop_error('eig: zheev error')
-    end if
-
-    deallocate(work, rwork)
-    
-  end subroutine EigHE
 
   subroutine EigValsHE(A,lam)
     complex(dp), intent(in) :: A(:, :)  ! matrix to solve eigenproblem for
@@ -428,14 +415,14 @@ contains
     c = A
     call zheev('N', 'U', n, c, lda, lam, work, lwork, rwork, info)
     if(info /= 0) then
-       print *, "zheev returned info = ", info
+       write(error_unit,fmt900) "zheev returned info = ", info
        if(info < 0) then
-          print *, "the ",-info, "-th argument had an illegal value."
+          write(error_unit,fmt900) "the ",-info, "-th argument had an illegal value."
        else
-          print *, "the QR algorithm failed to compute all the"
-          print *, "eigenvalues, and no eigenvectors have been computed;"
-          print *, "elements and ", info+1, ":", n, " of W contain eigenvalues which have"
-          print *, "converged."
+          write(error_unit,fmt900) "the QR algorithm failed to compute all the"
+          write(error_unit,fmt900) "eigenvalues, and no eigenvectors have been computed;"
+          write(error_unit,fmt900) "elements and ", info+1, ":", n, " of W contain eigenvalues which have"
+          write(error_unit,fmt900) "converged."
        end if
        call stop_error('eigvals: zheev error')
     end if
@@ -463,14 +450,14 @@ contains
     call dgeev('N', 'N', n, At, lda, wr, wi, vl, ldvl, vr, ldvr, &
          work, lwork, info)
     if(info /= 0) then
-       print *, "dgeev returned info = ", info
+       write(error_unit,fmt900) "dgeev returned info = ", info
        if (info < 0) then
-          print *, "the", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the", -info, "-th argument had an illegal value"
        else
-          print *, "the QR algorithm failed to compute all the"
-          print *, "eigenvalues, and no eigenvectors have been computed;"
-          print *, "elements ", info+1, ":", n, "of WR and WI contain eigenvalues which"
-          print *, "have converged."
+          write(error_unit,fmt900) "the QR algorithm failed to compute all the"
+          write(error_unit,fmt900) "eigenvalues, and no eigenvectors have been computed;"
+          write(error_unit,fmt900) "elements ", info+1, ":", n, "of WR and WI contain eigenvalues which"
+          write(error_unit,fmt900) "have converged."
        end if
        call stop_error('eigvals: dgeev error')
     end if
@@ -498,14 +485,14 @@ contains
     call zgeev('N', 'N', n, At, lda, lam, vl, ldvl, vr, ldvr, work, &
          lwork, rwork, info)
     if(info /= 0) then
-       print *, "zgeev returned info = ", info
+       write(error_unit,fmt900) "zgeev returned info = ", info
        if(info < 0) then
-          print *, "the ",-info, "-th argument had an illegal value."
+          write(error_unit,fmt900) "the ",-info, "-th argument had an illegal value."
        else
-          print *, "the QR algorithm failed to compute all the"
-          print *, "eigenvalues, and no eigenvectors have been computed;"
-          print *, "elements and ", info+1, ":", n, " of W contain eigenvalues which have"
-          print *, "converged."
+          write(error_unit,fmt900) "the QR algorithm failed to compute all the"
+          write(error_unit,fmt900) "eigenvalues, and no eigenvectors have been computed;"
+          write(error_unit,fmt900) "elements and ", info+1, ":", n, " of W contain eigenvalues which have"
+          write(error_unit,fmt900) "converged."
        end if
        call stop_error('eig: zgeev error')
     end if
@@ -517,8 +504,8 @@ contains
     ! Only the lower triangular part of Am and Bm is used.
     real(dp), intent(in) :: Am(:,:)   ! LHS matrix: Am c = lam Bm c
     real(dp), intent(in) :: Bm(:,:)   ! RHS matrix: Am c = lam Bm c
-    real(dp), intent(out) :: lam(:)   ! eigenvalues: Am c = lam Bm c
-    real(dp), intent(out) :: c(:,:)   ! eigenvectors: Am c = lam Bm c; c(i,j) = ith component of jth vec.
+    real(dp), intent(inout) :: lam(:)   ! eigenvalues: Am c = lam Bm c
+    real(dp), intent(inout) :: c(:,:)   ! eigenvectors: Am c = lam Bm c; c(i,j) = ith component of jth vec.
     integer :: n
     ! lapack variables
     integer :: lwork, liwork, info
@@ -536,15 +523,15 @@ contains
     c = Am; Bmt = Bm  ! Bmt temporaries overwritten by dsygvd
     call dsygvd(1,'V','L',n,c,n,Bmt,n,lam,work,lwork,iwork,liwork,info)
     if (info /= 0) then
-       print *, "dsygvd returned info =", info
+       write(error_unit,fmt900) "dsygvd returned info =", info
        if (info < 0) then
-          print *, "the", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the", -info, "-th argument had an illegal value"
        else if (info <= n) then
-          print *, "the algorithm failed to compute an eigenvalue while working"
-          print *, "on the submatrix lying in rows and columns", 1.0_dp*info/(n+1)
-          print *, "through", mod(info, n+1)
+          write(error_unit,fmt900) "the algorithm failed to compute an eigenvalue while working"
+          write(error_unit,fmt900) "on the submatrix lying in rows and columns", 1.0_dp*info/(n+1)
+          write(error_unit,fmt900) "through", mod(info, n+1)
        else
-          print *, "The leading minor of order ", info-n, &
+          write(error_unit,fmt900) "The leading minor of order ", info-n, &
                "of B is not positive definite. The factorization of B could ", &
                "not be completed and no eigenvalues or eigenvectors were computed."
        end if
@@ -557,8 +544,8 @@ contains
     ! Am must by symmetric
     ! Only the lower triangular part of Am is used.
     real(dp), intent(in) :: Am(:,:)   ! LHS matrix: Am c = lam c
-    real(dp), intent(out) :: lam(:)   ! eigenvalues: Am c = lam c
-    real(dp), intent(out) :: c(:,:)   ! eigenvectors: Am c = lam c; c(i,j) = ith component of jth vec.
+    real(dp), intent(inout) :: lam(:)   ! eigenvalues: Am c = lam c
+    real(dp), intent(inout) :: c(:,:)   ! eigenvectors: Am c = lam c; c(i,j) = ith component of jth vec.
     integer :: n
     ! lapack variables
     integer :: lwork, liwork, info
@@ -575,13 +562,13 @@ contains
     c = Am
     call dsyevd('V','L',n,c,n,lam,work,lwork,iwork,liwork,info)
     if (info /= 0) then
-       print *, "dsyevd returned info =", info
+       write(error_unit,fmt900) "dsyevd returned info =", info
        if (info < 0) then
-          print *, "the", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the", -info, "-th argument had an illegal value"
        else
-          print *, "the algorithm failed to compute an eigenvalue while working"
-          print *, "on the submatrix lying in rows and columns", 1.0_dp*info/(n+1)
-          print *, "through", mod(info, n+1)
+          write(error_unit,fmt900) "the algorithm failed to compute an eigenvalue while working"
+          write(error_unit,fmt900) "on the submatrix lying in rows and columns", 1.0_dp*info/(n+1)
+          write(error_unit,fmt900) "through", mod(info, n+1)
        end if
        call stop_error('eigh: dsyevd error')
     end if
@@ -593,8 +580,8 @@ contains
     ! Only the lower triangular part of Am and Bm is used.
     complex(dp), intent(in) :: Am(:,:)   ! LHS matrix: Am c = lam Bm c
     complex(dp), intent(in) :: Bm(:,:)   ! RHS matrix: Am c = lam Bm c
-    real(dp), intent(out) :: lam(:)      ! eigenvalues: Am c = lam Bm c
-    complex(dp), intent(out) :: c(:,:)   ! eigenvectors: Am c = lam Bm c; c(i,j) = ith component of jth vec.
+    real(dp), intent(inout) :: lam(:)      ! eigenvalues: Am c = lam Bm c
+    complex(dp), intent(inout) :: c(:,:)   ! eigenvectors: Am c = lam Bm c; c(i,j) = ith component of jth vec.
     ! lapack variables
     integer :: info, liwork, lrwork, lwork, n
     integer, allocatable :: iwork(:)
@@ -613,15 +600,15 @@ contains
     c = Am; Bmt = Bm  ! Bmt temporary overwritten by zhegvd
     call zhegvd(1,'V','L',n,c,n,Bmt,n,lam,work,lwork,rwork,lrwork,iwork,liwork,info)
     if (info /= 0) then
-       print *, "zhegvd returned info =", info
+       write(error_unit,fmt900) "zhegvd returned info =", info
        if (info < 0) then
-          print *, "the", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the", -info, "-th argument had an illegal value"
        else if (info <= n) then
-          print *, "the algorithm failed to compute an eigenvalue while working"
-          print *, "on the submatrix lying in rows and columns", 1.0_dp*info/(n+1)
-          print *, "through", mod(info, n+1)
+          write(error_unit,fmt900) "the algorithm failed to compute an eigenvalue while working"
+          write(error_unit,fmt900) "on the submatrix lying in rows and columns", 1.0_dp*info/(n+1)
+          write(error_unit,fmt900) "through", mod(info, n+1)
        else
-          print *, "The leading minor of order ", info-n, &
+          write(error_unit,fmt900) "The leading minor of order ", info-n, &
                "of B is not positive definite. The factorization of B could ", &
                "not be completed and no eigenvalues or eigenvectors were computed."
        end if
@@ -635,7 +622,7 @@ contains
     ! Only the lower triangular part of Am is used.
     complex(dp), intent(in) :: Am(:,:)   ! LHS matrix: Am c = lam c
     real(dp), intent(out) :: lam(:)   ! eigenvalues: Am c = lam c
-    complex(dp), intent(out) :: c(:,:)   ! eigenvectors: Am c = lam c; c(i,j) = ith component of jth vec.
+    complex(dp), intent(inout) :: c(:,:)   ! eigenvectors: Am c = lam c; c(i,j) = ith component of jth vec.
     ! LAPACK variables:
     integer :: info, lda, liwork, lrwork, lwork, n
     integer, allocatable :: iwork(:)
@@ -655,13 +642,13 @@ contains
     call zheevd("V", "L", n, c, lda, lam, work, lwork, rwork, lrwork, &
          iwork, liwork, info)
     if (info /= 0) then
-       print *, "zheevd returned info =", info
+       write(error_unit,fmt900) "zheevd returned info =", info
        if (info < 0) then
-          print *, "the", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the", -info, "-th argument had an illegal value"
        else
-          print *, "the algorithm failed to compute an eigenvalue while working"
-          print *, "through the submatrix lying in rows and columns through"
-          print *, info/(n+1), " through ", mod(info, n+1)
+          write(error_unit,fmt900) "the algorithm failed to compute an eigenvalue while working"
+          write(error_unit,fmt900) "through the submatrix lying in rows and columns through"
+          write(error_unit,fmt900) info/(n+1), " through ", mod(info, n+1)
        end if
        call stop_error('eigh: zheevd error')
     end if
@@ -688,26 +675,26 @@ contains
     Amt = Am
     call dgetrf(n, n, Amt, lda, ipiv, info)
     if(info /= 0) then
-       print *, "dgetrf returned info =", info
+       write(error_unit,fmt900) "dgetrf returned info =", info
        if (info < 0) then
-          print *, "the", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the", -info, "-th argument had an illegal value"
        else
-          print *, "U(", info, ",", info, ") is exactly zero; The factorization"
-          print *, "has been completed, but the factor U is exactly"
-          print *, "singular, and division by zero will occur if it is used"
-          print *, "to solve a system of equations."
+          write(error_unit,fmt900) "U(", info, ",", info, ") is exactly zero; The factorization"
+          write(error_unit,fmt900) "has been completed, but the factor U is exactly"
+          write(error_unit,fmt900) "singular, and division by zero will occur if it is used"
+          write(error_unit,fmt900) "to solve a system of equations."
        end if
        call stop_error('inv: dgetrf error')
     end if
 
     call dgetri(n, Amt, n, ipiv, work, lwork, info)
     if (info /= 0) then
-       print *, "dgetri returned info =", info
+       write(error_unit,fmt900) "dgetri returned info =", info
        if (info < 0) then
-          print *, "the", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the", -info, "-th argument had an illegal value"
        else
-          print *, "U(", info, ",", info, ") is exactly zero; the matrix is"
-          print *, "singular and its inverse could not be computed."
+          write(error_unit,fmt900) "U(", info, ",", info, ") is exactly zero; the matrix is"
+          write(error_unit,fmt900) "singular and its inverse could not be computed."
        end if
        call stop_error('inv: dgetri error')
     end if
@@ -735,25 +722,25 @@ contains
     Amt = Am
     call zgetrf(n, n, Amt, n, ipiv, info)
     if (info /= 0) then
-       print *, "zgetrf returned info =", info
+       write(error_unit,fmt900) "zgetrf returned info =", info
        if (info < 0) then
-          print *, "the", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the", -info, "-th argument had an illegal value"
        else
-          print *, "U(", info, ",", info, ") is exactly zero; The factorization"
-          print *, "has been completed, but the factor U is exactly"
-          print *, "singular, and division by zero will occur if it is used"
-          print *, "to solve a system of equations."
+          write(error_unit,fmt900) "U(", info, ",", info, ") is exactly zero; The factorization"
+          write(error_unit,fmt900) "has been completed, but the factor U is exactly"
+          write(error_unit,fmt900) "singular, and division by zero will occur if it is used"
+          write(error_unit,fmt900) "to solve a system of equations."
        end if
        call stop_error('inv: zgetrf error')
     end if
     call zgetri(n, Amt, n, ipiv, work, lwork, info)
     if (info /= 0) then
-       print *, "zgetri returned info =", info
+       write(error_unit,fmt900) "zgetri returned info =", info
        if (info < 0) then
-          print *, "the", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the", -info, "-th argument had an illegal value"
        else
-          print *, "U(", info, ",", info, ") is exactly zero; the matrix is"
-          print *, "singular and its inverse could not be computed."
+          write(error_unit,fmt900) "U(", info, ",", info, ") is exactly zero; the matrix is"
+          write(error_unit,fmt900) "singular and its inverse could not be computed."
        end if
        call stop_error('inv: zgetri error')
     end if
@@ -778,13 +765,13 @@ contains
     bt(:,1) = b(:)
     call dgesv(n, 1, At, lda, ipiv, bt, n, info)
     if(info /= 0) then
-       print *, "dgesv returned info =", info
+       write(error_unit,fmt900) "dgesv returned info =", info
        if (info < 0) then
-          print *, "the", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the", -info, "-th argument had an illegal value"
        else
-          print *, "U(", info, ",", info, ") is exactly zero; The factorization"
-          print *, "has been completed, but the factor U is exactly"
-          print *, "singular, so the solution could not be computed."
+          write(error_unit,fmt900) "U(", info, ",", info, ") is exactly zero; The factorization"
+          write(error_unit,fmt900) "has been completed, but the factor U is exactly"
+          write(error_unit,fmt900) "singular, so the solution could not be computed."
        end if
        call stop_error('inv: dgesv error')
     endif
@@ -809,13 +796,13 @@ contains
     bt(:,1) = b(:)
     call zgesv(n, 1, At, lda, ipiv, bt, n, info)
     if(info /= 0) then
-       print *, "zgesv returned info =", info
+       write(error_unit,fmt900) "zgesv returned info =", info
        if (info < 0) then
-          print *, "the", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the", -info, "-th argument had an illegal value"
        else
-          print *, "U(", info, ",", info, ") is exactly zero; The factorization"
-          print *, "has been completed, but the factor U is exactly"
-          print *, "singular, so the solution could not be computed."
+          write(error_unit,fmt900) "U(", info, ",", info, ") is exactly zero; The factorization"
+          write(error_unit,fmt900) "has been completed, but the factor U is exactly"
+          write(error_unit,fmt900) "singular, so the solution could not be computed."
        end if
        call stop_error('inv: zgesv error')
     endif
@@ -850,14 +837,14 @@ contains
     At = A
     call dgetrf(n, n, At, n, ipiv, info)
     if(info /= 0) then
-       print *, "dgetrf returned info =", info
+       write(error_unit,fmt900) "dgetrf returned info =", info
        if (info < 0) then
-          print *, "the", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the", -info, "-th argument had an illegal value"
        else
-          print *, "U(", info, ",", info, ") is exactly zero; The factorization"
-          print *, "has been completed, but the factor U is exactly"
-          print *, "singular, and division by zero will occur if it is used"
-          print *, "to solve a system of equations."
+          write(error_unit,fmt900) "U(", info, ",", info, ") is exactly zero; The factorization"
+          write(error_unit,fmt900) "has been completed, but the factor U is exactly"
+          write(error_unit,fmt900) "singular, and division by zero will occur if it is used"
+          write(error_unit,fmt900) "to solve a system of equations."
        end if
        call stop_error('det: dgetrf error')
     end if
@@ -892,14 +879,14 @@ contains
     At = A
     call zgetrf(n, n, At, n, ipiv, info)
     if(info /= 0) then
-       print *, "zgetrf returned info =", info
+       write(error_unit,fmt900) "zgetrf returned info =", info
        if (info < 0) then
-          print *, "the", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the", -info, "-th argument had an illegal value"
        else
-          print *, "U(", info, ",", info, ") is exactly zero; The factorization"
-          print *, "has been completed, but the factor U is exactly"
-          print *, "singular, and division by zero will occur if it is used"
-          print *, "to solve a system of equations."
+          write(error_unit,fmt900) "U(", info, ",", info, ") is exactly zero; The factorization"
+          write(error_unit,fmt900) "has been completed, but the factor U is exactly"
+          write(error_unit,fmt900) "singular, and division by zero will occur if it is used"
+          write(error_unit,fmt900) "to solve a system of equations."
        end if
        call stop_error('inv: zgetrf error')
     end if
@@ -941,8 +928,8 @@ contains
     call dgelsy(m, n, 1, At, m, Bt, ldb, jpvt, rcond, rank, work, &
          lwork, info)
     if(info /= 0) then
-       print *, "dgelsy returned info = ", info
-       print *, "the ", -info, "-th argument had an illegal value"
+       write(error_unit,fmt900) "dgelsy returned info = ", info
+       write(error_unit,fmt900) "the ", -info, "-th argument had an illegal value"
        call stop_error('lstsq: dgelsy error')
     endif
     x(:) = Bt(1:n,1)
@@ -975,8 +962,8 @@ contains
     call zgelsy(m, n, 1, At, m, Bt, ldb, jpvt, rcond, rank, work, &
          lwork, rwork, info)
     if(info /= 0) then
-       print *, "zgelsy returned info = ", info
-       print *, "the ", -info, "-th argument had an illegal value"
+       write(error_unit,fmt900) "zgelsy returned info = ", info
+       write(error_unit,fmt900) "the ", -info, "-th argument had an illegal value"
        call stop_error('lstsq: zgelsy error')
     endif
     x(:) = Bt(1:n,1)
@@ -1056,14 +1043,14 @@ contains
 
     call dgesvd('N', 'N', m, n, At, m, s, u, 1, vt, 1, work, lwork, info)
     if(info /= 0) then
-       print *, "dgesvd returned info = ", info
+       write(error_unit,fmt900) "dgesvd returned info = ", info
        if(info < 0) then
-          print *, "the ", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the ", -info, "-th argument had an illegal value"
        else
-          print *, "DBDSQR did not converge, there are ", info
-          print *, "superdiagonals of an intermediate bidiagonal form B"
-          print *, "did not converge to zero. See the description of WORK"
-          print *, "in DGESVD's man page for details."
+          write(error_unit,fmt900) "DBDSQR did not converge, there are ", info
+          write(error_unit,fmt900) "superdiagonals of an intermediate bidiagonal form B"
+          write(error_unit,fmt900) "did not converge to zero. See the description of WORK"
+          write(error_unit,fmt900) "in DGESVD's man page for details."
        endif
        call stop_error('svdvals: dgesvd error')
     endif
@@ -1094,14 +1081,14 @@ contains
 
     call zgesvd('N', 'N', m, n, At, m, s, u, 1, vt, 1, work, lwork, rwork, info)
     if(info /= 0) then
-       print *, "zgesvd returned info = ", info
+       write(error_unit,fmt900) "zgesvd returned info = ", info
        if(info < 0) then
-          print *, "the ", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the ", -info, "-th argument had an illegal value"
        else
-          print *, "ZBDSQR did not converge, there are ", info
-          print *, "superdiagonals of an intermediate bidiagonal form B"
-          print *, "did not converge to zero. See the description of RWORK"
-          print *, "in ZGESVD's man page for details."
+          write(error_unit,fmt900) "ZBDSQR did not converge, there are ", info
+          write(error_unit,fmt900) "superdiagonals of an intermediate bidiagonal form B"
+          write(error_unit,fmt900) "did not converge to zero. See the description of RWORK"
+          write(error_unit,fmt900) "in ZGESVD's man page for details."
        endif
        call stop_error('svdvals: zgesvd error')
     endif
@@ -1139,14 +1126,14 @@ contains
 
     call dgesvd('A', 'A', m, n, At, m, s, U, ldu, Vtransp, n, work, lwork, info)
     if(info /= 0) then
-       print *, "dgesvd returned info = ", info
+       write(error_unit,fmt900) "dgesvd returned info = ", info
        if(info < 0) then
-          print *, "the ", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the ", -info, "-th argument had an illegal value"
        else
-          print *, "DBDSQR did not converge, there are ", info
-          print *, "superdiagonals of an intermediate bidiagonal form B"
-          print *, "did not converge to zero. See the description of WORK"
-          print *, "in DGESVD's man page for details."
+          write(error_unit,fmt900) "DBDSQR did not converge, there are ", info
+          write(error_unit,fmt900) "superdiagonals of an intermediate bidiagonal form B"
+          write(error_unit,fmt900) "did not converge to zero. See the description of WORK"
+          write(error_unit,fmt900) "in DGESVD's man page for details."
        endif
        call stop_error('svd: dgesvd error')
     endif
@@ -1190,14 +1177,14 @@ contains
     call zgesvd('A', 'A', m, n, At, m, s, U, ldu, Vtransp, n, work, &
          lwork, rwork, info)
     if(info /= 0) then
-       print *, "zgesvd returned info = ", info
+       write(error_unit,fmt900) "zgesvd returned info = ", info
        if(info < 0) then
-          print *, "the ", -info, "-th argument had an illegal value"
+          write(error_unit,fmt900) "the ", -info, "-th argument had an illegal value"
        else
-          print *, "ZBDSQR did not converge, there are ", info
-          print *, "superdiagonals of an intermediate bidiagonal form B"
-          print *, "did not converge to zero. See the description of WORK"
-          print *, "in DGESVD's man page for details."
+          write(error_unit,fmt900) "ZBDSQR did not converge, there are ", info
+          write(error_unit,fmt900) "superdiagonals of an intermediate bidiagonal form B"
+          write(error_unit,fmt900) "did not converge to zero. See the description of WORK"
+          write(error_unit,fmt900) "in DGESVD's man page for details."
        endif
        call stop_error('svd: zgesvd error')
     endif

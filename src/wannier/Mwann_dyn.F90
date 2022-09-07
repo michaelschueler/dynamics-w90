@@ -2,7 +2,7 @@ module Mwann_dyn
 !======================================================================================
    use Mdef,only: dp, zero, iu, nfermi
    use Mham_w90,only: wann90_tb_t
-   use Mlinalg,only: EigHE,util_rotate,util_rotate_cc,get_large_size
+   use Mlinalg,only: Eigh,util_rotate,util_rotate_cc,get_large_size
    use Mevol,only: GenU_CF2,GenU_CF4,UnitaryStepFBW
    implicit none
 !--------------------------------------------------------------------------------------
@@ -113,7 +113,7 @@ contains
       do ik=1,Nk
          rhod = zero
          Hk = w90%get_ham([kpts(ik,1),kpts(ik,2),kpts(ik,3)])
-         call EigHE(Hk,En,Qk)
+         call eigh(Hk,En,Qk)
          do j=1,w90%num_wann
             rhod(j,j) = nfermi(Beta,En(j)-Mu)
          end do   

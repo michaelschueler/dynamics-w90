@@ -1,15 +1,10 @@
 module Mlaserpulse
 !======================================================================================
-!  Laserpulse class, constructed in time interval [t1,t2] from 4th-order B-splines 
-!======================================================================================  
-  use Mdef,only:&
-       dp,iu
-  use Mbsplines,only:&
-       spline1d_t
-  use Mrungekutta,only:&
-       ODE_step_RK5
-  use Mutils,only:&
-       loadtxt
+!!  Laserpulse class, constructed in time interval [t1,t2] from 4th-order B-splines 
+  use Mdef,only: dp,iu
+  use Mbsplines,only: spline1d_t
+  use Mrungekutta,only: ODE_step_RK5
+  use Mutils,only: loadtxt
 !--------------------------------------------------------------------------------------
   private
   public &

@@ -11,6 +11,8 @@ module Marray1d_dist
 !-------------------------------------------------------------------------------------- 
    type dist_array1d_t
       !! This class stores the distribution scheme
+      !! We try to split the array into pieces of equal length if possible;
+      !! otherwise, we try to distribute as evenly as possible
       integer :: ntasks,N
       integer,dimension(:),allocatable :: N_loc
       integer,dimension(:,:),allocatable :: I_glob

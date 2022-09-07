@@ -2,7 +2,6 @@ module Mevol
 !======================================================================================
 !! This module defines routines constructing and applying the time-evolution
 !! operator.  
-!======================================================================================
    use Mdef,only: dp,iu,one,zero
    use Mlinalg,only: blas_zgemm
    use Mmatrixexp,only: ExpM, ExpM_Thrsv

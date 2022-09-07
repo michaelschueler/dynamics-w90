@@ -233,7 +233,7 @@ contains
    end subroutine CalcIntegrals_lambda
 !--------------------------------------------------------------------------------------
    subroutine CalcPES(me)
-      use Mlinalg,only: EigHE
+      use Mlinalg,only: EigH
       class(arpes_calc_t) :: me
       integer :: ik,iepe
       real(dp) :: kpar(2),kpt(3)
@@ -249,7 +249,7 @@ contains
          kpt(1:2) = utility_Cart2Red_2D(me%ham%recip_reduced,kpar)
 
          Hk = me%ham%get_ham(kpt)
-         call EigHE(Hk,epsk,vectk)
+         call EigH(Hk,epsk,vectk)
          epsk = epsk + me%Eshift
 
          if(me%slab_mode) then
