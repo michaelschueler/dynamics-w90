@@ -137,16 +137,6 @@ contains
 
       me%norb = me%orbs%norb
 
-      print*, "nbnd = ", me%nbnd
-      print*, "norb = ", me%norb
-      print*, "coords:"
-      do ilay=1,me%nbnd
-         print*, me%ham%coords(ilay,:)
-      end do
-
-      stop
-
-
       allocate(me%Epe(me%Nepe))
       if(me%Nepe == 1) then
          allocate(me%Epe(1))
