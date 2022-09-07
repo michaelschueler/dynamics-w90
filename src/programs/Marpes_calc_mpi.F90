@@ -121,12 +121,6 @@ contains
       me%nbnd = me%ham%num_wann
       me%MuChem = par_ham%MuChem
 
-      print*, "nbnd = ", me%nbnd
-      print*, "norb = ", me%norb
-      print*, "coords:"
-      print*, me%ham%coords
-
-      stop
 
       call ReadWannierOrbitals(par_pes%file_orbs,me%orbs)
       me%gauge = par_pes%gauge
@@ -142,6 +136,14 @@ contains
       me%lambda_mode = par_pes%lambda_orbital_term
 
       me%norb = me%orbs%norb
+
+      print*, "nbnd = ", me%nbnd
+      print*, "norb = ", me%norb
+      print*, "coords:"
+      print*, shape(me%ham%coords)
+
+      stop
+
 
       allocate(me%Epe(me%Nepe))
       if(me%Nepe == 1) then
