@@ -316,7 +316,7 @@ contains
 
       if(on_root) then
 #ifdef WITHHDF5
-         call WriteSpectrum_hdf5(prefix,me%Epe,spect)
+         call WriteSpectrum_hdf5(prefix,me%Epe,me%wphot,spect)
 #else
          call WriteSpectrum_txt(prefix,spect)
 #endif
@@ -337,14 +337,16 @@ contains
    end subroutine WriteSpectrum_txt
 !--------------------------------------------------------------------------------------
 #ifdef WITHHDF5
-   subroutine WriteSpectrum_hdf5(prefix,Epe,spect)
+   subroutine WriteSpectrum_hdf5(prefix,Epe,wphot,spect)
       use Mhdf5_utils
       character(len=*),intent(in) :: prefix
       real(dp),intent(in) :: Epe(:)
+      real(dp),intent(in) :: wphot
       real(dp),intent(in) :: spect(:,:)
       integer(HID_t) :: file_id
 
       call hdf_open_file(file_id, trim(prefix)//'_pes.h5', STATUS='NEW')      
+      call hdf_write_attribute(file_id,'','wphot',wphot)
       call hdf_write_dataset(file_id,'epe',Epe)
       call hdf_write_dataset(file_id,'spect',spect)     
       call hdf_close_file(file_id)
