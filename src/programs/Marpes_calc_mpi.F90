@@ -253,8 +253,6 @@ contains
          call EigH(Hk,epsk,vectk)
          epsk = epsk + me%Eshift
 
-         print*, taskid, size(epsk)
-
          if(me%slab_mode) then
             if(me%lambda_mode) then
                !$OMP PARALLEL

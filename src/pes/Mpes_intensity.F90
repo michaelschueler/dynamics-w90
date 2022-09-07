@@ -920,11 +920,12 @@ contains
          matel_pol(:) = matel_pol(:) + pol(idir) * matel(:,idir)
       end do
 
+      print*, abs(matel_pol)
+
       inten = 0.0_dp
       do ibnd=1,nbnd
          if(epsk(ibnd) > mu) cycle
-         ! inten = inten + abs(matel_pol(ibnd))**2 * gauss(eta, epsk(ibnd) + wphot - Epe)   
-         inten = inten + gauss(eta, epsk(ibnd) + wphot - Epe)   
+         inten = inten + abs(matel_pol(ibnd))**2 * gauss(eta, epsk(ibnd) + wphot - Epe)   
       end do
 
       deallocate(matel,matel_pol)
