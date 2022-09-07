@@ -7,7 +7,7 @@ set(OBJECT_FILES
 		Mdef.f90
 		Mlinalg.f90
 		Mtime.f90
-		Mutils.f90
+		Mutils.F90
 		Msorting.f90
 )
 
