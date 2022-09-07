@@ -3,7 +3,7 @@ module Mpes_intensity
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
    use Mdef,only: dp, iu, zero, one, gauss, save_exp
-   use Mutils,only: linspace
+   use Mutils,only: linspace, stop_error
    use Mlinalg,only: get_large_size, util_matmul, util_zgemm, EigvalsHE
    use Mbsplines,only: spline1d_t
    use Mvector_bsplines,only: cplx_vector_spline_t, cplx_matrix_spline_t
@@ -595,8 +595,7 @@ contains
       nbnd = wann%num_wann
 
       if(norb * nlayer /= nbnd) then
-         write(error_unit,fmt900) "PES_Slab_MatrixElements_besselinteg: norb * nlayer /= nbnd"
-         stop
+         call stop_error("PES_Slab_MatrixElements_besselinteg: norb * nlayer /= nbnd")
       end if
 
       call assert_shape(matel, [nbnd,3], "PES_MatrixElements", "matel")
@@ -706,8 +705,7 @@ contains
 
       nbnd = wann%num_wann
       if(norb * nlayer /= nbnd) then
-         write(error_unit,fmt900) "PES_Slab_MatrixElements_besselinteg: norb * nlayer /= nbnd"
-         stop
+         call stop_error("PES_Slab_MatrixElements_besselinteg: norb * nlayer /= nbnd")
       end if
       call assert_shape(matel, [nbnd,3], "PES_Slab_MatrixElements_besselinteg", "matel")
       call assert_shape(vectk, [nbnd,nbnd], "PES_Slab_MatrixElements_besselinteg", "vectk")      
@@ -894,8 +892,7 @@ contains
       nbnd = wann%num_wann
 
       if(norb * nlayer /= nbnd) then
-         write(error_unit,fmt900) "PES_Slab_MatrixElements_besselinteg: norb * nlayer /= nbnd"
-         stop
+         call stop_error("PES_Slab_MatrixElements_besselinteg: norb * nlayer /= nbnd")
       end if
       call assert_shape(vectk,[nbnd,nbnd],"PES_Slab_Intensity_precomp","vectk")
 

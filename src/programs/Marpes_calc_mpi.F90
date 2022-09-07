@@ -121,6 +121,13 @@ contains
       me%nbnd = me%ham%num_wann
       me%MuChem = par_ham%MuChem
 
+      print*, "nbnd = ", me%nbnd
+      print*, "norb = ", me%norb
+      print*, "coords:"
+      print*, me%ham%coords
+
+      stop
+
       call ReadWannierOrbitals(par_pes%file_orbs,me%orbs)
       me%gauge = par_pes%gauge
       me%Nepe = par_pes%Nepe
