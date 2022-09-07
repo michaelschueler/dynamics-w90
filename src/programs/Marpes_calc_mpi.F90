@@ -140,7 +140,9 @@ contains
       print*, "nbnd = ", me%nbnd
       print*, "norb = ", me%norb
       print*, "coords:"
-      print*, shape(me%ham%coords)
+      do ilay=1,me%nbnd
+         print*, me%ham%coords(ilay,:)
+      end do
 
       stop
 
