@@ -920,8 +920,6 @@ contains
          matel_pol(:) = matel_pol(:) + pol(idir) * matel(:,idir)
       end do
 
-      print*, abs(matel_pol)
-
       inten = 0.0_dp
       do ibnd=1,nbnd
          if(epsk(ibnd) > mu) cycle
