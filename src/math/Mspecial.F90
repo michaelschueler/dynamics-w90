@@ -8,19 +8,24 @@ module Mspecial
     include "../units_inc.f90"
 !--------------------------------------------------------------------------------------
     private 
-    public :: bessel_jn_zeros, spherical_bessel_jn, spherical_bessel_yn, &
-           spherical_bessel_jn_zeros, &
-           besseljn, besselyn, hankel1n, hankel2n
+    public :: &
+        bessel_jn_zeros, &
+        spherical_bessel_jn, &
+        spherical_bessel_yn, &
+        spherical_bessel_jn_zeros, &
+        besseljn, &
+        besselyn, &
+        hankel1n, &
+        hankel2n
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
     function besseljn(order, x) result(res)
+        !! convenience function that calls Bessel functions of integer order
+        !! (intrinsic to F2008)
         integer, intent(in) :: order
         real(dp), intent(in) :: x
         real(dp) :: res
-
-        ! convenience function that calls Bessel functions of integer order
-        ! (intrinsic to F2008)
 
         if(abs(order) == 0) then
             res = bessel_j0(x)
@@ -35,12 +40,13 @@ contains
     end function besseljn
 !--------------------------------------------------------------------------------------
     function besselyn(order, x) result(res)
+        !! convenience function that calls Bessel functions of integer order
+        !! (intrinsic to F2008)        
         integer, intent(in) :: order
         real(dp), intent(in) :: x
         real(dp) :: res
 
-        ! convenience function that calls Bessel functions of integer order
-        ! (intrinsic to F2008)
+
 
         if(abs(order) == 0) then
             res = bessel_y0(x)
@@ -53,6 +59,7 @@ contains
     end function besselyn
 !--------------------------------------------------------------------------------------
     function hankel1n(order, x) result(res)
+        !! returns the Hankel function H^+
         integer, intent(in) :: order
         real(dp), intent(in) :: x
         complex(dp) :: res
@@ -73,6 +80,7 @@ contains
     end function hankel1n
 !--------------------------------------------------------------------------------------
     function hankel2n(order, x) result(res)
+        !! returns the Hankel function H^-
         integer, intent(in) :: order
         real(dp), intent(in) :: x
         complex(dp) :: res
@@ -90,9 +98,9 @@ contains
     end function hankel2n
 !--------------------------------------------------------------------------------------
     function bessel_j0_zeros(nzeros, eps) result(zeros)
-        ! Calculates zeros of bessel_j0().
-        ! This function is then used in bessel_jn_zeros() to calculate zeros of j_n(x)
-        ! for n > 0 by simply using the zeros of j_{n-1}(x), as they must lie between.
+        !! Calculates zeros of bessel_j0().
+        !! This function is then used in bessel_jn_zeros() to calculate zeros of j_n(x)
+        !! for n > 0 by simply using the zeros of j_{n-1}(x), as they must lie between.
         integer, intent(in) :: nzeros
         real(dp), intent(in) :: eps
         ! zeros(i) is the i-th zero of bessel_j0(x)
@@ -124,9 +132,9 @@ contains
     end function bessel_j0_zeros
 !--------------------------------------------------------------------------------------
     function bessel_jn_zeros(nmax, nzeros, eps) result(zeros)
-        ! Calculates 'nzeros' zeros of bessel_jn() for all n=0, 1, ..., nmax
-        ! It uses the fact that zeros of j_{n-1}(x) lie between zeros of j_n(x) and
-        ! uses bisection to calculate them.
+        !! Calculates 'nzeros' zeros of bessel_jn() for all n=0, 1, ..., nmax
+        !! It uses the fact that zeros of j_{n-1}(x) lie between zeros of j_n(x) and
+        !! uses bisection to calculate them.
         integer, intent(in) :: nmax, nzeros
         real(dp), intent(in) :: eps
         ! zeros(i, n) is the i-th zero of bessel_jn(n, x)
@@ -153,6 +161,7 @@ contains
     end function bessel_jn_zeros
 !--------------------------------------------------------------------------------------
     real(dp) function spherical_bessel_jn(n, x) result(r)
+    !! spherical Bessel function of first kind
         integer, intent(in) :: n
         real(dp), intent(in) :: x
         integer :: nm
@@ -163,6 +172,7 @@ contains
     end function spherical_bessel_jn
 !--------------------------------------------------------------------------------------
     real(dp) function spherical_bessel_yn(n, x) result(r)
+    !! spherical Bessel function of second kind
         integer, intent(in) :: n
         real(dp), intent(in) :: x
         integer :: nm
@@ -173,9 +183,9 @@ contains
     end function spherical_bessel_yn
 !--------------------------------------------------------------------------------------
     function spherical_bessel_jn_zeros(nmax, nzeros, eps) result(zeros)
-        ! Calculates 'nzeros' zeros of spherical_bessel_jn() for all n=0, 1, ..., nmax
-        ! It uses the fact that zeros of j_{n-1}(x) lie between zeros of j_n(x) and
-        ! uses bisection to calculate them.
+        !! Calculates 'nzeros' zeros of spherical_bessel_jn() for all n=0, 1, ..., nmax
+        !! It uses the fact that zeros of j_{n-1}(x) lie between zeros of j_n(x) and
+        !! uses bisection to calculate them.
         integer, intent(in) :: nmax, nzeros
         real(dp), intent(in) :: eps
         ! zeros(i, n) is the i-th zero of spherical_bessel_jn(n, x)

@@ -1,4 +1,7 @@
 program wann_evol_mpi
+!! Computes the time-dependent dynamics of an electron system described by a 
+!! Wannier Hamiltonian upon laser excitation and computes various observables.
+!! MPI parallelized version.
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use omp_lib

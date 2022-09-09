@@ -1,4 +1,6 @@
 program wann_calc
+!! Computes various Berry-phase related quantities from a Wannier Hamiltonian.
+!! The Hamiltonian can also be extended to a slab geometry.
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug

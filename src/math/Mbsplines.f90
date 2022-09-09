@@ -1,50 +1,31 @@
-!*****************************************************************************************
-!****m* src/Mbsplines.f90
-!
-! NAME
-!  Mbsplines
-!
-! AUTHOR
-!  Jacob Williams, slightly modified my Michael Schueler
-!  
-! DESCRIPTION
-!  Multidimensional (1D-6D) B-Spline interpolation of data on a regular grid.
-!  Basic subroutine interface.
-!
-!  This module is based on the bspline and spline routines from [1].
-!  The original Fortran 77 routines were converted to free-form source.
-!  Some of them are relatively unchanged from the originals, but some have
-!  been extensively refactored. In addition, new routines for
-!  1d, 4d, 5d, and 6d interpolation were also created (these are simply
-!  extensions of the same algorithm into higher dimensions).
-!
-!
-!  References
-!
-!  1. DBSPLIN and DTENSBS from the
-!     [NIST Core Math Library](http://www.nist.gov/itl/math/mcsd-software.cfm).
-!     Original code is public domain.
-!  2. Carl de Boor, "A Practical Guide to Splines",
-!     Springer-Verlag, New York, 1978.
-!  3. Carl de Boor, [Efficient Computer Manipulation of Tensor
-!     Products](http://dl.acm.org/citation.cfm?id=355831),
-!     ACM Transactions on Mathematical Software,
-!     Vol. 5 (1979), p. 173-182.
-!  4. D.E. Amos, "Computation with Splines and B-Splines",
-!     SAND78-1968, Sandia Laboratories, March, 1979.
-!  5. Carl de Boor,
-!     [Package for calculating with B-splines](http://epubs.siam.org/doi/abs/10.1137/0714026),
-!     SIAM Journal on Numerical Analysis 14, 3 (June 1977), p. 441-472.
-!
-! CONTAINS
-!  Mbsplines.f90/db1ink
-!  Mbsplines.f90/db1val
-!
-! SOURCE
-
 
 module Mbsplines
-
+!!  Multidimensional (1D-6D) B-Spline interpolation of data on a regular grid.
+!!  Basic subroutine interface.
+!!
+!!  This module is based on the bspline and spline routines from [1].
+!!  The original Fortran 77 routines were converted to free-form source.
+!!  Some of them are relatively unchanged from the originals, but some have
+!!  been extensively refactored. In addition, new routines for
+!!  1d, 4d, 5d, and 6d interpolation were also created (these are simply
+!!  extensions of the same algorithm into higher dimensions).
+!!
+!!  References
+!!
+!!  1. DBSPLIN and DTENSBS from the
+!!     [NIST Core Math Library](http://www.nist.gov/itl/math/mcsd-software.cfm).
+!!     Original code is public domain.
+!!  2. Carl de Boor, "A Practical Guide to Splines",
+!!     Springer-Verlag, New York, 1978.
+!!  3. Carl de Boor, [Efficient Computer Manipulation of Tensor
+!!     Products](http://dl.acm.org/citation.cfm?id=355831),
+!!     ACM Transactions on Mathematical Software,
+!!     Vol. 5 (1979), p. 173-182.
+!!  4. D.E. Amos, "Computation with Splines and B-Splines",
+!!     SAND78-1968, Sandia Laboratories, March, 1979.
+!!  5. Carl de Boor,
+!!     [Package for calculating with B-splines](http://epubs.siam.org/doi/abs/10.1137/0714026),
+!!     SIAM Journal on Numerical Analysis 14, 3 (June 1977), p. 441-472.
   implicit none
 
   private
@@ -235,45 +216,12 @@ contains
 !*****************************************************************************************
   
 !*****************************************************************************************
-!****u* src/Mbsplines.f90/db1ink
-!
-! NAME
-!  db1ink
-!
-! DESCRIPTION
-!  Determines the parameters of a function that interpolates
-!  the one-dimensional gridded data
-!  $$ [x(i),\mathrm{fcn}(i)] ~\mathrm{for}~ i=1,..,n_x $$
-!  The interpolating function and its derivatives may
-!  subsequently be evaluated by the function db1val.
-!
-! INPUT
-!  nx     ...    Number of x abcissae
-!  kx     ...    The order of spline pieces in x (>= 2, < nx).
-!                (order = polynomial degree + 1)
-!  x      ...    Array of x abcissae. Must be strictly increasing.
-!  fcn    ...    Array of function values to interpolate. fcn(i) should
-!                ontain the function value at the point x(i)
-!   tx    ...    The knots in the x direction for the spline interpolant.
-!                If iflag=0 these are chosen by db1ink.
-!                If iflag=1 these are specified by the user.
-!                Must be non-decreasing.
-!   iflag ...    0 = knot sequence chosen by db1ink.
-!                1 = knot sequence chosen by user
-!
-! OUTPUT  
-!  bcoef  ...    Array of coefficients of the b-spline interpolant.
-!  iflag  ...    1 = successful execution.
-!                2 = iflag out of range.
-!                3 = nx out of range
-!                4 = kx out of range.
-!                5 = x not strictly increasing.  
-!                6 = tx not non-decreasing.
-!
-! SOURCE
-  
     subroutine db1ink(x,nx,fcn,kx,tx,bcoef,iflag)
-
+!!  Determines the parameters of a function that interpolates
+!!  the one-dimensional gridded data
+!!  $$ [x(i),\mathrm{fcn}(i)] ~\mathrm{for}~ i=1,..,n_x $$
+!!  The interpolating function and its derivatives may
+!!  subsequently be evaluated by the function db1val.
     implicit none
 
     integer,intent(in)                      :: nx     !! Number of x abcissae
@@ -329,35 +277,14 @@ contains
 !*****************************************************************************************
 
 !*****************************************************************************************
-!> Evaluates the tensor product piecewise polynomial
-!  interpolant constructed by the routine [[db1ink]] or one of its
-!  derivatives at the point xval.
-!
-!  To evaluate the interpolant itself, set idx=0,
-!  to evaluate the first partial with respect to x, set idx=1, and so on.
-!
-!  db1val returns 0.0 if (xval,yval) is out of range. that is, if
-!```fortran
-!   xval < tx(1) .or. xval > tx(nx+kx)
-!```
-!  if the knots tx were chosen by [[db1ink]], then this is equivalent to:
-!```fortran
-!   xval < x(1) .or. xval > x(nx)+epsx
-!```
-!  where
-!```fortran
-!   epsx = 0.1*(x(nx)-x(nx-1))
-!```
-!
-!  The input quantities tx, nx, kx, and bcoef should be
-!  unchanged since the last call of [[db1ink]].
-!
-!# History
-!
-!  * Jacob Williams, 10/30/2015 : Created 1D routine.
-
     subroutine db1val(xval,idx,tx,nx,kx,bcoef,f,iflag,inbvx)
-
+!!  Evaluates the tensor product piecewise polynomial
+!!  interpolant constructed by the routine [[db1ink]] or one of its
+!!  derivatives at the point xval.
+!!
+!!  To evaluate the interpolant itself, set idx=0,
+!!  to evaluate the first partial with respect to x, set idx=1, and so on.
+!!  db1val returns 0.0 if (xval,yval) is out of range. 
     implicit none
 
     integer,intent(in)                   :: idx      !! x derivative of piecewise polynomial to evaluate.
@@ -386,56 +313,50 @@ contains
 !*****************************************************************************************
 
 !*****************************************************************************************
-!> Determines the parameters of a function that interpolates
-!  the two-dimensional gridded data
-!  $$ [x(i),y(j),\mathrm{fcn}(i,j)] ~\mathrm{for}~ i=1,..,n_x ~\mathrm{and}~ j=1,..,n_y $$
-!  The interpolating function and its derivatives may
-!  subsequently be evaluated by the function [[db2val]].
-!
-!  The interpolating function is a piecewise polynomial function
-!  represented as a tensor product of one-dimensional b-splines. the
-!  form of this function is
-!
-!  $$ s(x,y) = \sum_{i=1}^{n_x} \sum_{j=1}^{n_y} a_{ij} u_i(x) v_j(y) $$
-!
-!  where the functions \(u_i\) and \(v_j\) are one-dimensional b-spline
-!  basis functions. the coefficients \( a_{ij} \) are chosen so that
-!
-!  $$ s(x(i),y(j)) = \mathrm{fcn}(i,j) ~\mathrm{for}~ i=1,..,n_x ~\mathrm{and}~ j=1,..,n_y $$
-!
-!  Note that for each fixed value of y, \( s(x,y) \) is a piecewise
-!  polynomial function of x alone, and for each fixed value of x, \( s(x,y) \)
-!  is a piecewise polynomial function of y alone. in one dimension
-!  a piecewise polynomial may be created by partitioning a given
-!  interval into subintervals and defining a distinct polynomial piece
-!  on each one. the points where adjacent subintervals meet are called
-!  knots. each of the functions \(u_i\) and \(v_j\) above is a piecewise
-!  polynomial.
-!
-!  Users of db2ink choose the order (degree+1) of the polynomial
-!  pieces used to define the piecewise polynomial in each of the x and
-!  y directions (kx and ky). users also may define their own knot
-!  sequence in x and y separately (tx and ty). if iflag=0, however,
-!  db2ink will choose sequences of knots that result in a piecewise
-!  polynomial interpolant with kx-2 continuous partial derivatives in
-!  x and ky-2 continuous partial derivatives in y. (kx knots are taken
-!  near each endpoint in the x direction, not-a-knot end conditions
-!  are used, and the remaining knots are placed at data points if kx
-!  is even or at midpoints between data points if kx is odd. the y
-!  direction is treated similarly.)
-!
-!  After a call to db2ink, all information necessary to define the
-!  interpolating function are contained in the parameters nx, ny, kx,
-!  ky, tx, ty, and bcoef. These quantities should not be altered until
-!  after the last call of the evaluation routine [[db2val]].
-!
-!# History
-!
-!  * Boisvert, Ronald, NBS : 25 may 1982 : Author of original routine.
-!  * JEC : 000330 modified array declarations.
-!  * Jacob Williams, 2/24/2015 : extensive refactoring of CMLIB routine.
-
     subroutine db2ink(x,nx,y,ny,fcn,kx,ky,tx,ty,bcoef,iflag)
+!!  Determines the parameters of a function that interpolates
+!!  the two-dimensional gridded data
+!!  $$ [x(i),y(j),\mathrm{fcn}(i,j)] ~\mathrm{for}~ i=1,..,n_x ~\mathrm{and}~ j=1,..,n_y $$
+!!  The interpolating function and its derivatives may
+!!  subsequently be evaluated by the function [[db2val]].
+!!
+!!  The interpolating function is a piecewise polynomial function
+!!  represented as a tensor product of one-dimensional b-splines. the
+!!  form of this function is
+!!
+!!  $$ s(x,y) = \sum_{i=1}^{n_x} \sum_{j=1}^{n_y} a_{ij} u_i(x) v_j(y) $$
+!!
+!!  where the functions \(u_i\) and \(v_j\) are one-dimensional b-spline
+!!  basis functions. the coefficients \( a_{ij} \) are chosen so that
+!!
+!!  $$ s(x(i),y(j)) = \mathrm{fcn}(i,j) ~\mathrm{for}~ i=1,..,n_x ~\mathrm{and}~ j=1,..,n_y $$
+!!
+!!  Note that for each fixed value of y, \( s(x,y) \) is a piecewise
+!!  polynomial function of x alone, and for each fixed value of x, \( s(x,y) \)
+!!  is a piecewise polynomial function of y alone. in one dimension
+!!  a piecewise polynomial may be created by partitioning a given
+!!  interval into subintervals and defining a distinct polynomial piece
+!!  on each one. the points where adjacent subintervals meet are called
+!!  knots. each of the functions \(u_i\) and \(v_j\) above is a piecewise
+!!  polynomial.
+!
+!!  Users of db2ink choose the order (degree+1) of the polynomial
+!!  pieces used to define the piecewise polynomial in each of the x and
+!!  y directions (kx and ky). users also may define their own knot
+!!  sequence in x and y separately (tx and ty). if iflag=0, however,
+!!  db2ink will choose sequences of knots that result in a piecewise
+!!  polynomial interpolant with kx-2 continuous partial derivatives in
+!!  x and ky-2 continuous partial derivatives in y. (kx knots are taken
+!!  near each endpoint in the x direction, not-a-knot end conditions
+!!  are used, and the remaining knots are placed at data points if kx
+!!  is even or at midpoints between data points if kx is odd. the y
+!!  direction is treated similarly.)
+!
+!!  After a call to db2ink, all information necessary to define the
+!!  interpolating function are contained in the parameters nx, ny, kx,
+!!  ky, tx, ty, and bcoef. These quantities should not be altered until
+!!  after the last call of the evaluation routine [[db2val]].
+
 
     implicit none
 
@@ -2591,30 +2512,17 @@ contains
 !*****************************************************************************************
 
 !*****************************************************************************************
-!> Evaluates the b-representation (t,a,n,k) of a b-spline
-!  at x for the function value on ideriv=0 or any of its
-!  derivatives on ideriv=1,2,...,k-1.  right limiting values
-!  (right derivatives) are returned except at the right end
-!  point x=t(n+1) where left limiting values are computed.  the
-!  spline is defined on t(k) <= x <= t(n+1).  dbvalu returns
-!  a fatal error message when x is outside of this interval.
-!
-!  to compute left derivatives or left limiting values at a
-!  knot t(i), replace n by i-1 and set x=t(i), i=k+1,n+1.
-!
-!#Error Conditions
-!
-!  * improper input
-!
-!# History
-!
-!  * bvalue written by carl de boor [5]
-!  * dbvalu author: amos, d. e., (snla) : date written 800901
-!  * revision date 820801
-!  * 000330 modified array declarations.  (jec)
-!  * Jacob Williams, 2/24/2015 : extensive refactoring of CMLIB routine.
-
     real(wp) function dbvalu(t,a,n,k,ideriv,x,inbv,work,iflag)
+!! Evaluates the b-representation (t,a,n,k) of a b-spline
+!!  at x for the function value on ideriv=0 or any of its
+!!  derivatives on ideriv=1,2,...,k-1.  right limiting values
+!!  (right derivatives) are returned except at the right end
+!!  point x=t(n+1) where left limiting values are computed.  the
+!!  spline is defined on t(k) <= x <= t(n+1).  dbvalu returns
+!!  a fatal error message when x is outside of this interval.
+!
+!!  to compute left derivatives or left limiting values at a
+!!  knot t(i), replace n by i-1 and set x=t(i), i=k+1,n+1.
 
     implicit none
 

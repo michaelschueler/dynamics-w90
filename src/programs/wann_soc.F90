@@ -1,12 +1,15 @@
 program wann_soc
+!! Extends a Wannier Hamiltonian in spin space and adds atomic spin-orbit coupling (SOC).
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
    use Mdef,only: dp,zero
    use Mtime,only: Timer_act, Timer_Tic, Timer_Toc
-   use Mutils,only: print_title, print_header, get_file_ext, check_file_ext, str
+   use Mutils,only: print_title, print_header, get_file_ext, check_file_ext, str, &
+      stop_error
    use Mham_w90,only: wann90_tb_t
    use Mwann_soc,only: ham_soc_t, AddSOC_Wannier
+   use Mio_params,only: HamiltonianParams_t
    use Mio_hamiltonian,only: ReadHamiltonian, WriteHamiltonian, Read_SOC_Hamiltonian,&
       Read_SOC_lambda
    implicit none
@@ -19,17 +22,12 @@ program wann_soc
    integer :: Narg,unit_inp
    character(len=255) :: FlIn,file_out
    ! -- input variables --
-   character(len=255) :: file_ham
-   logical            :: w90_with_soc,expert_params
-   real(dp)           :: energy_thresh
-   namelist/HAMILTONIAN/file_ham,w90_with_soc,energy_thresh,expert_params
-   character(len=255) :: file_lam,file_soc
-   namelist/SPINORBIT/file_lam,file_soc
+   type(HamiltonianParams_t)  :: par_ham
    ! -- internal variables --
-   real(dp),allocatable :: lam(:) 
-   type(ham_soc_t)      :: soc
-   type(wann90_tb_t)    :: w90_nosoc
-   type(wann90_tb_t)    :: w90_soc
+   real(dp),allocatable       :: lam(:) 
+   type(ham_soc_t)            :: soc
+   type(wann90_tb_t)          :: w90_nosoc
+   type(wann90_tb_t)          :: w90_soc
 !--------------------------------------------------------------------------------------
    call Timer_Act()
    call Timer_Tic('total',1)
@@ -40,13 +38,9 @@ program wann_soc
    Narg=command_argument_count()
    if(Narg>=1) then
       call get_command_argument(1,FlIn)
-      open(newunit=unit_inp,file=trim(FlIn),status='OLD',action='READ')
-      read(unit_inp,nml=HAMILTONIAN); rewind(unit_inp)
-      read(unit_inp,nml=SPINORBIT)
-      close(unit_inp)
+      call par_ham%ReadFromFile(FlIn)
    else
-      write(error_unit,fmt900) 'Please provide a namelist input file.'
-      stop
+      call stop_error('Please provide a namelist input file.')
    end if
 
    if(Narg>=2) then
@@ -58,11 +52,11 @@ program wann_soc
       write(output_unit,*)
    end if
 
-   call ReadHamiltonian(file_ham,w90_nosoc)
+   call ReadHamiltonian(par_ham%file_ham,w90_nosoc)
 
-   call Read_SOC_lambda(file_lam,lam)
+   call Read_SOC_lambda(par_ham%file_lam,lam)
 
-   call Read_SOC_Hamiltonian(file_soc,soc)
+   call Read_SOC_Hamiltonian(par_ham%file_soc,soc)
 
    call Timer_Tic('adding SOC', 2)
    call AddSOC_Wannier(soc,lam,w90_nosoc,w90_soc)

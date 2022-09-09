@@ -1,7 +1,7 @@
 module Msorting
 
-! Module for sorting arrays.
-! Based on code written by John E. Pask, LLNL.
+!! Module for sorting arrays.
+!! Based on code written by John E. Pask, LLNL.
 
 use Mdef, only: dp
 use Mutils, only: stop_error
@@ -29,21 +29,21 @@ end interface
 contains
 
 subroutine sortNums(nums)
-! sorts array of numbers, nums, from smallest to largest
-real(dp), intent(inout):: nums(:)   ! array of numbers
+!! sorts array of numbers, nums, from smallest to largest
+real(dp), intent(inout):: nums(:)   !! array of numbers
 nums = nums(argsort(nums))
 end subroutine
 
 subroutine sortINums(nums)
-! sorts array of inegers, nums, from smallest to largest
-integer, intent(inout):: nums(:)    ! array of numbers
+!! sorts array of inegers, nums, from smallest to largest
+integer, intent(inout):: nums(:)    !! array of numbers
 nums = nums(argsort(nums))
 end subroutine
 
 subroutine sortVecs(vecs)
-! sorts array of vectors, vecs, by length, from smallest to largest
-real(dp), intent(inout):: vecs(:,:) ! array of vectors: vecs(i,j) = ith comp. of jth vec.
-real(dp) len2(size(vecs,2))         ! array of squares of vector lengths
+!! sorts array of vectors, vecs, by length, from smallest to largest
+real(dp), intent(inout):: vecs(:,:) !! array of vectors: vecs(i,j) = ith comp. of jth vec.
+real(dp) len2(size(vecs,2))         !! array of squares of vector lengths
 integer i
 do i=1,size(len2)
    len2(i)=dot_product(vecs(:,i),vecs(:,i))
@@ -52,8 +52,8 @@ call sortpairs(len2,vecs)
 end subroutine
 
 subroutine sortNumNumPairs(nums1, nums2)
-! sorts arrays of numbers, nums1 and nums2, according to increasing nums1
-real(dp), intent(inout):: nums1(:), nums2(:)  ! arrays of numbers
+!! sorts arrays of numbers, nums1 and nums2, according to increasing nums1
+real(dp), intent(inout):: nums1(:), nums2(:)  !! arrays of numbers
 integer :: a(size(nums1))
 if (size(nums1) /= size(nums2)) then
     call stop_error("SORTPAIRS ERROR: arrays must be of same length.")
@@ -64,9 +64,9 @@ nums2 = nums2(a)
 end subroutine
 
 subroutine sortINumCNumPairs(nums1, nums2)
-! sorts arrays of numbers, nums1 and nums2, according to increasing nums1
-integer, intent(inout):: nums1(:)            ! array of integers
-complex(dp), intent(inout):: nums2(:)        ! array of complex numbers
+!! sorts arrays of numbers, nums1 and nums2, according to increasing nums1
+integer, intent(inout):: nums1(:)            !! array of integers
+complex(dp), intent(inout):: nums2(:)        !! array of complex numbers
 integer :: a(size(nums1))
 if (size(nums1) /= size(nums2)) then
     call stop_error("SORTPAIRS ERROR: arrays must be of same length.")
@@ -77,9 +77,9 @@ nums2 = nums2(a)
 end subroutine
 
 subroutine sortNumVecPairs(nums, vecs)
-! sorts arrays of numbers, nums, and vectors, vecs, according to increasing nums
-real(dp), intent(inout):: nums(:)   ! array of numbers
-real(dp), intent(inout):: vecs(:,:) ! array of vectors: vecs(i,j) = ith comp. of jth vec.
+!! sorts arrays of numbers, nums, and vectors, vecs, according to increasing nums
+real(dp), intent(inout):: nums(:)   !! array of numbers
+real(dp), intent(inout):: vecs(:,:) !! array of vectors: vecs(i,j) = ith comp. of jth vec.
 integer :: a(size(nums))
 if (size(nums) /= size(vecs,2)) then
     call stop_error("SORTPAIRS ERROR: arrays must be of same length.")
@@ -90,9 +90,9 @@ vecs = vecs(:, a)
 end subroutine
 
 subroutine sortINumVecPairs(nums, vecs)
-! sorts arrays of integers, nums, and vectors, vecs, according to increasing nums
-integer, intent(inout):: nums(:)    ! array of numbers
-real(dp), intent(inout):: vecs(:,:) ! array of vectors: vecs(i,j) = ith comp. of jth vec.
+!! sorts arrays of integers, nums, and vectors, vecs, according to increasing nums
+integer, intent(inout):: nums(:)    !! array of numbers
+real(dp), intent(inout):: vecs(:,:) !! array of vectors: vecs(i,j) = ith comp. of jth vec.
 integer :: a(size(nums))
 if (size(nums) /= size(vecs,2)) then
     call stop_error("SORTPAIRS ERROR: arrays must be of same length.")
@@ -103,9 +103,9 @@ vecs = vecs(:, a)
 end subroutine
 
 subroutine sortNumCVecPairs(nums, vecs)
-! sorts arrays of numbers, nums, and complex vectors, vecs, according to increasing nums
-real(dp), intent(inout):: nums(:)   ! array of numbers
-complex(dp), intent(inout):: vecs(:,:) ! array of vectors: vecs(i,j) = ith comp. of jth vec.
+!! sorts arrays of numbers, nums, and complex vectors, vecs, according to increasing nums
+real(dp), intent(inout):: nums(:)   !! array of numbers
+complex(dp), intent(inout):: vecs(:,:) !! array of vectors: vecs(i,j) = ith comp. of jth vec.
 integer :: a(size(nums))
 if (size(nums) /= size(vecs,2)) then
     call stop_error("SORTPAIRS ERROR: arrays must be of same length.")
@@ -116,9 +116,9 @@ vecs = vecs(:, a)
 end subroutine
 
 subroutine sortNumMatPairs(nums, mats)
-! sorts arrays of numbers, nums, and matrices, mats, according to increasing nums
-real(dp), intent(inout):: nums(:)         ! array of numbers
-real(dp), intent(inout):: mats(:,:,:)     ! array of matrices: mats(i,j,n) = (i,j) comp. of nth mat.
+!! sorts arrays of numbers, nums, and matrices, mats, according to increasing nums
+real(dp), intent(inout):: nums(:)         !! array of numbers
+real(dp), intent(inout):: mats(:,:,:)     !! array of matrices: mats(i,j,n) = (i,j) comp. of nth mat.
 integer :: a(size(nums))
 if (size(nums) /= size(mats,3)) then
     call stop_error("SORTPAIRS ERROR: arrays must be of same length.")
@@ -129,9 +129,9 @@ mats = mats(:, :, a)
 end subroutine
 
 subroutine sortINumMatPairs(nums,mats)
-! sorts arrays of integers, nums, and matrices, mats, according to increasing nums
-integer, intent(inout):: nums(:)          ! array of numbers
-real(dp), intent(inout):: mats(:,:,:)     ! array of matrices: mats(i,j,n) = (i,j) comp. of nth mat.
+!! sorts arrays of integers, nums, and matrices, mats, according to increasing nums
+integer, intent(inout):: nums(:)          !! array of numbers
+real(dp), intent(inout):: mats(:,:,:)     !! array of matrices: mats(i,j,n) = (i,j) comp. of nth mat.
 integer :: a(size(nums))
 if (size(nums) /= size(mats,3)) then
     call stop_error("SORTPAIRS ERROR: arrays must be of same length.")
@@ -142,22 +142,22 @@ mats = mats(:, :, a)
 end subroutine
 
 function iargsort(a) result(b)
-! Returns the indices that would sort an array.
+!! Returns the indices that would sort an array.
 !
 ! Arguments
 ! ---------
 !
-integer, intent(in):: a(:)    ! array of numbers
-integer :: b(size(a))         ! indices into the array 'a' that sort it
+integer, intent(in):: a(:)    !! array of numbers
+integer :: b(size(a))         !! indices into the array 'a' that sort it
 !
 ! Example
 ! -------
 !
 ! iargsort([10, 9, 8, 7, 6])   ! Returns [5, 4, 3, 2, 1]
 
-integer :: N                           ! number of numbers/vectors
-integer :: i,imin                      ! indices: i, i of smallest
-integer :: temp                        ! temporary
+integer :: N                           !! number of numbers/vectors
+integer :: i,imin                      !! indices: i, i of smallest
+integer :: temp                        !! temporary
 integer :: a2(size(a))
 a2 = a
 N=size(a)
@@ -177,13 +177,13 @@ end do
 end function
 
 function rargsort(a) result(b)
-! Returns the indices that would sort an array.
+!! Returns the indices that would sort an array.
 !
 ! Arguments
 ! ---------
 !
-real(dp), intent(in):: a(:)   ! array of numbers
-integer :: b(size(a))         ! indices into the array 'a' that sort it
+real(dp), intent(in):: a(:)   !! array of numbers
+integer :: b(size(a))         !! indices into the array 'a' that sort it
 !
 ! Example
 ! -------

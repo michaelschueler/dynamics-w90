@@ -1,12 +1,8 @@
-!*******************************************************************************************************
-!>
-!  Integration of functions using adaptive Guassian quadrature.
+    module Mgausslegendre
+!!  Integration of functions using adaptive Guassian quadrature.
 !
 !### Author
 !  * Jacob Williams
-
-    module Mgausslegendre
-
     use Mdef,only: dp
  
 
@@ -229,11 +225,12 @@
 
 !********************************************************************************
 !>
-!  Initialize the 1D integration class.
-!  Must be called before integration is performed.
 
     subroutine initialize_integration_class(me,fx,&
                                             xl,xu,tolx,methodx)
+    !!  Initialize the 1D integration class.
+    !!  Must be called before integration is performed.
+
 
     implicit none
 
@@ -265,14 +262,14 @@
 
 !********************************************************************************
 !>
-!  Initialize the 2D integration class.
-!  Must be called before integration is performed.
+
 
     subroutine initialize_integration_class_2d(me,fxy,&
                                                xl,xu,yl,yu,&
                                                tolx,toly,&
                                                methodx,methody)
-
+!!  Initialize the 2D integration class.
+!!  Must be called before integration is performed.
     implicit none
 
     class(integration_class_2d),intent(inout) :: me
@@ -299,14 +296,14 @@
 
 !********************************************************************************
 !>
-!  Initialize the 3D integration class.
-!  Must be called before integration is performed.
+
 
     subroutine initialize_integration_class_3d(me,fxyz,&
                                                xl,xu,yl,yu,zl,zu,&
                                                tolx,toly,tolz,&
                                                methodx,methody,methodz)
-
+!!  Initialize the 3D integration class.
+!!  Must be called before integration is performed.
     implicit none
 
     class(integration_class_3d),intent(inout) :: me
@@ -338,14 +335,14 @@
 
 !********************************************************************************
 !>
-!  Initialize the 4D integration class.
-!  Must be called before integration is performed.
+
 
     subroutine initialize_integration_class_4d(me,fxyzq,&
                                                xl,xu,yl,yu,zl,zu,ql,qu,&
                                                tolx,toly,tolz,tolq,&
                                                methodx,methody,methodz,methodq)
-
+!!  Initialize the 4D integration class.
+!!  Must be called before integration is performed.
     implicit none
 
     class(integration_class_4d),intent(inout) :: me
@@ -382,14 +379,14 @@
 
 !********************************************************************************
 !>
-!  Initialize the 5D integration class.
-!  Must be called before integration is performed.
+
 
     subroutine initialize_integration_class_5d(me,fxyzqr,&
                                                xl,xu,yl,yu,zl,zu,ql,qu,rl,ru,&
                                                tolx,toly,tolz,tolq,tolr,&
                                                methodx,methody,methodz,methodq,methodr)
-
+!!  Initialize the 5D integration class.
+!!  Must be called before integration is performed.
     implicit none
 
     class(integration_class_5d),intent(inout) :: me
@@ -431,14 +428,14 @@
 
 !********************************************************************************
 !>
-!  Initialize the 6D integration class.
-!  Must be called before integration is performed.
+
 
     subroutine initialize_integration_class_6d(me,fxyzqrs,&
                                                xl,xu,yl,yu,zl,zu,ql,qu,rl,ru,sl,su,&
                                                tolx,toly,tolz,tolq,tolr,tols,&
                                                methodx,methody,methodz,methodq,methodr,methods)
-
+!!  Initialize the 6D integration class.
+!!  Must be called before integration is performed.
     implicit none
 
     class(integration_class_6d),intent(inout) :: me
@@ -485,10 +482,10 @@
 
 !********************************************************************************
 !>
-!   Perform the 1D integration.
+
 
     subroutine integrate_1d (me, ans, ierr, err)
-
+!!   Perform the 1D integration.
     implicit none
 
     class(integration_class_1d),intent(inout)  :: me
@@ -504,10 +501,10 @@
 
 !********************************************************************************
 !>
-!   Perform the 2D integration.
+
 
     subroutine integrate_2d (me, ans, ierr, err)
-
+!!   Perform the 2D integration.
     implicit none
 
     class(integration_class_2d),intent(inout)  :: me
@@ -544,10 +541,10 @@
 
 !********************************************************************************
 !>
-!  Perform the 3D integration.
+
 
     subroutine integrate_3d (me, ans, ierr, err)
-
+!!  Perform the 3D integration.
     implicit none
 
     class(integration_class_3d),intent(inout)  :: me
@@ -593,10 +590,10 @@
 
 !********************************************************************************
 !>
-!  Perform the 4D integration.
+
 
     subroutine integrate_4d (me, ans, ierr, err)
-
+!!  Perform the 4D integration.
     implicit none
 
     class(integration_class_4d),intent(inout)  :: me
@@ -651,10 +648,10 @@
 
 !********************************************************************************
 !>
-!  Perform the 5D integration.
+
 
     subroutine integrate_5d (me, ans, ierr, err)
-
+!!  Perform the 5D integration.
     implicit none
 
     class(integration_class_5d),intent(inout)  :: me
@@ -718,10 +715,10 @@
 
 !********************************************************************************
 !>
-!  Perform the 6D integration.
+
 
     subroutine integrate_6d (me, ans, ierr, err)
-
+!!  Perform the 6D integration.
     implicit none
 
     class(integration_class_6d),intent(inout)  :: me
@@ -793,26 +790,14 @@
 !********************************************************************************
 
 !********************************************************************************
-!>
-!  Integrate a real function of one variable over a finite
-!  interval using the specified adaptive algorithm.
-!  Intended primarily for high accuracy
-!  integration or integration of smooth functions.
-!
-!### License
-!  * SLATEC is public domain software: http://www.netlib.org/slatec/guide
-!
-!### See also
-!  * Original sourcecode from: http://www.netlib.org/slatec/src/dgaus8.f
-!
-!### Author
-!  * Jones, R. E., (SNLA) -- Original SLATEC code.
-!  * Jacob Williams : 1/20/2020 : refactored to modern Fortran and generalized.
-!
-!@note This function is recursive.
-!      [It can call itself indirectly during double integration]
 
     recursive subroutine dgauss_generic (me, lb, ub, error_tol, ans, ierr, err)
+!!  Integrate a real function of one variable over a finite
+!!  interval using the specified adaptive algorithm.
+!!  Intended primarily for high accuracy
+!!  integration or integration of smooth functions.
+!!  License: SLATEC is public domain software: http://www.netlib.org/slatec/guide 
+!!  See also: Original sourcecode from: http://www.netlib.org/slatec/src/dgaus8.f
 
     implicit none
 

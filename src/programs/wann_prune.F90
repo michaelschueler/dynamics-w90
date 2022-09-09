@@ -1,4 +1,6 @@
 program wann_prune
+!! Compresses a Wannier Hamiltonian by cutting small hopping amplitudes. 
+!! Output can be written in original Wannier90 or in hdf5 format.
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug

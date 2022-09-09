@@ -1,6 +1,5 @@
 module Mroot
-
-  ! Optimization algorithms
+  !! Optimization algorithms
 
   use Mdef, only: dp
   use Mutils, only: stop_error
@@ -46,10 +45,11 @@ contains
   end function bisect
 
   real(dp) function secant(f, a,b,tol, maxiter) result (c)
-    !Solves f(x) = 0 on using the a and b as starting values
+    !! Solves f(x) = 0 on using the a and b as starting values
     procedure(func) :: f
-    real(dp),intent(in) :: a,b,tol
-    integer,optional :: maxiter
+    real(dp), intent(in) :: a, b !! the lower and upper bounds of the search interval
+    real(dp), intent(in) :: tol !! search tolerance
+    integer,optional :: maxiter !! maximum number of iterations
 
     integer :: maxiter_
     real(dp) :: xstart, xnext
@@ -94,10 +94,11 @@ contains
   end function secant
 
   real(dp) function newton(f, df, a,b,tol, maxiter) result (c)
-    !Solves f(x) = 0 on using the a and b as starting values
+    !! Solves f(x) = 0 on using the a and b as starting values
     procedure(func) :: f,df
-    real(dp),intent(in) :: a,b,tol
-    integer,optional :: maxiter
+    real(dp), intent(in) :: a, b !! the lower and upper bounds of the search interval
+    real(dp), intent(in) :: tol !! search tolerance
+    integer,optional :: maxiter !! maximum number of iterations
 
     integer :: maxiter_
     real(dp) :: xstart, xnext
@@ -145,10 +146,12 @@ contains
   end function newton
 
    function brent(f,a,b,tol,maxiter) result(xzero)
+    !! Solves f(x) = 0 using Brent's method. 
     use iso_fortran_env, only: output_unit
     procedure(func) :: f
-    real(dp),intent(in) :: a,b,tol
-    integer,optional :: maxiter
+    real(dp), intent(in) :: a, b !! the lower and upper bounds of the search interval
+    real(dp), intent(in) :: tol !! search tolerance
+    integer,optional :: maxiter !! maximum number of iterations
     real(dp) :: xzero,fzero
     integer :: maxiter_,iflag
 

@@ -1,4 +1,5 @@
 program arpes
+!! Computes angle-resolved photoemission spectrum from Wannier functions.
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug

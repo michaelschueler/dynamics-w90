@@ -1,33 +1,8 @@
-!======================================================================================
-!****m* src/Mtime.f90
-!
-! NAME
-!  Mtime.f90
-!
-! AUTHOR
-!  Yaroslav Pavlyukh
-!
-! DESCRIPTION
-!  This module provides various tools for measuring and printing
-!  the execution time of parts of a source code.
-!
-! CONTAINS
-!   Mtime.f90/Tact
-!   Mtime.f90/TRun
-!   Mtime.f90/TGet
-!   Mtime.f90/TmsGet
-!   Mtime.f90/Diff
-!   Mtime.f90/Diffms
-!   Mtime.f90/SetName
-!   Mtime.f90/DTPrint
-!   Mtime.f90/DTmsPrint
-!   Mtime.f90/DTmsShow
-!   Mtime.f90/Tstop
-!   Mtime.f90/Int2Char
-!
-!****
-!======================================================================================
 module Mtime
+!======================================================================================
+   !! This module provides various tools for measuring and printing 
+   !! the execution time of parts of a source code.
+
   type NM
      character(40)::Name
   end type Nm
@@ -57,42 +32,17 @@ module Mtime
        Timer_toc
 
 Contains
-!******************
-!======================================================================================
-!****u* Mtime.f90/Tact
-!
-! NAME 
-!  Tact
-!
-! AUTHOR
-!  Yaroslav Pavlukh
-! 
-! DESCRIPTION
-!  Activates the timer.
-!
-! SOURCE
-! 
+
 subroutine Timer_act
+ !! Activates the timer.
   TmSt=.FALSE.
   DT=0
   DTms=0
   Tmnm(:)%Name='     EMPTY TIMER    '
 end subroutine Timer_Act
-!******************
-!****u* Mtime.f90/TRun
-!
-! NAME 
-!  Tact
-!
-! AUTHOR
-!  Yaroslav Pavlukh
-! 
-! DESCRIPTION
-!  Starts timer N
-!
-! SOURCE
-! 
+
 subroutine Timer_Run(N,NV,SNV,RunAll)
+!!  Starts timer N
 logical,intent(in)::RunAll
 integer,intent(in)::N,SNV,NV(:)
 optional::N,NV,SNV,RunAll
@@ -127,21 +77,9 @@ if (Present(N)) then
    end if
 end if
 end subroutine Timer_Run
-!******************
-!****f* Mtime.f90/TGet
-!
-! NAME 
-!  TGet
-!
-! AUTHOR
-!  Yaroslav Pavlukh
-! 
-! DESCRIPTION
-!  Gives the time measured by timer N.
-!
-! SOURCE
-! 
+
 function TGet(N)
+!! Gives the time measured by timer N.
 integer,dimension(5)::TGet
 integer::N
   if (TmSt(N)) then
@@ -151,21 +89,9 @@ integer::N
      print*,'Timer Thread #',N,' is not running'
   end if   
 end function TGet
-!******************
-!****f* Mtime.f90/TmsGet
-!
-! NAME 
-!  TmsGet
-!
-! AUTHOR
-!  Yaroslav Pavlukh
-! 
-! DESCRIPTION
-!  Gives the time measured by timer N in milliseconds.
-!
-! SOURCE
-! 
+
 function TmsGet(N)
+!!  Gives the time measured by timer N in milliseconds.
 integer::TmsGet
 integer::N
   if (TmSt(N)) then
@@ -175,21 +101,9 @@ integer::N
      print*,'Timer Thread #',N,' is not running'
   end if   
 end function TmsGet
-!******************
-!****f* Mtime.f90/Diff
-!
-! NAME 
-!  Diff
-!
-! AUTHOR
-!  Yaroslav Pavlukh
-! 
-! DESCRIPTION
-!  Computes the time difference between two dates.
-!
-! SOURCE
-! 
+
 function Diff(T1,T2)
+!! Computes the time difference between two dates.
 integer,dimension(5)::Diff
 integer,dimension(8)::T1,T2
 integer::Ndays1,Ndays2
@@ -213,62 +127,25 @@ do i=0,3
    end if
 end do
 end function Diff
-!**************************
-!****f* Mtime.f90/Diffms
 !
-! NAME 
-!  Diffms
-!
-! AUTHOR
-!  Yaroslav Pavlukh
-! 
-! DESCRIPTION
-!  Computes the time difference between two dates in 
-!  milliseconds.
-!
-! SOURCE
-! 
 integer function Diffms(T1,T2)
+!! Computes the time difference between two dates in milliseconds.
 integer,dimension(8)::T1,T2
 integer,dimension(5)::dT
 dT=Diff(T1,T2)
 jjj=C(8)*(C(7)*(c(6)*(C(5)*dT(1)+dT(2))+dT(3))+dT(4))+dT(5)
 Diffms=jjj
 end function Diffms
-!**************************
-!****u* Mtime.f90/SetName
-!
-! NAME 
-!  SetName
-!
-! AUTHOR
-!  Yaroslav Pavlukh
-! 
-! DESCRIPTION
-!  Assigns a name string to timer N.
-!
-! SOURCE
-! 
+
 subroutine Timer_SetName(A,N)
+!! Assigns a name string to timer N.
 character(*)::A
 integer::N
 Tmnm(N)%Name=A
 end subroutine Timer_SetName
-!**************************
-!****u* Mtime.f90/DTPrint
-!
-! NAME 
-!  DTPrint
-!
-! AUTHOR
-!  Yaroslav Pavlukh
-! 
-! DESCRIPTION
-!  Printe the full time of timer N.
-!
-! SOURCE
-! 
+
 subroutine DTPrint(N,FlUnt)
+!! Printe the full time of timer N.
 integer::N,dT(5),LN
 integer,optional::FlUnt
 character(100)::FM
@@ -282,21 +159,9 @@ else
    write(UNIT=6,FMT=FM) Tmnm(N)%Name(1:LN),dT
 end if
 end subroutine DtPrint
-!**************************
-!****f* Mtime.f90/DTmsPrint
-!
-! NAME 
-!  DTmsPrint
-!
-! AUTHOR
-!  Yaroslav Pavlukh
-! 
-! DESCRIPTION
-!  Printe the full time of timer N in milliseconds.
-!
-! SOURCE
-! 
+
 subroutine DTmsPrint(N,FlUnt)
+!!  Printe the full time of timer N in milliseconds.
 integer::N,dT,LN
 integer,optional::FlUnt
 character(100)::FM
@@ -309,21 +174,9 @@ else
    write(*,FMT=FM) Tmnm(N)%Name(1:LN),dT
 end if
 end subroutine DTmsPrint
-!**************************
-!****u* Mtime.f90/Tstop
-!
-! NAME 
-!  Tstop
-!
-! AUTHOR
-!  Yaroslav Pavlukh
-! 
-! DESCRIPTION
-!  Stops the timer N.
-!
-! SOURCE
-! 
+
 subroutine Timer_stop(N)
+!! Stops the timer N.
 if (TmSt(n)) then
   call Date_And_Time(Values=TmStop(:,N))
   TmSt(N)=.false.
@@ -333,20 +186,8 @@ end if
 end subroutine  Timer_stop
 !**************************
 subroutine DTmsShow(N,FlUnt)
-!****u* Mtime.f90/DTmsShow
-!
-! NAME 
-!  DTmsShow
-!
-! AUTHOR
-!  Yaroslav Pavlukh
-! 
-! DESCRIPTION
-!  Prints the time of timer N in milliseconds together with the 
-!  name assigned by SetName.
-!
-! SOURCE
-! 
+!!  Prints the time of timer N in milliseconds together with the 
+!!  name assigned by SetName.
 integer::N,dT,LN
 integer,optional::FlUnt
 character(100)::FM
@@ -361,20 +202,8 @@ end if
 end subroutine DTmsShow
 !**************************
 subroutine Timer_DTShow(N,FlUnt)
-!****u* Mtime.f90/DTmsShow
-!
-! NAME 
-!  DTmsShow
-!
-! AUTHOR
-!  Yaroslav Pavlukh
-! 
-! DESCRIPTION
-!  Prints the time of timer N in milliseconds/seconds/minutes
-!  together with the name assigned by SetName.
-!
-! SOURCE
-! 
+!!  Prints the time of timer N in milliseconds/seconds/minutes
+!!  together with the name assigned by SetName.
 integer::N,dT,LN
 integer,optional::FlUnt
 character(100)::FM
@@ -399,23 +228,9 @@ else
 end if
 end subroutine Timer_DTShow
 
-
-!**************************
-!****f* Mtime.f90/Int2Char
-!
-! NAME 
-!  Int2Char
-!
-! AUTHOR
-!  Yaroslav Pavlukh
-! 
-! DESCRIPTION
-!  Converts an integer into a set of characters suitable
-!  for printing.
-!
-! SOURCE
-! 
 function Int2Char(Iy,fieldw)
+!!  Converts an integer into a set of characters suitable
+!!  for printing.
 integer::Ix,fieldw,Iy
 character(fieldw)::Int2Char
 character(10)::dig='0123456789'
@@ -438,6 +253,7 @@ end function Int2Char
 !**************************
 
 subroutine Timer_tic(A,N)
+!! Assigns the name 'A' to the timer 'N' and starts it
 character(*)::A
 integer::N
 call Timer_SetName(A,N)
@@ -445,15 +261,17 @@ call Timer_Run(N=N)
 end subroutine Timer_tic
 
 subroutine Timer_toc(N)
+!! Stops timer 'N' and prints the time passed since 'Timer_tic' was called
 integer::N
 call Timer_stop(N=N)
 call Timer_DTShow(N=N)
 end subroutine Timer_toc
 
 subroutine PrintTime(tag,dT,FlUnt)
-character(len=*),intent(in)::tag
-double precision,intent(in)::dT
-integer,optional::FlUnt
+!! Prints the time difference 'dT' in readable format
+character(len=*),intent(in)::tag !! tag to name timing event
+double precision,intent(in)::dT  !! time difference
+integer,optional::FlUnt !! output unit for timing information
 character(100)::FM
 integer :: ndT
 LN=Len_Trim(tag)

@@ -30,7 +30,9 @@ contains
    end function fac10
 !------------------------------------------------------------------------
    pure real(dp) function djmn(j,m,n,beta)
-   !! computes the Wigner D-matrix
+   !! Computes the Wigner's (small) d-matrix \(d^j_{m n}(\beta)}\) directly
+   !! from the definition.
+   !! See [Wikipedia](https://en.wikipedia.org/wiki/Wigner_D-matrix).
    ! .. formal arguments ..
       real(dp), intent(in) :: j,m,n !! angular momentum indices
       real(dp), intent(in) :: beta !! Euler angle beta (radian)
@@ -73,8 +75,8 @@ contains
 !------------------------------------------------------------------------
    pure complex(dp) function ylm(l, m, thrad, phirad)
    !! Computes the spherical harmonic Y_lm (theta,phi) using the
-   !! reduced rotation matrix d^l_{m 0} (theta) and using the
-   !! external function fac10(n) = factorial(n)/10**n
+   !! reduced rotation matrix \(d^l_{m 0} (\theta))\ and using the
+   !! external function [[fac10]].
    !! Reference: D.M. Brink and G.R. Satchler, Angular Momentum,
    !!            second edition, Oxford University Press, p.22 and p. 145
       integer, intent(in)  :: l, m !! angular momentum quantum numbers l, m
@@ -127,7 +129,8 @@ contains
 !------------------------------------------------------------------------
    pure complex(dp) function Ylm_cart(l,m,rv)
    !! Computes the complex spherical  harmonic Y_lm(r) for a vector r
-   !! in cartesian coordinates. The vector will be normalized internally
+   !! in cartesian coordinates. The vector will be normalized internally.
+   !! For l <= 2, the result is tabulated, otherwise [[ylm]] will be called.
       integer,intent(in)  :: l,m !! angular momentum quantum numbers l, m
       real(dp),intent(in) :: rv(3) !! the vector r
       real(dp) :: r,xr,yr,zr,theta,phi

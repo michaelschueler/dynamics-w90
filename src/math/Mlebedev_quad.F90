@@ -1,4 +1,5 @@
 module Mlebedev_quad
+!! Provides routines to computed integrals over the unit sphere with Lebedev quadrature.
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
@@ -11,10 +12,12 @@ module Mlebedev_quad
    public :: Lebedev_integral, Lebedev_integral_fixed
 
    interface Lebedev_integral
+   !! Generic interface for adaptative Lebedev quadrature for real or complex functions.
       module procedure DLebedev_integral, ZLebedev_integral
    end interface Lebedev_integral
 
    interface Lebedev_integral_fixed
+   !! Generic interface for Lebedev quadrature of fixed order for real or complex functions.
       module procedure DLebedev_integral_fixed, ZLebedev_integral_fixed
    end interface Lebedev_integral_fixed
 !--------------------------------------------------------------------------------------
@@ -25,6 +28,8 @@ module Mlebedev_quad
 contains
 !--------------------------------------------------------------------------------------
    function DLebedev_integral_fixed(f,order,unit_deg) result(res)
+   !! computes the integral \(\int d\Omega\, f(\Omega) \) over the unit sphere
+   !! using fixed-order Lebedev quadrature.
       interface 
          function f(theta,phi) result(ftp)
             use Mdef,only: dp
@@ -32,8 +37,8 @@ contains
             real(dp) :: ftp
          end function f
       end interface
-      integer,intent(in)  :: order
-      logical,intent(in)  :: unit_deg
+      integer,intent(in)  :: order !! quadrature order
+      logical,intent(in)  :: unit_deg !! if .true., the units of the angles are in degrees
       real(dp) :: res
       integer :: np,ip
       real(dp),allocatable :: ths(:),phs(:),ws(:)
@@ -50,6 +55,8 @@ contains
    end function DLebedev_integral_fixed
 !--------------------------------------------------------------------------------------
    function ZLebedev_integral_fixed(f,order,unit_deg) result(res)
+   !! computes the integral \(\int d\Omega\, f(\Omega) \) over the unit sphere
+   !! using fixed-order Lebedev quadrature.
       interface 
          function f(theta,phi) result(ftp)
             use Mdef,only: dp
@@ -57,8 +64,8 @@ contains
             complex(dp) :: ftp
          end function f
       end interface
-      integer,intent(in)  :: order
-      logical,intent(in)  :: unit_deg
+      integer,intent(in)  :: order !! quadrature order
+      logical,intent(in)  :: unit_deg !! if .true., the units of the angles are in degrees
       complex(dp) :: res
       integer :: np,ip
       real(dp),allocatable :: ths(:),phs(:),ws(:)
@@ -75,6 +82,8 @@ contains
    end function ZLebedev_integral_fixed
 !--------------------------------------------------------------------------------------
    function DLebedev_integral(f,epsabs,unit_deg) result(res)
+   !! computes the integral \(\int d\Omega\, f(\Omega) \) over the unit sphere
+   !! using adaptative Lebedev quadrature.
       interface 
          function f(theta,phi) result(ftp)
             use Mdef,only: dp
@@ -82,8 +91,8 @@ contains
             real(dp) :: ftp
          end function f
       end interface
-      real(dp),intent(in) :: epsabs
-      logical,intent(in)  :: unit_deg
+      real(dp),intent(in) :: epsabs !! absolute error tolerance
+      logical,intent(in)  :: unit_deg !! if .true., the units of the angles are in degrees
       real(dp) :: res
       integer :: i,p,np,ip
       real(dp) :: err,res_old
@@ -125,8 +134,8 @@ contains
             complex(dp) :: ftp
          end function f
       end interface
-      real(dp),intent(in) :: epsabs
-      logical,intent(in)  :: unit_deg
+      real(dp),intent(in) :: epsabs !! absolute error tolerance
+      logical,intent(in)  :: unit_deg !! if .true., the units of the angles are in degrees
       complex(dp) :: res
       integer :: i,p,np,ip
       real(dp) :: err
