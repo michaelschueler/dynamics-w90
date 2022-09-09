@@ -14,11 +14,12 @@ module Mlaserpulse
   integer,parameter :: kx=4
 !--------------------------------------------------------------------------------------
   type scalarfunc_spline_t
-     !..............................................
-     integer,private                           :: Npts
-     real(dp),public                           :: Tmin,Tmax
-     real(dp),allocatable,dimension(:),public  :: tpts
-     type(spline1d_t),private                  :: fspl
+  !! scalar time-depndent function
+     !.............................................. 
+     integer,private                           :: Npts !! number of sample points
+     real(dp),public                           :: Tmin,Tmax !! time interval
+     real(dp),allocatable,dimension(:),public  :: tpts !! time samples
+     type(spline1d_t),private                  :: fspl !! b-spline object
      !..............................................
    contains
      !..............................................
