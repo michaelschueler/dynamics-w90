@@ -32,6 +32,8 @@ module Mio_params
    type :: HamiltonianParams_t
       character(len=256) :: file_ham=""
       character(len=256) :: file_xyz=""
+      character(len=256) :: file_lam=""
+      character(len=256) :: file_soc=""
       logical            :: w90_with_soc=.false.
       logical            :: apply_field=.false.
       logical            :: slab_mode=.false.
@@ -111,6 +113,8 @@ contains
       character(len=*),intent(in)  :: fname
       character(len=256) :: file_ham=""
       character(len=256) :: file_xyz=""
+      character(len=256) :: file_lam=""
+      character(len=256) :: file_soc=""
       logical            :: w90_with_soc=.false.
       logical            :: apply_field=.false.
       logical            :: slab_mode=.false.
@@ -122,8 +126,9 @@ contains
       logical            :: force_herm=.true.
       logical            :: force_antiherm=.true.
       real(dp)           :: degen_thresh=1.0e-5_dp  
-      namelist/HAMILTONIAN/file_ham,file_xyz,slab_mode,w90_with_soc,energy_thresh,use_degen_pert,&
-         force_herm,force_antiherm,degen_thresh,apply_field,field_mode,Efield,MuChem
+      namelist/HAMILTONIAN/file_ham,file_xyz,file_lam,file_soc,slab_mode,w90_with_soc,&
+         energy_thresh,use_degen_pert,force_herm,force_antiherm,degen_thresh,apply_field,&
+         field_mode,Efield,MuChem
       integer :: slab_nlayer=0
       integer :: slab_max_zhop=10
       namelist/SLAB/slab_nlayer,slab_max_zhop
@@ -136,6 +141,8 @@ contains
 
       me%file_ham = file_ham
       me%file_xyz = file_xyz
+      me%file_lam = file_lam
+      me%file_soc = file_soc
       me%w90_with_soc = w90_with_soc
       me%slab_mode = slab_mode
       me%apply_field = apply_field
