@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.collections import LineCollection
 #---------------------------------------------------------------------- 
-def Plot_bandstructure(epsk,klabel,fout=""):
+def Plot_bandstructure(epsk,klabel,Emin=-100.0,Emax=100.0,fout=""):
     Ry = 27.211386
 
     nk = epsk.shape[0]
@@ -14,6 +14,15 @@ def Plot_bandstructure(epsk,klabel,fout=""):
 
     for ibnd in range(nbnd):
         ax.plot(xk, Ry * epsk[:,ibnd], c='blue')
+
+    Erange = np.amax(epsk) - np.amin(epsk)
+    Emin_ = Ry*(np.amin(epsk) - 0.02 * Erange)
+    Emax_ = Ry*(np.amax(epsk) + 0.02 * Erange)
+    if Emin > -90.0:
+        Emin_ = Emin
+    if Emax < 90.0:
+        Emax_ = Emax
+    ax.set_ylim(Emin_,Emax_)
 
     ax.set_xlim(0.0,1.0)
     ax.set_ylabel(r'$E$ (eV)')
@@ -87,7 +96,7 @@ def Plot_bandstructure_spin(epsk,spin,klabel,spin_dir=2,Emin=-100.0,Emax=100.0,f
     nbnd = epsk.shape[1]
     xk = np.linspace(0.0, 1.0, nk)
 
-    Sp = spin[:,spin_dir,:]
+    Sp = spin[:,:,spin_dir]
 
     fig, ax = plt.subplots()
 
@@ -154,6 +163,7 @@ def Plot_bandstructure_berry(epsk,berry,klabel,idir=2,Bmax=1.0,Emin=-100.0,Emax=
     Erange = np.amax(epsk) - np.amin(epsk)
     Emin_ = Ry*(np.amin(epsk) - 0.02 * Erange)
     Emax_ = Ry*(np.amax(epsk) + 0.02 * Erange)
+
     if Emin > -90.0:
         Emin_ = Emin
     if Emax < 90.0:
