@@ -21,7 +21,7 @@
     type,public :: quadrature_method
         !! quadrature methods
         integer            :: n_points = 0
-        character(len=100) :: name     = ''
+        character(len=100) :: name     = ""
     end type quadrature_method
 
     type(quadrature_method),parameter :: quad_gauss_6  = quadrature_method(6,  'Adaptive 6-point Legendre-Gauss')

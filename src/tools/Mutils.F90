@@ -47,7 +47,7 @@ module Mutils
 contains
 !-------------------------------------------------------------------------------------- 
   function linspace(xmin, xmax, nx) result(x)
-   !! analogous to numpy's linspace function: returns an equally-spaced array 
+   !! analogous to numpys linspace function: returns an equally-spaced array 
    !! from xmin to xmax with nx points
     real(dp),intent(in) :: xmin !! The starting value of the sequence.
     real(dp),intent(in) :: xmax !! The end value of the sequence.

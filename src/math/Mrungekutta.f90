@@ -1,7 +1,6 @@
 module Mrungekutta
+!! 5th-order Runga-Kutta-Fehlbert integrator
 !======================================================================================
-! Runge-Kutta integrator
-!======================================================================================  
   use Mdef,only: dp
   implicit none
 !--------------------------------------------------------------------------------------
@@ -94,6 +93,7 @@ module Mrungekutta
   end interface
 !--------------------------------------------------------------------------------------
   interface ODE_step_RK5
+  !! generic interface for performing a Runge-Kutta time step.
      module procedure &
           ODE_step_RK5_dscalar,&
           ODE_step_RK5_zscalar,&
@@ -106,11 +106,13 @@ module Mrungekutta
 contains
 !------------------------------------------------------------------------------------
   function ODE_step_RK5_dscalar(n,dt,deriv_func,xn) result(xn1)
-    integer,intent(in)            :: n
-    real(dp),intent(in)           :: dt
-    procedure(deriv_func_dscalar) :: deriv_func
-    real(dp),intent(in)           :: xn
-    real(dp)                      :: xn1
+    !! Runge-Kutta step \( x(n \Delta t) \rightarrow x((n+1)\Delta t)\) for a real scalar 
+    !! function and right-hand side \( \dot{x}(t) = f(t, x(t)) \).
+    integer,intent(in)            :: n !! index of the current time step
+    real(dp),intent(in)           :: dt !! time step size \(\Delta t \)
+    procedure(deriv_func_dscalar) :: deriv_func !! right-hand side \( f(t,x) \)
+    real(dp),intent(in)           :: xn !! current value \(x(n \Delta t)\)
+    real(dp)                      :: xn1 !! new value \(x((n+1) \Delta t)\)
     integer  :: k
     real(dp) :: dxk(6),xk
 
@@ -125,11 +127,13 @@ contains
   end function ODE_step_RK5_dscalar
 !--------------------------------------------------------------------------------------  
   function ODE_step_RK5_zscalar(n,dt,deriv_func,xn) result(xn1)
-    integer,intent(in)            :: n
-    real(dp),intent(in)           :: dt
-    procedure(deriv_func_zscalar) :: deriv_func
-    complex(dp),intent(in)        :: xn
-    complex(dp)                   :: xn1
+    !! Runge-Kutta step \( x(n \Delta t) \rightarrow x((n+1)\Delta t)\) for a complex scalar 
+    !! function and right-hand side \( \dot{x}(t) = f(t, x(t)) \).
+    integer,intent(in)            :: n !! index of the current time step
+    real(dp),intent(in)           :: dt !! time step size \(\Delta t \)
+    procedure(deriv_func_dscalar) :: deriv_func !! right-hand side \( f(t,x) \)
+    complex(dp),intent(in)        :: xn !! current value \(x(n \Delta t)\)
+    complex(dp)                   :: xn1 !! new value \(x((n+1) \Delta t)\)
     integer  :: k
     complex(dp) :: dxk(6),xk
 

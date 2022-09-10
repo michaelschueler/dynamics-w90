@@ -1,16 +1,21 @@
 src_dir: ./src
 output_dir: ./doc
+exclude: Mlebedev_weights.F90
 author: Michael Schueler
-author_description: Kadanoff-Baym solvers in modern Fortran. 
+author_description: The `dynamics-w90` package: Berry phase properties, light-induced dynamics, photoemission & more from Wannier functions.
 
-Hi, my name is ${USER}.
+Hello ${USER}, welcome to the `dynamics-w90` package! The package contains a number of programs to compute various observables from Wannier functions, which are read output from (Wannier90)[http://www.wannier.org]. 
 
-This is a project which I wrote. This file will provide the
-documents. I'm writing the body of the text here. It contains an
-overall description of the project. It might explain how to go about
-installing/compiling it. It might provide a change-log for the code.
+At the moment `dynamics-w90` contains the following main programs:
 
-@Note You can include any notes (or bugs, warnings, or todos) like so.
+1. [[wann_evol]] / [[wann_evol_mpi]]: Computes the time-dependent dynamics of an electron system described by a Wannier Hamiltonian upon laser excitation and computes various observables. Direct implementation of the gauge-invariant formulation from [Phys. Rev. B 103, 1155409 (2021)](https://link.aps.org/doi/10.1103/PhysRevB.103.155409) 
+2. [[wann_calc]]: Calculation of band properties including orbital weights, spin texture, Berry curvature and orbital angular momentum (OAM). We implemented the modern theory of OAM to include all non-local contributions.
+3. [[wann_prune]]: Compresses a Wannier Hamiltonian by cutting small hopping amplitudes. Output can be written in original Wannier90 or in hdf5 format.
+4. [[wann_soc]]: Extends a Wannier Hamiltonian in spin space and adds atomic spin-orbit coupling (SOC).
+5. [[arpes]] / [[arpes_mpi]]: Computes angle-resolved photoemission spectrum from Wannier functions. 
+
+
+@Note The code is under active development. Other functionalities will be added soon!
 
 @Bug You can have multi-paragraph versions of these too! That means you can include
 

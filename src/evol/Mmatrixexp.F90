@@ -1,4 +1,5 @@
 module MMatrixExp
+!! Provides tools to compute the matrix exponential.
 !----------------------------------------------------------------------|
   use Mdef,only:&
        dp,one,zero
@@ -18,6 +19,7 @@ module MMatrixExp
 contains
 !----------------------------------------------------------------------|
   pure elemental complex(dp) function my_cosh(z)
+  !! cosh for complex arguments as a workaround for older compilers
     complex(dp),intent(in) :: z
 
 #ifdef COSHFIX
@@ -29,6 +31,7 @@ contains
   end function my_cosh
 !----------------------------------------------------------------------|
   pure elemental complex(dp) function my_sinh(z)
+   !! sinh for complex arguments as a workaround for older compilers
     complex(dp),intent(in) :: z
 
 #ifdef COSHFIX
@@ -41,21 +44,25 @@ contains
 !----------------------------------------------------------------------|
 !----------------------------------------------------------------------|
   subroutine InitExpM(n)
-    integer,intent(in)::n
+    !! initializes work space for the calculation of the matrix exponential
+    !! with [[expm]]
+    integer,intent(in)::n !! matrix dimension
 
     allocate(iwsp(N),wsp1(4*N**2+ideg+1))
     
   end subroutine InitExpM
 !----------------------------------------------------------------------|
   subroutine CleanExpM
+    !! Cleans the work space
     deallocate(iwsp,wsp1)
   end subroutine CleanExpM
 !----------------------------------------------------------------------|
   function expm(t, H) result(expH)
-
-    real(dp), intent(in) :: t
-    complex(dp), dimension(:,:), intent(in) :: H
-    complex(dp), dimension(size(H,1),size(H,2)) :: expH
+    !! Computes exp(t * H) for general matrix H using routines from 
+    !! the  [expokit](https://www.maths.uq.edu.au/expokit/) library.
+    real(dp), intent(in) :: t !! time argument
+    complex(dp), dimension(:,:), intent(in) :: H !! matrix H
+    complex(dp), dimension(size(H,1),size(H,2)) :: expH !! result exp(t * H )
 
     ! Expokit variables
     ! external :: ZGPADM
@@ -69,10 +76,14 @@ contains
   end function expm
 !----------------------------------------------------------------------|
   function expm_thrsv(t, H) result(expH)
+    !! Computes exp(t * H) for general matrix H using routines from 
+    !! the  [expokit](https://www.maths.uq.edu.au/expokit/) library.
+    !! This version allocates the work space internally and is thus thread safe.
+    !! For 1x1 and 2x2 matrices the matrix exponential is computed analytically.
     real(dp),parameter :: eps=1.0e-6_dp
-    real(dp), intent(in) :: t
-    complex(dp), dimension(:,:), intent(in) :: H
-    complex(dp), dimension(size(H,1),size(H,2)) :: expH
+    real(dp), intent(in) :: t !! time argument
+    complex(dp), dimension(:,:), intent(in) :: H !! matrix H
+    complex(dp), dimension(size(H,1),size(H,2)) :: expH !! result exp(t * H )
   
     ! Expokit variables
     ! external :: ZGPADM
@@ -115,21 +126,16 @@ contains
   end function expm_thrsv
 !----------------------------------------------------------------------|
   subroutine ZGPADM(ideg,m,t,H,ldh,wsp,lwsp,ipiv,iexph,ns,iflag)
-
-    real(dp),intent(in) :: t
+!!  Computes exp(t*H), the matrix exponential of a general complex 
+!!  matrix in full, using the irreducible rational Pade approximation
+!!  to the exponential exp(z) = r(z) = (+/-)( I + 2*(q(z)/p(z)) ),
+!!  combined with scaling-and-squaring.   
+    real(dp),intent(in) :: t 
     integer,intent(in) :: ideg, m, ldh, lwsp
     integer,intent(inout) :: ipiv(m)
     integer,intent(out) :: iexph,ns,iflag
     complex(dp),intent(in)::H(:,:)
-    complex(dp),intent(inout)::wsp(:)
-
-!-----Purpose----------------------------------------------------------|
-!
-!     Computes exp(t*H), the matrix exponential of a general complex 
-!     matrix in full, using the irreducible rational Pade approximation
-!     to the exponential exp(z) = r(z) = (+/-)( I + 2*(q(z)/p(z)) ),
-!     combined with scaling-and-squaring.
-!
+    complex(dp),intent(inout)::wsp(:)!
 !-----Arguments--------------------------------------------------------|
 !
 !     ideg      : (input) the degre of the diagonal Pade to be used.
