@@ -1,4 +1,5 @@
 module Mvector_bsplines
+!! Vector and matrix-valued B-splines, based on [[Mbsplines]]
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
@@ -15,6 +16,7 @@ module Mvector_bsplines
       cplx_matrix_spline_t
 !-------------------------------------------------------------------------------------- 
    type :: real_vector_spline_t
+   !! class for real vector-valued splines
       integer :: kx=4
       integer :: nc,nx
       real(dp) :: xlim(2)
@@ -28,6 +30,7 @@ module Mvector_bsplines
    end type real_vector_spline_t
 
    type :: real_matrix_spline_t
+   !! class for real matrix-valued splines
       integer :: kx=4
       integer :: nc,mc,nx
       real(dp) :: xlim(2)
@@ -41,6 +44,7 @@ module Mvector_bsplines
    end type real_matrix_spline_t
 
    type :: cplx_vector_spline_t
+   !! class for complex vector-valued splines
       integer :: kx=4
       integer :: nc,nx
       real(dp) :: xlim(2)
@@ -54,6 +58,7 @@ module Mvector_bsplines
    end type cplx_vector_spline_t
 
    type :: cplx_matrix_spline_t
+   !! class for complex matrix-valued splines
       integer :: kx=4
       integer :: nc,mc,nx
       real(dp) :: xlim(2)

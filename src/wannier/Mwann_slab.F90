@@ -34,7 +34,7 @@ contains
 
       ! call GetOutOfPlaneVector(bulk_w90%real_lattice,oop_vec)
       !!! CHECK
-      oop_vec = bulk_w90%real_lattice(3,:)
+      oop_vec = e3p * dot_product(bulk_w90%real_lattice(3,:),  e3p)
 
       call utility_recip_lattice(slab_w90%real_lattice, slab_w90%recip_lattice)
       call utility_recip_reduced(slab_w90%recip_lattice, slab_w90%recip_reduced)
@@ -115,17 +115,6 @@ contains
       deallocate(pos_r,Hij,Dij)
 
    end subroutine Wannier_BulkToSlab
-!--------------------------------------------------------------------------------------
-   subroutine GetOutOfPlaneVector(real_lattice,a3)
-      real(dp),intent(in)    :: real_lattice(3,3)
-      real(dp),intent(out)   :: a3(3)
-      real(dp),dimension(3)  :: a1,a2
-
-      a1 = real_lattice(1,:)
-      a2 = real_lattice(2,:)
-      a3 = cross(a1,a2)
-
-   end subroutine GetOutOfPlaneVector
 !--------------------------------------------------------------------------------------
    subroutine GetDipoleRotation(real_lattice,e3p,Ua)
       real(dp),intent(in)    :: real_lattice(3,3)

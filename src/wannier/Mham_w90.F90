@@ -441,14 +441,19 @@ contains
 
    end function get_berry_connection
 !--------------------------------------------------------------------------------------
-   function get_berrycurv(me, kpt) result(Wk)
+   function get_berrycurv(me, kpt, muchem) result(Wk)
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
+      real(dp),intent(in),optional :: muchem
       real(dp)            :: Wk(me%num_wann,3)
-
+      logical :: kubo_
       logical :: large_size
       integer :: i,j
+      real(dp),dimension(me%num_wann) :: epsk
       complex(dp),allocatable :: AA(:,:,:)
+
+
+      kubo_ = present(muchem)
 
       large_size = get_large_size(me%num_wann)
 
@@ -456,24 +461,39 @@ contains
       AA = me%get_berry_connection(kpt)
 
       Wk = 0.0_dp
-      do i=1,me%num_wann
-         do j=1,me%num_wann
-            if(i == j) cycle
-            Wk(i,3) = Wk(i,3) + 2.0_dp * aimag(AA(i,j,1)*AA(j,i,2))
-            Wk(i,1) = Wk(i,1) + 2.0_dp * aimag(AA(i,j,2)*AA(j,i,3))
-            Wk(i,2) = Wk(i,2) + 2.0_dp * aimag(AA(i,j,3)*AA(j,i,1))
+
+      if(kubo_) then
+         epsk = me%get_eig(kpt)
+         do i=1,me%num_wann
+            if(epsk(i) > muchem) cycle
+            do j=1,me%num_wann
+               if(epsk(j) < muchem) cycle
+               Wk(i,3) = Wk(i,3) + 2.0_dp * aimag(AA(i,j,1)*AA(j,i,2))
+               Wk(i,1) = Wk(i,1) + 2.0_dp * aimag(AA(i,j,2)*AA(j,i,3))
+               Wk(i,2) = Wk(i,2) + 2.0_dp * aimag(AA(i,j,3)*AA(j,i,1))
+            end do
          end do
-      end do
+      else
+         do i=1,me%num_wann
+            do j=1,me%num_wann
+               if(i == j) cycle
+               Wk(i,3) = Wk(i,3) + 2.0_dp * aimag(AA(i,j,1)*AA(j,i,2))
+               Wk(i,1) = Wk(i,1) + 2.0_dp * aimag(AA(i,j,2)*AA(j,i,3))
+               Wk(i,2) = Wk(i,2) + 2.0_dp * aimag(AA(i,j,3)*AA(j,i,1))
+            end do
+         end do
+      end if
 
       deallocate(AA)
 
    end function get_berrycurv
 !--------------------------------------------------------------------------------------
-   function get_spin_berrycurv(me, kpt) result(Wk)
+   function get_spin_berrycurv(me, kpt, muchem) result(Wk)
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
+      real(dp),intent(in),optional :: muchem
       real(dp)            :: Wk(me%num_wann,3,3)
-
+      logical :: kubo_
       logical :: large_size
       integer :: i,j,idir,ispin
       real(dp) :: eig(me%num_wann)
@@ -484,6 +504,8 @@ contains
       complex(dp),allocatable :: Dh_spin(:,:,:,:)
       complex(dp),allocatable :: AA(:,:,:),Dh(:,:,:)
       complex(dp),allocatable :: AA_spin(:,:,:,:)
+
+      kubo_ = present(muchem)
 
       if(mod(me%num_wann,2) /= 0) then
          write(error_unit,fmt900) "num_wann is odd - not compatible with spin orbit coupling"
@@ -527,27 +549,41 @@ contains
 
 
       Wk = 0.0_dp
-      do i=1,me%num_wann
-         do j=1,me%num_wann
-            if(i == j) cycle
-            do ispin=1,3
+
+      if(kubo_) then
+         do i=1,me%num_wann
+            if(eig(i) > muchem) cycle
+            do j=1,me%num_wann
+               if(eig(j) < muchem) cycle
                Wk(i,3,ispin) = Wk(i,3,ispin) + 2.0_dp * aimag(AA_spin(i,j,1,ispin)*AA(j,i,2))
                Wk(i,1,ispin) = Wk(i,1,ispin) + 2.0_dp * aimag(AA_spin(i,j,2,ispin)*AA(j,i,3))
                Wk(i,2,ispin) = Wk(i,2,ispin) + 2.0_dp * aimag(AA_spin(i,j,3,ispin)*AA(j,i,1))
             end do
+         end do     
+      else
+         do i=1,me%num_wann
+            do j=1,me%num_wann
+               if(i == j) cycle
+               do ispin=1,3
+                  Wk(i,3,ispin) = Wk(i,3,ispin) + 2.0_dp * aimag(AA_spin(i,j,1,ispin)*AA(j,i,2))
+                  Wk(i,1,ispin) = Wk(i,1,ispin) + 2.0_dp * aimag(AA_spin(i,j,2,ispin)*AA(j,i,3))
+                  Wk(i,2,ispin) = Wk(i,2,ispin) + 2.0_dp * aimag(AA_spin(i,j,3,ispin)*AA(j,i,1))
+               end do
+            end do
          end do
-      end do
+      end if
 
       deallocate(HH,delHH,UU,Dh,Dh_spin,AA,AA_spin)
 
    end function get_spin_berrycurv
 !--------------------------------------------------------------------------------------
-   subroutine get_berrycurv_dip(me, kpt, Bhk, Bdip) 
+   subroutine get_berrycurv_dip(me, kpt, Bhk, Bdip, muchem) 
       class(wann90_tb_t)   :: me
       real(dp),intent(in)  :: kpt(3)
       real(dp),intent(out) :: Bhk(me%num_wann,3)
       real(dp),intent(out) :: Bdip(me%num_wann,3)
-
+      real(dp),intent(in),optional :: muchem
+      logical :: kubo_
       logical :: large_size
       integer :: i,j,idir
       real(dp) :: ediff
@@ -555,6 +591,7 @@ contains
       complex(dp),dimension(me%num_wann,me%num_wann) :: Hk,UU
       complex(dp),dimension(me%num_wann,me%num_wann,3) :: grad_Hk,Dk
 
+      kubo_ = present(muchem)
       large_size = get_large_size(me%num_wann)
 
       Hk = me%get_ham(kpt)
@@ -571,40 +608,67 @@ contains
       end do
 
       Bhk = 0.0_dp; Bdip = 0.0_dp
-      do i=1,me%num_wann
-         do j=1,me%num_wann
-            if(i == j) cycle
-            ediff = eig(i) - eig(j)
-            if(abs(ediff) < me%degen_thresh) cycle
 
-            Bhk(i,3) = Bhk(i,3) - aimag(grad_Hk(i,j,1) * grad_Hk(j,i,2) - grad_Hk(i,j,2) * grad_Hk(j,i,1)) / &
-               ediff**2
-            Bhk(i,1) = Bhk(i,1) - aimag(grad_Hk(i,j,2) * grad_Hk(j,i,3) - grad_Hk(i,j,3) * grad_Hk(j,i,2)) / &
-               ediff**2
-            Bhk(i,2) = Bhk(i,2) - aimag(grad_Hk(i,j,3) * grad_Hk(j,i,1) - grad_Hk(i,j,1) * grad_Hk(j,i,3)) / &
-               ediff**2
+      if(kubo_) then
+         do i=1,me%num_wann
+            if(eig(i) > muchem) cycle
+            do j=1,me%num_wann
+               if(eig(j) < muchem) cycle
+               ediff = eig(i) - eig(j)
+               if(abs(ediff) < me%degen_thresh) cycle
 
-            Bdip(i,3) = Bdip(i,3) + dble(grad_Hk(i,j,1) * Dk(j,i,2) - grad_Hk(i,j,2) * Dk(j,i,1)) / &
-               ediff
-            Bdip(i,1) = Bdip(i,1) + dble(grad_Hk(i,j,2) * Dk(j,i,3) - grad_Hk(i,j,3) * Dk(j,i,2)) / &
-               ediff
-            Bdip(i,2) = Bdip(i,2) + dble(grad_Hk(i,j,3) * Dk(j,i,1) - grad_Hk(i,j,1) * Dk(j,i,3)) / &
-               ediff
-         end do
-      end do 
+               Bhk(i,3) = Bhk(i,3) - aimag(grad_Hk(i,j,1) * grad_Hk(j,i,2) - grad_Hk(i,j,2) * grad_Hk(j,i,1)) / &
+                  ediff**2
+               Bhk(i,1) = Bhk(i,1) - aimag(grad_Hk(i,j,2) * grad_Hk(j,i,3) - grad_Hk(i,j,3) * grad_Hk(j,i,2)) / &
+                  ediff**2
+               Bhk(i,2) = Bhk(i,2) - aimag(grad_Hk(i,j,3) * grad_Hk(j,i,1) - grad_Hk(i,j,1) * grad_Hk(j,i,3)) / &
+                  ediff**2
+
+               Bdip(i,3) = Bdip(i,3) + dble(grad_Hk(i,j,1) * Dk(j,i,2) - grad_Hk(i,j,2) * Dk(j,i,1)) / &
+                  ediff
+               Bdip(i,1) = Bdip(i,1) + dble(grad_Hk(i,j,2) * Dk(j,i,3) - grad_Hk(i,j,3) * Dk(j,i,2)) / &
+                  ediff
+               Bdip(i,2) = Bdip(i,2) + dble(grad_Hk(i,j,3) * Dk(j,i,1) - grad_Hk(i,j,1) * Dk(j,i,3)) / &
+                  ediff
+            end do
+         end do 
+      else
+         do i=1,me%num_wann
+            do j=1,me%num_wann
+               if(i == j) cycle
+               ediff = eig(i) - eig(j)
+               if(abs(ediff) < me%degen_thresh) cycle
+
+               Bhk(i,3) = Bhk(i,3) - aimag(grad_Hk(i,j,1) * grad_Hk(j,i,2) - grad_Hk(i,j,2) * grad_Hk(j,i,1)) / &
+                  ediff**2
+               Bhk(i,1) = Bhk(i,1) - aimag(grad_Hk(i,j,2) * grad_Hk(j,i,3) - grad_Hk(i,j,3) * grad_Hk(j,i,2)) / &
+                  ediff**2
+               Bhk(i,2) = Bhk(i,2) - aimag(grad_Hk(i,j,3) * grad_Hk(j,i,1) - grad_Hk(i,j,1) * grad_Hk(j,i,3)) / &
+                  ediff**2
+
+               Bdip(i,3) = Bdip(i,3) + dble(grad_Hk(i,j,1) * Dk(j,i,2) - grad_Hk(i,j,2) * Dk(j,i,1)) / &
+                  ediff
+               Bdip(i,1) = Bdip(i,1) + dble(grad_Hk(i,j,2) * Dk(j,i,3) - grad_Hk(i,j,3) * Dk(j,i,2)) / &
+                  ediff
+               Bdip(i,2) = Bdip(i,2) + dble(grad_Hk(i,j,3) * Dk(j,i,1) - grad_Hk(i,j,1) * Dk(j,i,3)) / &
+                  ediff
+            end do
+         end do 
+      end if
 
       Bdip = 2.0_dp * Bdip
 
    end subroutine get_berrycurv_dip
 !--------------------------------------------------------------------------------------
-   subroutine get_spin_berrycurv_dip(me, kpt, Bhk, Bdip) 
+   subroutine get_spin_berrycurv_dip(me, kpt, Bhk, Bdip, muchem) 
       class(wann90_tb_t)   :: me
       real(dp),intent(in)  :: kpt(3)
       real(dp),intent(out) :: Bhk(me%num_wann,3,3)
       real(dp),intent(out) :: Bdip(me%num_wann,3,3)
-
+      real(dp),intent(in),optional :: muchem
+      logical :: kubo_
       logical :: large_size
-      integer :: i,j,idir,mu
+      integer :: i,j,idir,isig
       real(dp) :: ediff
       real(dp) :: eig(me%num_wann)
       complex(dp),dimension(me%num_wann,me%num_wann) :: Hk,UU
@@ -616,6 +680,7 @@ contains
          stop
       end if
 
+      kubo_ = present(muchem)
       large_size = get_large_size(me%num_wann)
 
       Hk = me%get_ham(kpt)
@@ -628,13 +693,13 @@ contains
 
       do idir=1,3
          call GetSpinElements(me%num_wann, grad_Hk(:,:,idir), Mspin)
-         do mu=1,3
-            gHk_spin(:, :, idir, mu) = util_rotate(me%num_wann, UU, Mspin(:,:,mu),&
+         do isig=1,3
+            gHk_spin(:, :, idir, isig) = util_rotate(me%num_wann, UU, Mspin(:,:,isig),&
                large_size=large_size)
          end do
          call GetSpinElements(me%num_wann, Dk(:,:,idir), Mspin)
-         do mu=1,3
-            Dk_spin(:, :, idir, mu) = util_rotate(me%num_wann, UU, Mspin(:,:,mu),&
+         do isig=1,3
+            Dk_spin(:, :, idir, isig) = util_rotate(me%num_wann, UU, Mspin(:,:,isig),&
                large_size=large_size)
          end do
       end do
@@ -644,31 +709,61 @@ contains
       end do
 
       Bhk = 0.0_dp; Bdip = 0.0_dp
-      do i=1,me%num_wann
-         do j=1,me%num_wann
-            if(i == j) cycle
-            ediff = eig(i) - eig(j)
-            if(abs(ediff) < me%degen_thresh) cycle
 
-            do mu=1,3
+      if(kubo_) then
+         do i=1,me%num_wann
+            if(eig(i) > muchem) cycle
+            do j=1,me%num_wann
+               if(eig(j) < muchem) cycle
+               ediff = eig(i) - eig(j)
+               if(abs(ediff) < me%degen_thresh) cycle
 
-               Bhk(i,3,mu) = Bhk(i,3,mu) + aimag(grad_Hk(i,j,1) * gHk_spin(j,i,2,mu) &
-                  - grad_Hk(i,j,2) * gHk_spin(j,i,1,mu)) / ediff**2
-               Bhk(i,1,mu) = Bhk(i,1,mu) + aimag(grad_Hk(i,j,2) * gHk_spin(j,i,3,mu) &
-                  - grad_Hk(i,j,3) * gHk_spin(j,i,2,mu)) / ediff**2
-               Bhk(i,2,mu) = Bhk(i,2,mu) + aimag(grad_Hk(i,j,3) * gHk_spin(j,i,1,mu) - &
-                  grad_Hk(i,j,1) * gHk_spin(j,i,3,mu)) / ediff**2
+               do isig=1,3
 
-               Bdip(i,3,mu) = Bdip(i,3,mu) - dble(grad_Hk(i,j,1) * Dk_spin(j,i,2,mu) &
-                  - grad_Hk(i,j,2) * Dk_spin(j,i,1,mu)) / ediff
-               Bdip(i,1,mu) = Bdip(i,1,mu) - dble(grad_Hk(i,j,2) * Dk_spin(j,i,3,mu) &
-                  - grad_Hk(i,j,3) * Dk_spin(j,i,2,mu)) / ediff
-               Bdip(i,2,mu) = Bdip(i,2,mu) - dble(grad_Hk(i,j,3) * Dk_spin(j,i,1,mu) &
-                  - grad_Hk(i,j,1) * Dk_spin(j,i,3,mu)) / ediff
+                  Bhk(i,3,isig) = Bhk(i,3,isig) + aimag(grad_Hk(i,j,1) * gHk_spin(j,i,2,isig) &
+                     - grad_Hk(i,j,2) * gHk_spin(j,i,1,isig)) / ediff**2
+                  Bhk(i,1,isig) = Bhk(i,1,isig) + aimag(grad_Hk(i,j,2) * gHk_spin(j,i,3,isig) &
+                     - grad_Hk(i,j,3) * gHk_spin(j,i,2,isig)) / ediff**2
+                  Bhk(i,2,isig) = Bhk(i,2,isig) + aimag(grad_Hk(i,j,3) * gHk_spin(j,i,1,isig) - &
+                     grad_Hk(i,j,1) * gHk_spin(j,i,3,isig)) / ediff**2
 
+                  Bdip(i,3,isig) = Bdip(i,3,isig) - dble(grad_Hk(i,j,1) * Dk_spin(j,i,2,isig) &
+                     - grad_Hk(i,j,2) * Dk_spin(j,i,1,isig)) / ediff
+                  Bdip(i,1,isig) = Bdip(i,1,isig) - dble(grad_Hk(i,j,2) * Dk_spin(j,i,3,isig) &
+                     - grad_Hk(i,j,3) * Dk_spin(j,i,2,isig)) / ediff
+                  Bdip(i,2,isig) = Bdip(i,2,isig) - dble(grad_Hk(i,j,3) * Dk_spin(j,i,1,isig) &
+                     - grad_Hk(i,j,1) * Dk_spin(j,i,3,isig)) / ediff
+
+               end do
             end do
-         end do
-      end do 
+         end do          
+      else
+         do i=1,me%num_wann
+            do j=1,me%num_wann
+               if(i == j) cycle
+               ediff = eig(i) - eig(j)
+               if(abs(ediff) < me%degen_thresh) cycle
+
+               do isig=1,3
+
+                  Bhk(i,3,isig) = Bhk(i,3,isig) + aimag(grad_Hk(i,j,1) * gHk_spin(j,i,2,isig) &
+                     - grad_Hk(i,j,2) * gHk_spin(j,i,1,isig)) / ediff**2
+                  Bhk(i,1,isig) = Bhk(i,1,isig) + aimag(grad_Hk(i,j,2) * gHk_spin(j,i,3,isig) &
+                     - grad_Hk(i,j,3) * gHk_spin(j,i,2,isig)) / ediff**2
+                  Bhk(i,2,isig) = Bhk(i,2,isig) + aimag(grad_Hk(i,j,3) * gHk_spin(j,i,1,isig) - &
+                     grad_Hk(i,j,1) * gHk_spin(j,i,3,isig)) / ediff**2
+
+                  Bdip(i,3,isig) = Bdip(i,3,isig) - dble(grad_Hk(i,j,1) * Dk_spin(j,i,2,isig) &
+                     - grad_Hk(i,j,2) * Dk_spin(j,i,1,isig)) / ediff
+                  Bdip(i,1,isig) = Bdip(i,1,isig) - dble(grad_Hk(i,j,2) * Dk_spin(j,i,3,isig) &
+                     - grad_Hk(i,j,3) * Dk_spin(j,i,2,isig)) / ediff
+                  Bdip(i,2,isig) = Bdip(i,2,isig) - dble(grad_Hk(i,j,3) * Dk_spin(j,i,1,isig) &
+                     - grad_Hk(i,j,1) * Dk_spin(j,i,3,isig)) / ediff
+
+               end do
+            end do
+         end do 
+      end if
 
       Bdip = 2.0_dp * Bdip
 
@@ -778,12 +873,13 @@ contains
 
    end function get_oam_dip
 !--------------------------------------------------------------------------------------
-   function get_metric(me,kpt) result(gmet)
+   function get_metric(me,kpt,muchem) result(gmet)
       !! computes the quantum metric \(g^\alpha_{\mu\nu}(k)\) from the Berry connections
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3) !! k-point (reduced coordinates)
+      real(dp),intent(in),optional :: muchem !! chemical potential
       real(dp) :: gmet(me%num_wann,3,3)
-
+      logical :: kubo_
       logical :: large_size
       integer :: i,j,idir,jdir
       real(dp) :: eig(me%num_wann)
@@ -794,6 +890,7 @@ contains
       complex(dp),allocatable :: D_h(:,:,:)
       complex(dp),allocatable :: AA(:,:,:)
 
+      kubo_ = present(muchem)
       large_size = get_large_size(me%num_wann)
 
       allocate(HH(me%num_wann, me%num_wann))
@@ -816,17 +913,33 @@ contains
       AA = AA + iu*D_h ! Eq.(25) WYSV06
 
       gmet = 0.0_dp
-      do jdir=1,3
-         do idir=1,3
-            do i=1,me%num_wann
-               do j=1,me%num_wann
-                  if(i == j) cycle
-                  gmet(i,idir,jdir) = gmet(i,idir,jdir) &
-                     + 0.5_dp * dble(conjg(AA(i,j,idir)) * AA(i,j,jdir) + conjg(AA(i,j,jdir)) * AA(i,j,idir))
+
+      if(kubo_) then
+         do jdir=1,3
+            do idir=1,3
+               do i=1,me%num_wann
+                  if(eig(i) > muchem) cycle
+                  do j=1,me%num_wann
+                     if(eig(j) < muchem) cycle
+                     gmet(i,idir,jdir) = gmet(i,idir,jdir) &
+                        + 0.5_dp * dble(conjg(AA(i,j,idir)) * AA(i,j,jdir) + conjg(AA(i,j,jdir)) * AA(i,j,idir))
+                  end do
                end do
             end do
          end do
-      end do
+      else
+         do jdir=1,3
+            do idir=1,3
+               do i=1,me%num_wann
+                  do j=1,me%num_wann
+                     if(i == j) cycle
+                     gmet(i,idir,jdir) = gmet(i,idir,jdir) &
+                        + 0.5_dp * dble(conjg(AA(i,j,idir)) * AA(i,j,jdir) + conjg(AA(i,j,jdir)) * AA(i,j,idir))
+                  end do
+               end do
+            end do
+         end do
+      end if
 
       deallocate(HH,delHH,UU,D_h,AA)
 

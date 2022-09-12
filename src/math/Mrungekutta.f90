@@ -131,7 +131,7 @@ contains
     !! function and right-hand side \( \dot{x}(t) = f(t, x(t)) \).
     integer,intent(in)            :: n !! index of the current time step
     real(dp),intent(in)           :: dt !! time step size \(\Delta t \)
-    procedure(deriv_func_dscalar) :: deriv_func !! right-hand side \( f(t,x) \)
+    procedure(deriv_func_zscalar) :: deriv_func !! right-hand side \( f(t,x) \)
     complex(dp),intent(in)        :: xn !! current value \(x(n \Delta t)\)
     complex(dp)                   :: xn1 !! new value \(x((n+1) \Delta t)\)
     integer  :: k

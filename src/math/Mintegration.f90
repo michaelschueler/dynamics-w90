@@ -1,4 +1,5 @@
 module Mintegration
+!! Contains utilities to perform Gregory integration on uniform grids.
 !======================================================================================
    use Mdebug
    use Mdef,only: dp,iu,one,zero

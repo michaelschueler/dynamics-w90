@@ -17,8 +17,9 @@ module Mwannier_calc
    public :: wannier_calc_t
 !--------------------------------------------------------------------------------------
    type wannier_calc_t
-      logical :: soc_mode=.false.
+      logical :: soc_mode=.false., berry_valence=.false.
       integer :: nbnd,nwan,Nk
+      real(dp) :: muchem
       real(dp),allocatable,dimension(:,:) :: kpts,epsk
       complex(dp),allocatable,dimension(:,:,:) :: vectk
       type(wann90_tb_t) :: ham
@@ -40,8 +41,8 @@ contains
 !--------------------------------------------------------------------------------------
    subroutine Init(me,par_ham,par_calc,kpts)
       class(wannier_calc_t) :: me
-      type(HamiltonianParams_t),intent(in) :: par_ham
-      type(WannierCalcParams_t),intent(in) :: par_calc
+      type(HamiltonianParams_t),intent(in) :: par_ham !! Hamiltonian input parameters
+      type(WannierCalcParams_t),intent(in) :: par_calc !! Wannier calculation input parameters
       real(dp),intent(in)                  :: kpts(:,:)
       !......................................
       integer :: ik
@@ -60,6 +61,8 @@ contains
       call ham_tmp%Clean()
 
       me%soc_mode = par_ham%w90_with_soc
+      me%berry_valence = par_calc%berry_valence
+      me%muchem = par_ham%MuChem
 
       if(par_ham%slab_mode .and. par_ham%slab_nlayer > 0) then
          write(output_unit,fmt_info) "building slab with "//str(par_ham%slab_nlayer)//" layers"
@@ -171,16 +174,29 @@ contains
       allocate(berry(me%nbnd,3,me%Nk)); berry = 0.0_dp
 
       select case(gauge_)
-      case(velocity_gauge) 
-         do ik=1,me%Nk
-            berry(:,:,ik) = me%Ham%get_berrycurv(me%kpts(ik,:))
-         end do
+      case(velocity_gauge)
+         if(me%berry_valence) then
+            do ik=1,me%Nk
+               berry(:,:,ik) = me%Ham%get_berrycurv(me%kpts(ik,:),muchem=me%muchem)
+            end do
+         else 
+            do ik=1,me%Nk
+               berry(:,:,ik) = me%Ham%get_berrycurv(me%kpts(ik,:))
+            end do
+         end if
       case(dipole_gauge)
          allocate(berry_disp(me%nbnd,3),berry_dip(me%nbnd,3))
-         do ik=1,me%Nk
-            call me%Ham%get_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip)
-            berry(:,:,ik) = berry_disp + berry_dip
-         end do
+         if(me%berry_valence) then
+            do ik=1,me%Nk
+               call me%Ham%get_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip,muchem=me%muchem)
+               berry(:,:,ik) = berry_disp + berry_dip
+            end do
+         else
+            do ik=1,me%Nk
+               call me%Ham%get_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip)
+               berry(:,:,ik) = berry_disp + berry_dip
+            end do
+         end if
          deallocate(berry_disp,berry_dip)
       case default
          write(error_unit,fmt900) "GetBerryCurvature: unrecognized gauge!"
@@ -204,15 +220,29 @@ contains
 
       select case(gauge_)
       case(velocity_gauge) 
-         do ik=1,me%Nk
-            spin_berry(:,:,:,ik) = me%Ham%get_spin_berrycurv(me%kpts(ik,:))
-         end do
+         if(me%berry_valence) then
+            do ik=1,me%Nk
+               spin_berry(:,:,:,ik) = me%Ham%get_spin_berrycurv(me%kpts(ik,:),muchem=me%muchem)
+            end do
+         else
+            do ik=1,me%Nk
+               spin_berry(:,:,:,ik) = me%Ham%get_spin_berrycurv(me%kpts(ik,:))
+            end do
+         end if
       case(dipole_gauge)
          allocate(berry_disp(me%nbnd,3,3),berry_dip(me%nbnd,3,3))
-         do ik=1,me%Nk
-            call me%Ham%get_spin_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip)
-            spin_berry(:,:,:,ik) = berry_disp + berry_dip
-         end do
+         if(me%berry_valence) then
+            do ik=1,me%Nk
+               call me%Ham%get_spin_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip,&
+                  muchem=me%muchem)
+               spin_berry(:,:,:,ik) = berry_disp + berry_dip
+            end do
+         else
+            do ik=1,me%Nk
+               call me%Ham%get_spin_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip)
+               spin_berry(:,:,:,ik) = berry_disp + berry_dip
+            end do
+         end if
          deallocate(berry_disp,berry_dip)
       case default
          write(error_unit,fmt900) "GetBerryCurvature: unrecognized gauge!"
@@ -255,9 +285,15 @@ contains
       integer :: ik
 
       allocate(metric(me%nbnd,3,3,me%Nk))
-      do ik=1,me%Nk
-         metric(:,:,:,ik) = me%Ham%get_metric(me%kpts(ik,:))
-      end do
+      if(me%berry_valence) then
+         do ik=1,me%Nk
+            metric(:,:,:,ik) = me%Ham%get_metric(me%kpts(ik,:),muchem=me%muchem)
+         end do
+      else
+         do ik=1,me%Nk
+            metric(:,:,:,ik) = me%Ham%get_metric(me%kpts(ik,:))
+         end do
+      end if
 
    end subroutine GetMetric
 !--------------------------------------------------------------------------------------

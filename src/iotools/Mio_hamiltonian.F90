@@ -1,4 +1,6 @@
 module Mio_hamiltonian
+!! Provides generic interfaces for in/output the Wannier Hamiltonian in `Wannier90`
+!! or hdf5 format. Provides also tools for reading spin-orbit coupling parameters from file.
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
@@ -15,9 +17,15 @@ module Mio_hamiltonian
 contains
 !--------------------------------------------------------------------------------------
    subroutine ReadHamiltonian(file_wann,wann,file_xyz)
-      character(len=*),intent(in)            :: file_wann
-      type(wann90_tb_t),intent(out)          :: wann
-      character(len=*),intent(in),optional   :: file_xyz
+      !! Reads the Wannier Hamiltonian from file. If the file extension is `tb` or `dat`,
+      !! we assume the Hamiltonian has been produced by `Wannier90` (`*_tb.dat` file).
+      !! If the file extension is `h5` we read from hdf5 if `dynamics-w90` has been
+      !! build with hdf5 support.
+      !! Optionally the coordinates of the Wannier centeres can be read from file,
+      !! following the format of the `*_centres.xyz` of `Wannier90`.
+      character(len=*),intent(in)            :: file_wann !! file name for the Hamiltonian
+      type(wann90_tb_t),intent(out)          :: wann !! Wannier class to be initialized from the input
+      character(len=*),intent(in),optional   :: file_xyz !! file name for the coordinates
 
       if(check_file_ext(file_wann, "tb") .or. check_file_ext(file_wann, "dat")) then
          if(present(file_xyz)) then
@@ -40,8 +48,13 @@ contains
    end subroutine ReadHamiltonian
 !--------------------------------------------------------------------------------------
    subroutine WriteHamiltonian(wann,file_wann)
-      type(wann90_tb_t),intent(in)  :: wann
-      character(len=*),intent(in)   :: file_wann
+      !! Writes the Hamiltonian stored in the Wannier class `wann` to file.
+      !! If the file extension of `file_wann` is `tb` or `dat` a text file in 
+      !! `Wannier90` format will be produced. If the file extension is `h5`, the 
+      !! Hamiltonian will be written in hdf5 format if `dynamics-w90` has been
+      !! build with hdf5 support.
+      type(wann90_tb_t),intent(in)  :: wann !! Wannier class
+      character(len=*),intent(in)   :: file_wann !! file name for the output
 
       if(check_file_ext(file_wann, "tb") .or. check_file_ext(file_wann, "dat")) then
          call wann%SaveToW90(file_wann)
@@ -60,8 +73,11 @@ contains
    end subroutine WriteHamiltonian
 !--------------------------------------------------------------------------------------
    subroutine Read_SOC_lambda(fname,lam)
-      character(len=*),intent(in) :: fname
-      real(dp),allocatable,intent(out) :: lam(:)
+      !! Reads the spin-orbit coupling (SOC) constants from a simple text file. We assume
+      !! complete shells of orbitals (s, p, d, ...) for the orbitals of the Wannier Hamiltonian.
+      !! For each group and for each atom we assign a SOC constant.
+      character(len=*),intent(in) :: fname !! file name with the constants
+      real(dp),allocatable,intent(out) :: lam(:) !! SOC constants for each group of orbitals
       integer :: ngroups
       logical :: file_ok
       integer :: iunit
@@ -81,6 +97,10 @@ contains
    end subroutine Read_SOC_lambda
 !--------------------------------------------------------------------------------------
    subroutine Read_SOC_Hamiltonian(fname,soc)
+      !! Reads the spin-orbit coupling (SOC) Hamiltonioan from file. The SOC Hamiltonian
+      !! is given by the matrix representation of the angular momentum operator for each
+      !! shell. The script `SOCInput_txt.py` / `SOCInput.py` prepares such a file in 
+      !! plain text / hdf5 format.
       character(len=*),intent(in)   :: fname
       type(ham_soc_t),intent(out)   :: soc
 
