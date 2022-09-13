@@ -30,7 +30,7 @@ contains
    end function fac10
 !------------------------------------------------------------------------
    pure real(dp) function djmn(j,m,n,beta)
-   !! Computes the Wigner's (small) d-matrix \(d^j_{m n}(\beta)}\) directly
+   !! Computes the Wigner's (small) d-matrix \( d^j_{m n}(\beta)} \) directly
    !! from the definition.
    !! See [Wikipedia](https://en.wikipedia.org/wiki/Wigner_D-matrix).
    ! .. formal arguments ..
@@ -74,7 +74,7 @@ contains
    end function djmn
 !------------------------------------------------------------------------
    pure complex(dp) function ylm(l, m, thrad, phirad)
-   !! Computes the spherical harmonic Y_lm (theta,phi) using the
+   !! Computes the spherical harmonic \(Y_{lm} (theta,phi) \) using the
    !! reduced rotation matrix \(d^l_{m 0} (\theta))\ and using the
    !! external function [[fac10]].
    !! Reference: D.M. Brink and G.R. Satchler, Angular Momentum,
@@ -128,11 +128,11 @@ contains
    end function ylm
 !------------------------------------------------------------------------
    pure complex(dp) function Ylm_cart(l,m,rv)
-   !! Computes the complex spherical  harmonic Y_lm(r) for a vector r
-   !! in cartesian coordinates. The vector will be normalized internally.
+   !! Computes the complex spherical  harmonic \(Y_{lm}(\hat{\mathbf{r}})\) for a vector \(\mathbf{r}\)
+   !! in cartesian coordinates. The vector will be normalized internally: \(\hat{\mathbf{r}} = \mathbf{r}/r\)
    !! For l <= 2, the result is tabulated, otherwise [[ylm]] will be called.
       integer,intent(in)  :: l,m !! angular momentum quantum numbers l, m
-      real(dp),intent(in) :: rv(3) !! the vector r
+      real(dp),intent(in) :: rv(3) !! the vector \(\mathbf{r}\)
       real(dp) :: r,xr,yr,zr,theta,phi
 
       r = norm2(rv)
@@ -177,11 +177,11 @@ contains
   end function Ylm_cart
 !------------------------------------------------------------------------
    pure real(dp) function Xlm_cart(l,m,rv)
-   !! Computes the real spherical  harmonic X_lm(r) for a vector r
-   !! in cartesian coordinates. The vector will be normalized internally
+   !! Computes the real spherical  harmonic \(X_lm(\hat{\mathbf{r}})\) for a vector \(\mathbf{r}\)
+   !! in cartesian coordinates. The vector will be normalized internally: \(\hat{\mathbf{r}} = \mathbf{r}/r\)
       real(dp),parameter :: sq2=sqrt(2.0_dp)
       integer,intent(in)  :: l,m !! angular momentum quantum numbers l, m
-      real(dp),intent(in) :: rv(3) !! the vector r
+      real(dp),intent(in) :: rv(3) !! the vector \(\mathbf{r}\)
       real(dp) :: r,xr,yr,zr,theta,phi
       complex(dp) :: y1, y2
 

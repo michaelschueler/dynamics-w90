@@ -6,8 +6,13 @@ module Mintegration
    implicit none
 !--------------------------------------------------------------------------------------
    private
-   public :: GetGregW_1D,GetGregW_2D_Trg,GregoryIntegral,GregoryDot,&
-      GregoryIntegrate,GregoryCumIntegrate,GetGregoryWeights
+   public :: &
+      GetGregW_1D, &
+      GregoryIntegral, &
+      GregoryDot, &
+      GregoryIntegrate, &
+      GregoryCumIntegrate, &
+      GetGregoryWeights
 
    interface GregoryIntegral
       module procedure DGregoryIntegral,ZGregoryIntegral
@@ -20,6 +25,13 @@ module Mintegration
    integer,parameter :: p=5
    real(dp),parameter :: wam(0:p-1)=[-(19D0/720D0), 53D0/360D0, -(11D0/30D0), 323D0/360D0, 251D0/720D0]
    real(dp),parameter :: omega(0:p-1) = [251D0/720D0, 299D0/240D0, 211D0/240D0, 739D0/720D0, 1D0]
+   real(dp),dimension(6),parameter :: wg=[&
+         0.31559193121693124_dp,&
+         1.3921792328042324_dp,&
+         0.62397486772486765_dp,&
+         1.2440806878306878_dp,&
+         0.90990410052910042_dp,&
+         1.0142691798941799_dp]
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
@@ -35,8 +47,11 @@ contains
    end function GetStartW
 !--------------------------------------------------------------------------------------
    subroutine GetGregoryWeights(n,w)
-      integer,intent(in)     :: n
-      real(dp),intent(inout) :: w(0:)
+   !! Returns the Gregory weights \(w_j\) for approximating the integral
+   !! \(\int^{nh}_0 dx\, f(x) = h\sum^m_{j=0} w_j f(j h) + O(h^{p+1})\), where
+   !! \(m = \mathrm{max}(n, p-1)\). The quadrature order is fixed to \(p = 5\).
+      integer,intent(in)     :: n !! upper bound of sample points
+      real(dp),intent(inout) :: w(0:) !! quadrature weights
       integer :: j,k
       real(dp) :: wstart(0:2*p-2,0:p-1)
 
@@ -73,10 +88,13 @@ contains
    end subroutine GetGregoryWeights
 !--------------------------------------------------------------------------------------
    function GregoryIntegrate(n,h,f) result(fint)
+   !! Computes the Gregory integral
+   !! \(\int^{nh}_0 dx\, f(x) = h\sum^m_{j=0} w_j f(j h) + O(h^{p+1})\), where
+   !! \(m = \mathrm{max}(n, p-1)\). The quadrature order is fixed to \(p = 5\).
       integer,parameter :: p=5
-      integer,intent(in)   :: n
-      real(dp),intent(in)  :: h
-      real(dp),intent(in)  :: f(0:)
+      integer,intent(in)   :: n !! upper bound of sample points
+      real(dp),intent(in)  :: h !! grid spacing
+      real(dp),intent(in)  :: f(0:) !! sampled function values
       real(dp) :: fint
       integer :: j,k
       real(dp) :: w
@@ -119,10 +137,12 @@ contains
    end function GregoryIntegrate
 !--------------------------------------------------------------------------------------
    function GregoryCumIntegrate(nmax,h,f) result(fint)
+   !! Computes the cumulative integral \(F_n = \int^{nh}_0 dx\, f(x)\) using 
+   !! Gregory quadrature. The quadrature order is fixed to \(p = 5\).
       integer,parameter :: p=5
-      integer,intent(in)   :: nmax
-      real(dp),intent(in)  :: h
-      real(dp),intent(in)  :: f(0:)
+      integer,intent(in)   :: nmax !! max. upper bound of sample points
+      real(dp),intent(in)  :: h !! grid spacing
+      real(dp),intent(in)  :: f(0:) !! sampled function values
       real(dp) :: fint(0:nmax)
       integer :: n,j,k
       real(dp) :: w
@@ -167,10 +187,13 @@ contains
    end function GregoryCumIntegrate
 !--------------------------------------------------------------------------------------
    subroutine GetGregW_1D(nmax,w,transp)
+      !! Returns the weights \(w_{n,j}\) for Gregory integration 
+      !! \(\int^{nh}_0 dx\, f(x) = h\sum^m_{j=0} w_{n,j} f(j h) + O(h^{p+1})\) for
+      !! all \(n=0,\dots, n_\mathrm{max}\). 
       integer,parameter :: p=5
-      integer,intent(in)     :: nmax
-      real(dp),allocatable,intent(inout) :: w(:,:) 
-      logical,intent(in),optional :: transp
+      integer,intent(in)     :: nmax !! max. upper bound of sample points
+      real(dp),allocatable,intent(inout) :: w(:,:) !! quadrature weights \(w_{n,j}\)
+      logical,intent(in),optional :: transp !! if .true., the weight matrix is transposed
       logical :: transp_ = .false.
       integer :: n,k,j
       real(dp) :: wstart(0:2*p-2,0:p-1)
@@ -237,169 +260,133 @@ contains
 
    end subroutine GetGregW_1D 
 !--------------------------------------------------------------------------------------
-   subroutine GetGregW_2D_Trg(nmax,w2d)
-      integer,intent(in)     :: nmax
-      real(dp),allocatable,intent(inout) :: w2d(:,:) 
-      integer :: n,j
-      real(dp),allocatable :: w1d(:,:)
-      
-      allocate(w1d(0:nmax,0:nmax))
-      call GetGregW_1D(nmax,w1d)
+   pure real(dp) function DGregoryIntegral(n,h,f)
+   !! Computes the real Gregory integral 
+   !! \(\int^{nh}_0 dx\, f(x) = h\sum^m_{j=0} w_j f(j h) + O(h^{p+1})\) where 
+   !! use the fact that the weights \(w_j = 1\) away from the boundary. We assume 
+   !! \(n > 2p-1\). The quadrature order is fixed to \(p = 6\).
+      integer,parameter :: np=5
+      integer,intent(in)  :: n !! upper bound of sample points
+      real(dp),intent(in) :: h !! grid spacing
+      real(dp),intent(in) :: f(0:) !! sampled function values
+      integer :: i
 
-      if(.not.allocated(w2d)) allocate(w2d(0:nmax,0:nmax))
-
-      w2d = 0.0_dp
-      do n=0,nmax
-         do j=0,nmax
-            w2d(n,j) = w1d(nmax,n)*w1d(n,j)
-         end do
+      DGregoryIntegral = sum(wg(1:np+1)*f(0:np))
+      do i=n-np,n
+      DGregoryIntegral = DGregoryIntegral + wg(n-i+1)*f(i)
       end do
+      DGregoryIntegral = DGregoryIntegral + sum(f(np+1:n-np-1))
+      DGregoryIntegral = h*DGregoryIntegral
 
-      deallocate(w1d)
+   end function DGregoryIntegral
+!--------------------------------------------------------------------------------------
+   pure complex(dp) function ZGregoryIntegral(n,h,f)
+   !! Computes the complex Gregory integral 
+   !! \(\int^{nh}_0 dx\, f(x) = h\sum^m_{j=0} w_j f(j h) + O(h^{p+1})\) where 
+   !! use the fact that the weights \(w_j = 1\) away from the boundary. We assume 
+   !! \(n > 2p-1\). The quadrature order is fixed to \(p = 6\).
+      integer,parameter :: np=5
+      integer,intent(in)  :: n !! upper bound of sample points
+      real(dp),intent(in) :: h !! grid spacing
+      complex(dp),intent(in) :: f(0:) !! sampled function values
+      integer :: i
 
-   end subroutine GetGregW_2D_Trg
-!--------------------------------------------------------------------------------------
- pure real(dp) function DGregoryIntegral(n,h,f)
-    integer,parameter :: np=5
-    real(dp),dimension(6),parameter :: wg=[&
-         0.31559193121693124_dp,&
-         1.3921792328042324_dp,&
-         0.62397486772486765_dp,&
-         1.2440806878306878_dp,&
-         0.90990410052910042_dp,&
-         1.0142691798941799_dp]
-    integer,intent(in)  :: n
-    real(dp),intent(in) :: h
-    real(dp),intent(in) :: f(0:)
-    integer :: i
+      ZGregoryIntegral = sum(wg(1:np+1)*f(0:np))
+      do i=n-np,n
+         ZGregoryIntegral = ZGregoryIntegral + wg(n-i+1)*f(i)
+      end do
+      ZGregoryIntegral = ZGregoryIntegral + sum(f(np+1:n-np-1))
+      ZGregoryIntegral = h*ZGregoryIntegral
 
-    DGregoryIntegral = sum(wg(1:np+1)*f(0:np))
-    do i=n-np,n
-       DGregoryIntegral = DGregoryIntegral + wg(n-i+1)*f(i)
-    end do
-    DGregoryIntegral = DGregoryIntegral + sum(f(np+1:n-np-1))
-    DGregoryIntegral = h*DGregoryIntegral
-    
-  end function DGregoryIntegral
+   end function ZGregoryIntegral
 !--------------------------------------------------------------------------------------
-  pure complex(dp) function ZGregoryIntegral(n,h,f)
-    integer,parameter :: np=5
-    real(dp),dimension(6),parameter :: wg=[&
-         0.31559193121693124_dp,&
-         1.3921792328042324_dp,&
-         0.62397486772486765_dp,&
-         1.2440806878306878_dp,&
-         0.90990410052910042_dp,&
-         1.0142691798941799_dp]
-    integer,intent(in)  :: n
-    real(dp),intent(in) :: h
-    complex(dp),intent(in) :: f(0:)
-    integer :: i
+   pure real(dp) function GregoryDot_re_re(n,h,f,g)
+   !! Computes the dot product \((f|g) = \int^{nh}_0 dx\, f(x) g(x)\) by 
+   !! Gregory integration:
+   !! \((f|g) = h\sum^m_{j=0} w_j f(j h) g(j h) + O(h^{p+1})\) where 
+   !! use the fact that the weights \(w_j = 1\) away from the boundary. We assume 
+   !! \(n > 2p-1\). The quadrature order is fixed to \(p = 6\).
+      integer,parameter :: np=5
+      integer,intent(in)  :: n !! upper bound of sample points
+      real(dp),intent(in) :: h !! grid spacing
+      real(dp),intent(in) :: f(0:) !! sampled function values \(f_j = f(j h)\)
+      real(dp),intent(in) :: g(0:) !! sampled function values \(g_j = g(j h)\)
+      integer :: i
 
-    ZGregoryIntegral = sum(wg(1:np+1)*f(0:np))
-    do i=n-np,n
-       ZGregoryIntegral = ZGregoryIntegral + wg(n-i+1)*f(i)
-    end do
-    ZGregoryIntegral = ZGregoryIntegral + sum(f(np+1:n-np-1))
-    ZGregoryIntegral = h*ZGregoryIntegral
-    
-  end function ZGregoryIntegral
+      GregoryDot_Re_Re = sum(wg(1:np+1)*f(0:np)*g(0:np))
+      do i=n-np,n
+         GregoryDot_Re_Re = GregoryDot_Re_Re + wg(n-i+1)*f(i)*g(i)
+      end do
+      GregoryDot_Re_Re = GregoryDot_Re_Re + dot_product(f(np+1:n-np-1),g(np+1:n-np-1))
+      GregoryDot_Re_Re = h*GregoryDot_Re_Re
+
+   end function GregoryDot_Re_Re
 !--------------------------------------------------------------------------------------
-  pure real(dp) function GregoryDot_re_re(n,h,f,g)
-    integer,parameter :: np=5
-    real(dp),dimension(6),parameter :: wg=[&
-         0.31559193121693124_dp,&
-         1.3921792328042324_dp,&
-         0.62397486772486765_dp,&
-         1.2440806878306878_dp,&
-         0.90990410052910042_dp,&
-         1.0142691798941799_dp]
-    integer,intent(in)  :: n
-    real(dp),intent(in) :: h
-    real(dp),intent(in) :: f(0:)
-    real(dp),intent(in) :: g(0:)
-    integer :: i
-    
-    GregoryDot_Re_Re = sum(wg(1:np+1)*f(0:np)*g(0:np))
-    do i=n-np,n
-       GregoryDot_Re_Re = GregoryDot_Re_Re + wg(n-i+1)*f(i)*g(i)
-    end do
-    GregoryDot_Re_Re = GregoryDot_Re_Re + dot_product(f(np+1:n-np-1),g(np+1:n-np-1))
-    GregoryDot_Re_Re = h*GregoryDot_Re_Re
-    
-  end function GregoryDot_Re_Re
+   pure complex(dp) function GregoryDot_c_re(n,h,f,g)
+   !! Computes the dot product \((f|g) = \int^{nh}_0 dx\, f^*(x) g(x)\) by 
+   !! Gregory integration:
+   !! \((f|g) = h\sum^m_{j=0} w_j f^*(j h) g(j h) + O(h^{p+1})\) where 
+   !! use the fact that the weights \(w_j = 1\) away from the boundary. We assume 
+   !! \(n > 2p-1\). The quadrature order is fixed to \(p = 6\).
+      integer,parameter :: np=5
+      integer,intent(in)     :: n !! upper bound of sample points
+      real(dp),intent(in)    :: h !! grid spacing
+      complex(dp),intent(in) :: f(0:) !! sampled function values \(f_j = f(j h)\)
+      real(dp),intent(in)    :: g(0:) !! sampled function values \(g_j = g(j h)\)
+      integer :: i
+
+      GregoryDot_c_Re = sum(wg(1:np+1)*conjg(f(0:np))*g(0:np))
+      do i=n-np,n
+         GregoryDot_c_Re = GregoryDot_c_Re + wg(n-i+1)*conjg(f(i))*g(i)
+      end do
+      GregoryDot_c_Re = GregoryDot_c_Re + dot_product(f(np+1:n-np-1),g(np+1:n-np-1))
+      GregoryDot_c_Re = h*GregoryDot_c_Re
+
+   end function GregoryDot_c_Re
 !--------------------------------------------------------------------------------------
-  pure complex(dp) function GregoryDot_c_re(n,h,f,g)
-    integer,parameter :: np=5
-    real(dp),dimension(6),parameter :: wg=[&
-         0.31559193121693124_dp,&
-         1.3921792328042324_dp,&
-         0.62397486772486765_dp,&
-         1.2440806878306878_dp,&
-         0.90990410052910042_dp,&
-         1.0142691798941799_dp]
-    integer,intent(in)     :: n
-    real(dp),intent(in)    :: h
-    complex(dp),intent(in) :: f(0:)
-    real(dp),intent(in)    :: g(0:)
-    integer :: i
-    
-    GregoryDot_c_Re = sum(wg(1:np+1)*conjg(f(0:np))*g(0:np))
-    do i=n-np,n
-       GregoryDot_c_Re = GregoryDot_c_Re + wg(n-i+1)*conjg(f(i))*g(i)
-    end do
-    GregoryDot_c_Re = GregoryDot_c_Re + dot_product(f(np+1:n-np-1),g(np+1:n-np-1))
-    GregoryDot_c_Re = h*GregoryDot_c_Re
-    
-  end function GregoryDot_c_Re
+   pure complex(dp) function GregoryDot_re_c(n,h,f,g)
+   !! Computes the dot product \((f|g) = \int^{nh}_0 dx\, f(x) g(x)\) by 
+   !! Gregory integration:
+   !! \((f|g) = h\sum^m_{j=0} w_j f(j h) g(j h) + O(h^{p+1})\) where 
+   !! use the fact that the weights \(w_j = 1\) away from the boundary. We assume 
+   !! \(n > 2p-1\). The quadrature order is fixed to \(p = 6\).
+      integer,parameter :: np=5
+      integer,intent(in)     :: n !! upper bound of sample points
+      real(dp),intent(in)    :: h !! grid spacing
+      real(dp),intent(in) :: f(0:) !! sampled function values \(f_j = f(j h)\)
+      complex(dp),intent(in)    :: g(0:) !! sampled function values \(g_j = g(j h)\)
+      integer :: i 
+
+      GregoryDot_re_c = sum(wg(1:np+1)*f(0:np)*g(0:np))
+      do i=n-np,n
+         GregoryDot_re_c = GregoryDot_re_c + wg(n-i+1)*f(i)*g(i)
+      end do
+      GregoryDot_re_c = GregoryDot_re_c + dot_product(f(np+1:n-np-1),g(np+1:n-np-1))
+      GregoryDot_re_c = h*GregoryDot_re_c
+
+   end function GregoryDot_re_c
 !--------------------------------------------------------------------------------------
-  pure complex(dp) function GregoryDot_re_c(n,h,f,g)
-    integer,parameter :: np=5
-    real(dp),dimension(6),parameter :: wg=[&
-         0.31559193121693124_dp,&
-         1.3921792328042324_dp,&
-         0.62397486772486765_dp,&
-         1.2440806878306878_dp,&
-         0.90990410052910042_dp,&
-         1.0142691798941799_dp]
-    integer,intent(in)     :: n
-    real(dp),intent(in)    :: h
-    real(dp),intent(in) :: f(0:)
-    complex(dp),intent(in)    :: g(0:)
-    integer :: i
-    
-    GregoryDot_re_c = sum(wg(1:np+1)*f(0:np)*g(0:np))
-    do i=n-np,n
-       GregoryDot_re_c = GregoryDot_re_c + wg(n-i+1)*f(i)*g(i)
-    end do
-    GregoryDot_re_c = GregoryDot_re_c + dot_product(f(np+1:n-np-1),g(np+1:n-np-1))
-    GregoryDot_re_c = h*GregoryDot_re_c
-    
-  end function GregoryDot_re_c
-!--------------------------------------------------------------------------------------
-  pure complex(dp) function GregoryDot_c_c(n,h,f,g)
-    integer,parameter :: np=5
-    real(dp),dimension(6),parameter :: wg=[&
-         0.31559193121693124_dp,&
-         1.3921792328042324_dp,&
-         0.62397486772486765_dp,&
-         1.2440806878306878_dp,&
-         0.90990410052910042_dp,&
-         1.0142691798941799_dp]
-    integer,intent(in)     :: n
-    real(dp),intent(in)    :: h
-    complex(dp),intent(in) :: f(0:)
-    complex(dp),intent(in) :: g(0:)
-    integer :: i
-    
-    GregoryDot_c_c = sum(wg(1:np+1)*conjg(f(0:np))*g(0:np))
-    do i=n-np,n
-       GregoryDot_c_c = GregoryDot_c_c + wg(n-i+1)*conjg(f(i))*g(i)
-    end do
-    GregoryDot_c_c = GregoryDot_c_c + dot_product(f(np+1:n-np-1),g(np+1:n-np-1))
-    GregoryDot_c_c = h*GregoryDot_c_c
-    
-  end function GregoryDot_c_c
+   pure complex(dp) function GregoryDot_c_c(n,h,f,g)
+   !! Computes the dot product \((f|g) = \int^{nh}_0 dx\, f^*(x) g(x)\) by 
+   !! Gregory integration:
+   !! \((f|g) = h\sum^m_{j=0} w_j f^*(j h) g(j h) + O(h^{p+1})\) where 
+   !! use the fact that the weights \(w_j = 1\) away from the boundary. We assume 
+   !! \(n > 2p-1\). The quadrature order is fixed to \(p = 6\).
+      integer,parameter :: np=5
+      integer,intent(in)     :: n !! upper bound of sample points
+      real(dp),intent(in)    :: h !! grid spacing
+      complex(dp),intent(in) :: f(0:) !! sampled function values \(f_j = f(j h)\)
+      complex(dp),intent(in) :: g(0:) !! sampled function values \(g_j = g(j h)\)
+      integer :: i
+
+      GregoryDot_c_c = sum(wg(1:np+1)*conjg(f(0:np))*g(0:np))
+      do i=n-np,n
+         GregoryDot_c_c = GregoryDot_c_c + wg(n-i+1)*conjg(f(i))*g(i)
+      end do
+      GregoryDot_c_c = GregoryDot_c_c + dot_product(f(np+1:n-np-1),g(np+1:n-np-1))
+      GregoryDot_c_c = h*GregoryDot_c_c
+
+   end function GregoryDot_c_c
 !--------------------------------------------------------------------------------------
 
 
