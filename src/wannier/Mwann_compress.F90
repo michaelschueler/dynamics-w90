@@ -47,7 +47,7 @@ contains
       allocate(wann_pruned%ham_r(wann%num_wann,wann%num_wann,wann_pruned%nrpts))
       allocate(wann_pruned%pos_r(wann%num_wann,wann%num_wann,wann_pruned%nrpts,3))
       allocate(wann_pruned%coords(wann%num_wann,3))
-
+      
       wann_pruned%coords = wann%coords
 
       do ir=1,wann_pruned%nrpts

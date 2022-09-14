@@ -1088,10 +1088,10 @@ contains
          if(atomic_units == 0) me%pos_r = me%pos_r / BohrAngstrom
       end if
 
+      allocate(me%coords(me%num_wann,3)); me%coords = 0.0_dp
       call hdf_read_attribute(file_id,'','coords_stored', coords_stored)  
       if(coords_stored == 1) then
          me%coords_present = .true.
-         allocate(me%coords(me%num_wann,3))
          call hdf_read_dataset(file_id,'coords',me%coords)
          if(atomic_units == 0) me%coords = me%coords / BohrAngstrom
       end if

@@ -117,17 +117,21 @@ contains
       w90_soc%recip_lattice = w90_nosoc%recip_lattice
       w90_soc%recip_reduced = w90_nosoc%recip_reduced
       w90_soc%nrpts = w90_nosoc%nrpts
+      w90_soc%coords_present = w90_nosoc%coords_present
 
       if(allocated(w90_soc%ndegen)) deallocate(w90_soc%ndegen)
       if(allocated(w90_soc%irvec)) deallocate(w90_soc%irvec)
       if(allocated(w90_soc%ham_r)) deallocate(w90_soc%ham_r)
       if(allocated(w90_soc%pos_r)) deallocate(w90_soc%pos_r)
+      if(allocated(w90_soc%coords)) deallocate(w90_soc%coords)
 
       allocate(w90_soc%ndegen(w90_nosoc%nrpts))
       allocate(w90_soc%irvec(w90_nosoc%nrpts,3))
       allocate(w90_soc%ham_r(w90_soc%num_wann,w90_soc%num_wann,w90_nosoc%nrpts))
       allocate(w90_soc%pos_r(w90_soc%num_wann,w90_soc%num_wann,w90_nosoc%nrpts,3))
+      allocate(w90_soc%coords(w90_soc%num_wann,3))
 
+      w90_soc%coords = w90_nosoc%coords
       w90_soc%ndegen = w90_nosoc%ndegen
       w90_soc%irvec = w90_nosoc%irvec
 
