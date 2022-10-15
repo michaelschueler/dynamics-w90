@@ -2,8 +2,10 @@ module Mwannier_orbitals
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
-   use Mdef,only: dp,iu,zero,one
-   use Mhdf5_utils
+   use scitools_def,only: dp,iu,zero,one
+#ifdef WITHHDF5
+   use scitools_hdf5_utils
+#endif
    implicit none
    include "../formats.h"
 !--------------------------------------------------------------------------------------
@@ -77,7 +79,6 @@ contains
 !--------------------------------------------------------------------------------------
 #ifdef WITHHDF5
    subroutine ReadFromHDF5(me,fname)
-      use Mhdf5_utils
       class(wannier_orbs_t)       :: me
       character(len=*),intent(in) :: fname
       integer(HID_t) :: file_id

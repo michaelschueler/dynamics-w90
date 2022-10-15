@@ -2,7 +2,7 @@ module Mio_params
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
-   use Mdef,only: dp,iu,zero
+   use scitools_def,only: dp,iu,zero
    implicit none
    include "../formats.h"  
 !--------------------------------------------------------------------------------------

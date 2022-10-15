@@ -2,8 +2,8 @@ module Mradialwf
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
-   use Mdef,only: dp
-   use Mbsplines,only: spline1d_t
+   use scitools_def,only: dp
+   use scitools_bsplines,only: spline1d_t
    use Matomic,only: SlaterWF_radial,SlaterWF_radial_deriv
    implicit none
    include "../formats.h"

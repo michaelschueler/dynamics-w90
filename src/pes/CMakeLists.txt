@@ -14,7 +14,10 @@ set(OBJECT_FILES
 	Mpes_intensity.F90
 )
 
-add_library(pes STATIC ${OBJECT_FILES})
-target_link_libraries(pes tools math wannier ${COMMON_LIBS})
-add_dependencies(pes tools math wannier )
-# install(TARGETS pes ARCHIVE DESTINATION lib)
+add_library(pes OBJECT ${OBJECT_FILES})
+target_link_libraries(pes basic wannier scitools ${COMMON_LIBS})
+if(scitools_prefix)
+    add_dependencies(pes basic wannier )
+else(scitools_prefix)
+    add_dependencies(pes basic wannier scitools)
+endif(scitools_prefix)

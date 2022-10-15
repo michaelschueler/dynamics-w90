@@ -1,6 +1,7 @@
 src_dir: ./src
 output_dir: ./doc
 exclude: Mlebedev_weights.F90
+exclude: formats.h
 exclude_dir: ./src/math/lebedev/
 author: Michael Schueler
 author_description: The `dynamics-w90` package: Berry phase properties, light-induced dynamics, photoemission & more from Wannier functions.

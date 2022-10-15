@@ -1,7 +1,7 @@
 module Matomic
 !======================================================================================
    use Mdebug
-   use Mdef,only: dp,zero,iu,one
+   use scitools_def,only: dp,zero,iu,one
    implicit none
 !--------------------------------------------------------------------------------------
    private

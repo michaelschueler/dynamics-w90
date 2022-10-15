@@ -1,7 +1,7 @@
 module Mwann_compress
 !====================================================================================== 
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
-   use Mdef,only: dp
+   use scitools_def,only: dp
    use Mham_w90,only: wann90_tb_t
    implicit none
 !--------------------------------------------------------------------------------------

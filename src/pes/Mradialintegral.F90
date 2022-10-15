@@ -2,9 +2,9 @@ module Mradialintegral
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
-   use Mdef,only: dp
-   use Mbsplines,only: spline1d_t
-   use Mquadrature,only: integral_1d
+   use scitools_def,only: dp
+   use scitools_bsplines,only: spline1d_t
+   use scitools_quadrature,only: integral_1d
    use Mradialwf,only: radialwf_t
    use Mscattwf,only: scattwf_t
    implicit none
@@ -39,7 +39,7 @@ module Mradialintegral
 contains
 !--------------------------------------------------------------------------------------
    subroutine radialinteg_Init(me,l0,kmin,kmax,swf,rwf,nk,gauge)
-      use Mutils,only: linspace
+      use scitools_utils,only: linspace
       integer,parameter   :: kx=4
       class(radialinteg_t)     :: me
       integer,intent(in)          :: l0
@@ -214,7 +214,7 @@ contains
  
 !--------------------------------------------------------------------------------------
    subroutine radialinteg_gen_Init(me,Lmax,kmin,kmax,swf,rwf,nk)
-      use Mutils,only: linspace
+      use scitools_utils,only: linspace
       integer,parameter   :: kx=4
       class(radialinteg_gen_t)    :: me
       integer,intent(in)          :: Lmax

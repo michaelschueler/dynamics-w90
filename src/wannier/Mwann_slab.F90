@@ -1,7 +1,7 @@
 module Mwann_slab
 !======================================================================================
    use Mdebug
-   use Mdef,only: dp,zero
+   use scitools_def,only: dp,zero
    use Mlatt_utils,only: utility_recip_lattice, utility_recip_reduced
    use Mham_w90,only: wann90_tb_t
    implicit none

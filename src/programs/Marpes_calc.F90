@@ -2,9 +2,9 @@ module Marpes_calc
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
-   use Mdef,only: dp,iu,zero
-   use Mutils,only: str
-   use Mvector_bsplines,only: cplx_matrix_spline_t
+   use scitools_def,only: dp,iu,zero
+   use scitools_utils,only: str, linspace, savetxt
+   use scitools_vector_bsplines,only: cplx_matrix_spline_t
    use Mlatt_utils,only: utility_Cart2Red_2D
    use Mham_w90,only: wann90_tb_t
    use Mwann_compress,only: PruneHoppings
@@ -78,7 +78,6 @@ contains
    end subroutine WannOrb_to_RadialWF
 !--------------------------------------------------------------------------------------
    subroutine Init(me,par_ham,par_pes,kpts)
-      use Mutils,only: linspace
       class(arpes_calc_t) :: me
       type(HamiltonianParams_t),intent(in) :: par_ham
       type(PESParams_t),intent(in)         :: par_pes
@@ -209,7 +208,7 @@ contains
    end subroutine CalcIntegrals_lambda
 !--------------------------------------------------------------------------------------
    subroutine CalcPES(me)
-      use Mlinalg,only: EigH
+      use scitools_linalg,only: EigH
       class(arpes_calc_t) :: me
       integer :: ik,iepe
       real(dp) :: kpar(2),kpt(3)
@@ -292,7 +291,6 @@ contains
    end subroutine WriteSpectrum 
 !--------------------------------------------------------------------------------------
    subroutine WriteSpectrum_txt(me,prefix)
-      use Mutils,only: savetxt
       class(arpes_calc_t) :: me
       character(len=*),intent(in) :: prefix
 
@@ -302,7 +300,7 @@ contains
 !--------------------------------------------------------------------------------------
 #ifdef WITHHDF5
    subroutine WriteSpectrum_hdf5(me,prefix)
-      use Mhdf5_utils
+      use scitools_hdf5_utils
       class(arpes_calc_t) :: me
       character(len=*),intent(in) :: prefix
       integer(HID_t) :: file_id

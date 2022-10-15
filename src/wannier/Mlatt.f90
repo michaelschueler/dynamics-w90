@@ -1,7 +1,7 @@
 module Mlatt
 !====================================================================================== 
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
-   use Mdef,only: dp
+   use scitools_def,only: dp
    implicit none
 !--------------------------------------------------------------------------------------
    private

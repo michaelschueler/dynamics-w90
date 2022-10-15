@@ -1,7 +1,7 @@
 module Mlatt_utils
 !======================================================================================
-   use Mdef,only: dp
-   use Mlinalg,only: Inv
+   use scitools_def,only: dp
+   use scitools_linalg,only: Inv
    implicit none
    include '../units_inc.f90'
 !--------------------------------------------------------------------------------------   
@@ -51,7 +51,6 @@ contains
       !!  reduced coordinates
       !                                                                  !
       !===================================================================
-      use Mlinalg,only: Inv
       real(dp),intent(in)  :: recip_lat(3,3)
       real(dp),intent(out) :: recip_red(3,3)
 

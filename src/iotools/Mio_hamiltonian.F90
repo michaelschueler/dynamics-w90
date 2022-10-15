@@ -4,8 +4,8 @@ module Mio_hamiltonian
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
-   use Mdef,only: dp,iu,zero
-   use Mutils,only: get_file_ext, check_file_ext
+   use scitools_def,only: dp,iu,zero
+   use scitools_utils,only: get_file_ext, check_file_ext
    use Mham_w90,only: wann90_tb_t
    use Mwann_soc,only: ham_soc_t
    implicit none

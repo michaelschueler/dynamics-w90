@@ -3,9 +3,9 @@ program wann_soc
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
-   use Mdef,only: dp,zero
-   use Mtime,only: Timer_act, Timer_Tic, Timer_Toc
-   use Mutils,only: print_title, print_header, get_file_ext, check_file_ext, str, &
+   use scitools_def,only: dp,zero
+   use scitools_time,only: Timer_act, Timer_Tic, Timer_Toc
+   use scitools_utils,only: print_title, print_header, get_file_ext, check_file_ext, str, &
       stop_error
    use Mham_w90,only: wann90_tb_t
    use Mwann_soc,only: ham_soc_t, AddSOC_Wannier

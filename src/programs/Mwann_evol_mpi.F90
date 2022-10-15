@@ -3,12 +3,12 @@ module Mwann_evol_mpi
    use mpi
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
-   use Mdef,only: dp,iu,one,zero,nfermi
-   use Mlinalg,only: get_large_size,util_matmul,util_rotate,util_rotate_cc
-   use Mrungekutta,only: ODE_step_rk5
+   use scitools_def,only: dp,iu,one,zero,nfermi
+   use scitools_linalg,only: get_large_size,util_matmul,util_rotate,util_rotate_cc
+   use scitools_rungekutta,only: ODE_step_rk5
+   use scitools_array1d_dist,only: dist_array1d_t,GetDisplSize1D
    use Mham_w90,only: wann90_tb_t
    use Mwann_dyn
-   use Marray1d_dist,only: dist_array1d_t,GetDisplSize1D
    implicit none
    include '../formats.h'
    include '../units_inc.f90'
@@ -110,8 +110,8 @@ contains
    end subroutine SetLaserpulse
 !--------------------------------------------------------------------------------------
    subroutine SolveEquilibrium(me,filling)
-      use Mlinalg,only: EigH,TRace
-      use Mroot,only: brent
+      use scitools_linalg,only: EigH,TRace
+      use scitools_root,only: brent
       real(dp),parameter :: mu_tol=1.0e-8_dp
       class(wann_evol_t)      :: me
       real(dp),intent(in),optional  :: filling
@@ -198,7 +198,7 @@ contains
    end subroutine SolveEquilibrium
 !--------------------------------------------------------------------------------------
    subroutine Timestep_RelaxTime(me,T1,T2,tstp,dt)
-      use Mlinalg,only: EigH
+      use scitools_linalg,only: EigH
       integer,parameter :: qc=1
       class(wann_evol_t)      :: me
       real(dp),intent(in)       :: T1,T2
@@ -303,8 +303,8 @@ contains
    end subroutine Timestep_RelaxTime
 !--------------------------------------------------------------------------------------
    subroutine Timestep(me,tstp,dt,field_Tmax)
-      use Mlinalg,only: Eye,trace
-      use Mevol,only: GenU_CF2,UnitaryStepFBW 
+      use scitools_linalg,only: Eye,trace
+      use scitools_evol,only: GenU_CF2,UnitaryStepFBW 
       integer,parameter :: qc=1
       class(wann_evol_t) :: me
       integer,intent(in)   :: tstp

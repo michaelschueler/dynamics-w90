@@ -54,6 +54,17 @@ if(mpi)
    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DMPI")
 endif(mpi)
 
+# ~~ Add SciTools ~~
+if(scitools_prefix)
+    find_library(SCITOOLS_LIB
+        NAMES scitools
+        HINTS "${scitools_prefix}/lib"
+    )
+   include_directories(${scitools_prefix}/include/scitools/)
+   link_directories(${scitools_prefix}/lib)
+   message(STATUS "SciTools library: ${SCITOOLS_LIB}")
+endif(scitools_prefix)
+
 # ~~ Add HDF5 ~~
 if (hdf5)
   message(STATUS "Building with HDF5")
@@ -68,9 +79,9 @@ endif (hdf5)
 if(lapackblas_libraries)
    list(APPEND COMMON_LIBS ${lapackblas_libraries})
    message(STATUS LAPACK/BLAS: ${lapackblas_libraries})
-else()
+else(lapackblas_libraries)
    message("Warning: LAPACK/BLAS not specified!")
-endif()
+endif(lapackblas_libraries)
 
 # ~~ Add modern quadrature ~~
 if (modernquad)
@@ -92,6 +103,13 @@ link_directories(${CMAKE_LIBRARY_PATH})
 
 # ~~ Paths and Subdirs ~~
 include_directories(${CMAKE_INCLUDE_PATH})
+
+if(scitools_prefix)
+
+else(scitools_prefix)
+    message(STATUS "Path to SciTools not specified. Building internal copy.")
+    add_subdirectory(scitools)
+endif(scitools_prefix)
 
 add_subdirectory(src)
 

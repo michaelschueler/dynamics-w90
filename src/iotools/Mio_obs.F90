@@ -2,10 +2,10 @@ module Mio_obs
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
-   use Mdef,only: dp,iu,zero
-   use Mutils,only: savetxt,str,save_griddata
+   use scitools_def,only: dp,iu,zero
+   use scitools_utils,only: savetxt,str,save_griddata
 #ifdef WITHHDF5
-   use Mhdf5_utils
+   use scitools_hdf5_utils
 #endif
    implicit none
    include "../formats.h"  

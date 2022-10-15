@@ -2,9 +2,9 @@ module Mwannier_calc
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
-   use Mdef,only: dp,iu,zero
-   use Mutils,only: str
-   use Mlinalg,only: EigH
+   use scitools_def,only: dp,iu,zero
+   use scitools_utils,only: str
+   use scitools_linalg,only: EigH
    use Mham_w90,only: wann90_tb_t
    use Mwann_compress,only: PruneHoppings
    use Mwann_slab,only: Wannier_BulkToSlab

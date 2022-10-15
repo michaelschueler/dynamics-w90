@@ -16,24 +16,13 @@ set(OBJECT_FILES
 )
 
 # ~~ Installation targets ~~
-add_library(wannier STATIC ${OBJECT_FILES})
-target_link_libraries(wannier math tools evol ${COMMON_LIBS})
-add_dependencies(wannier math tools evol)
+add_library(wannier OBJECT ${OBJECT_FILES})
+target_link_libraries(wannier basic scitools ${COMMON_LIBS})
+
+if(scitools_prefix)
+    add_dependencies(wannier basic)
+else(scitools_prefix)
+    add_dependencies(wannier basic scitools)
+endif(scitools_prefix)
 # install(TARGETS wannier ARCHIVE DESTINATION lib)
 
-if(wannier_lib)
-  set(LIB_FILES
-    Mlatt_utils.f90
-    Mread_xyz.F90
-    Mham_w90.F90
-  )
-
-  add_library(ham_w90 SHARED ${LIB_FILES})
-  install(TARGETS ham_w90 LIBRARY DESTINATION lib)
-
-  target_link_libraries(ham_w90 tools math)
-  add_dependencies(ham_w90 tools math)
-
-  install(FILES ${CMAKE_Fortran_MODULE_DIRECTORY}/Mham_w90.mod DESTINATION include/ham_w90)
-
-endif(wannier_lib)

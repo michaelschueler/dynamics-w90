@@ -2,8 +2,8 @@ module Mread_xyz
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
-   use Mdef,only: dp
-   use Mutils,only: checkoption,loadtxt,str
+   use scitools_def,only: dp
+   use scitools_utils,only: checkoption,loadtxt,str
    implicit none
    include "../formats.h"
 !--------------------------------------------------------------------------------------
@@ -15,8 +15,10 @@ module Mread_xyz
 contains
 !--------------------------------------------------------------------------------------
    subroutine ReadXYZ(fname,coords)
-      character(len=*),intent(in) :: fname
-      real(dp),intent(inout)      :: coords(:,:)
+   !! Reads the coordinates of the Wannier centeres from the `*_centres.xyz` file
+   !! produced by `Wannier90`.
+      character(len=*),intent(in) :: fname !! file name of the `*_centres.xyz` file
+      real(dp),intent(inout)      :: coords(:,:) !! coordinates of the Wannier centers
       integer :: num_wann,num_pos,i,iorb
       character(len=2) :: sx
       integer :: unit_inp

@@ -2,8 +2,8 @@ module Mscattwf
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
-   use Mdef,only: dp, one, iu
-   use Mspecial,only: spherical_bessel_jn
+   use scitools_def,only: dp, one, iu
+   use scitools_special,only: spherical_bessel_jn
    implicit none
    include "../units_inc.f90"
 !--------------------------------------------------------------------------------------

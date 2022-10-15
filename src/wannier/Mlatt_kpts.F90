@@ -1,9 +1,10 @@
 module Mlatt_kpts
+!! Provides tools to read k-points from file.
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
-   use Mdef,only: dp
-   use Mutils,only: checkoption,loadtxt,str
+   use scitools_def,only: dp
+   use scitools_utils,only: checkoption,loadtxt,str
    implicit none
    include "../formats.h"
 !--------------------------------------------------------------------------------------
@@ -15,8 +16,15 @@ module Mlatt_kpts
 contains
 !--------------------------------------------------------------------------------------
    subroutine Read_Kpoints(fname,kpts,print_info,root_tag)
-      character(len=*),intent(in) :: fname
-      real(dp),allocatable,intent(out) :: kpts(:,:)
+   !! Reads k-points from file. There are three formats of specifying k-points:
+   !! 1) A row-by-row list of points. Triggered by `kpoints_type="list"`.
+   !! 2) A path specified by the special points and the number of points in between.
+   !! Triggerd by `kpoints_type="path"`.
+   !! 3) A grid covering the full Brillouin zone. Triggerd by `kpoints_type="grid"`.
+   !! In this case the number of points along the reciprocal lattice directions `nk1`, `nk2`, `nk3`
+   !! is read from the `KPOINTS` name list.
+      character(len=*),intent(in) :: fname !! name of the input file containing the `KPOINTS` name list
+      real(dp),allocatable,intent(out) :: kpts(:,:) !! the k-points read from file
       logical,intent(in),optional :: print_info,root_tag
       logical :: info_,root_
       character(len=32)  :: kpoints_type="grid"
@@ -107,9 +115,12 @@ contains
    end subroutine ReadKpath
 !--------------------------------------------------------------------------------------
    subroutine GenKgrid(kpts,nk1,nk2,nk3)
-      real(dp),allocatable,intent(out) :: kpts(:,:)
-      integer,intent(in) :: nk1,nk2
-      integer,intent(in),optional :: nk3
+   !! Generates a grid covering either the 2D or the 3D Brillouin zone by the
+   !! Monkhorst-Pack scheme. 
+      real(dp),allocatable,intent(out) :: kpts(:,:) !! the k-points
+      integer,intent(in) :: nk1,nk2 !! number of points along the first two reciprocal lattice directions
+      integer,intent(in),optional :: nk3 !! Number of points along the third reciprocal lattice direction.
+                                         !! If not specified, we assume a 2D Brillouin zone.
       integer :: nk3_
       integer :: nk,i1,i2,i3,ik
 

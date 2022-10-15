@@ -2,8 +2,8 @@ module Mham_w90
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
-   use Mdef,only: dp,iu,zero,one
-   use Mlinalg,only: get_large_size,util_zgemm,util_matmul,util_rotate,util_rotate_cc
+   use scitools_def,only: dp,iu,zero,one
+   use scitools_linalg,only: get_large_size,util_zgemm,util_matmul,util_rotate,util_rotate_cc
    use Mlatt_utils,only: utility_recip_lattice, utility_recip_reduced
    use Mread_xyz,only: ReadXYZ
    implicit none
@@ -119,7 +119,7 @@ contains
    end subroutine Set
 !--------------------------------------------------------------------------------------
    function get_eig(me,kpt) result(Ek)
-      use Mlinalg,only: EigValsHE
+      use scitools_linalg,only: EigValsHE
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
       real(dp)            :: Ek(me%num_wann)
@@ -970,7 +970,7 @@ contains
 !--------------------------------------------------------------------------------------
 #ifdef WITHHDF5
    subroutine SaveToHDF5(me,fname,atomic_units)
-      use Mhdf5_utils
+      use scitools_hdf5_utils
       class(wann90_tb_t)  :: me
       character(len=*),intent(in) :: fname
       logical,intent(in),optional :: atomic_units
@@ -1034,7 +1034,7 @@ contains
 #if WITHHDF5
    subroutine ReadFromHDF5(me,fname)
       !! Reads the Wannier Hamiltonian from HDF5 binary format
-      use Mhdf5_utils
+      use scitools_hdf5_utils
       class(wann90_tb_t)  :: me
       character(len=*),intent(in) :: fname
       integer(HID_t) :: file_id

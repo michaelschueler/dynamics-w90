@@ -14,9 +14,9 @@
   double precision,parameter::HrSI=mSI*(eSI**2/(QPi*Epsilon0SI*HbarSI))**2 !! Units conversion: Hartree to SI
   double precision,parameter::BohrSI=(QPi*Epsilon0SI/mSI)*(HbarSI/eSI)**2 !! Units conversion: Bohr to SI
   double precision,parameter::BohrAngstrom=0.52917720859D0 !! Units conversion: Bohr Angstroms
-  double precision,parameter::E0SI=eSI/(QPi*Epsilon0SI*BohrSI**2) 
+  double precision,parameter::E0SI=eSI/(QPi*Epsilon0SI*BohrSI**2) !! Unit
   double precision,parameter::t0SI=HbarSI/HrSI
-  double precision,parameter::I0SIa=0.5D0*Epsilon0SI*cSI*E0SI**2
+  double precision,parameter::I0SIa=0.5D0*Epsilon0SI*cSI*E0SI**2 !! I
   double precision,parameter::I0SIb=(HrSI/BohrSI)**2/HbarSI
   double precision,parameter::HreV=HrSI/eSI !! Units conversion: Hartree to eV
   double precision,parameter::Nano=1.0D-9,Angstrom=1.0D-10,Femto=1.0D-15,Cent=1.0D-2

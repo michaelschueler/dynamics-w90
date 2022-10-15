@@ -1,6 +1,6 @@
 module Mangcoeff
 !======================================================================================
-   use Mdef,only: dp,iu,zero,one
+   use scitools_def,only: dp,iu,zero,one
    implicit none
    include "../units_inc.f90"
 !--------------------------------------------------------------------------------------

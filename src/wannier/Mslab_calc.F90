@@ -2,8 +2,8 @@ module Mslab_calc
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
-   use Mdef,only: dp,zero,one
-   use Mlinalg,only: EigHE,inv
+   use scitools_def,only: dp,zero,one
+   use scitools_linalg,only: EigHE,inv
    use Mlatt_kpts,only: Read_Kpoints
    use Mwannier_calc,only: wannier_calc_t
    implicit none

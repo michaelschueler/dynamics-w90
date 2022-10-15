@@ -1,7 +1,7 @@
 module Mwignerd
 !======================================================================================
    !! this module contains Wigner-D matrices and spherical harmonics
-   use Mdef,only: dp,iu
+   use scitools_def,only: dp,iu
    implicit none
    include '../units_inc.f90'
 !-------------------------------------------------------------------------------------- 

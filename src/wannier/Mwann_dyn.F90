@@ -1,9 +1,9 @@
 module Mwann_dyn
 !======================================================================================
-   use Mdef,only: dp, zero, iu, nfermi
+   use scitools_def,only: dp, zero, iu, nfermi
+   use scitools_linalg,only: Eigh,util_rotate,util_rotate_cc,get_large_size
+   use scitools_evol,only: GenU_CF2,GenU_CF4,UnitaryStepFBW
    use Mham_w90,only: wann90_tb_t
-   use Mlinalg,only: Eigh,util_rotate,util_rotate_cc,get_large_size
-   use Mevol,only: GenU_CF2,GenU_CF4,UnitaryStepFBW
    implicit none
 !--------------------------------------------------------------------------------------
    private
@@ -127,7 +127,6 @@ contains
    end subroutine Wann_GenRhok_eq
 !--------------------------------------------------------------------------------------
    subroutine Wann_Rhok_timestep_velo(w90,Nk,kpts,tstp,dt,field,Rhok)
-      use Mlinalg,only: Eye
       type(wann90_tb_t),intent(in) :: w90
       integer,intent(in)           :: Nk
       real(dp),intent(in)          :: kpts(:,:)
@@ -368,7 +367,7 @@ contains
    end function Wann_Current_para_velo_calc
 !--------------------------------------------------------------------------------------
    function Wann_Current_dia_velo(Nk,Avec,Rhok) result(current)
-      use Mlinalg,only: trace
+      use scitools_linalg,only: trace
       integer,intent(in)           :: Nk
       real(dp),intent(in)          :: Avec(3)
       complex(dp),intent(in)       :: Rhok(:,:,:)
@@ -386,7 +385,7 @@ contains
    end function Wann_Current_dia_velo
 !--------------------------------------------------------------------------------------
    subroutine Wann_Current_velo_kpt(nbnd,Nk,vk,Avec,Rhok,Jk)
-      use Mlinalg,only: trace
+      use scitools_linalg,only: trace
       integer,intent(in)     :: nbnd,Nk
       complex(dp),intent(in) :: vk(:,:,:,:)
       real(dp),intent(in)    :: Avec(3)
@@ -406,7 +405,6 @@ contains
    end subroutine Wann_Current_velo_kpt
 !--------------------------------------------------------------------------------------
    function Wann_Current_Intra_velo(w90,Nk,kpts,Rhok) result(Jcurr)
-      use Mlinalg,only: Eye
       type(wann90_tb_t),intent(in) :: w90
       integer,intent(in)           :: Nk
       real(dp),intent(in)          :: kpts(:,:)
@@ -681,7 +679,7 @@ contains
    end function Get_Drhok_Dt_dip
 !--------------------------------------------------------------------------------------
    function Wann_TotalEn_velo(w90,Nk,kpts,Avec,Rhok) result(Etot)
-      use Mlinalg,only: trace
+      use scitools_linalg,only: trace
       type(wann90_tb_t),intent(in) :: w90
       integer,intent(in)           :: Nk
       real(dp),intent(in)          :: kpts(:,:)
@@ -706,7 +704,7 @@ contains
    end function Wann_TotalEn_velo
 !--------------------------------------------------------------------------------------
    function Wann_TotalEn_velo_calc(nbnd,Nk,Hk,vk,Avec,Rhok) result(Etot)
-      use Mlinalg,only: trace
+      use scitools_linalg,only: trace
       integer,intent(in)           :: nbnd,Nk
       complex(dp),intent(in)       :: Hk(:,:,:)
       complex(dp),intent(in)       :: vk(:,:,:,:)

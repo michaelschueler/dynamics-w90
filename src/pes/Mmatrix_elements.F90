@@ -2,15 +2,15 @@ module Mmatrix_elements
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
-   use Mdef,only: dp,iu,zero,one
-   use Mutils,only: linspace
-   use Mquadrature,only: integral_1d
-   use Mspecial,only: spherical_bessel_jn
-   use Mlebedev_quad,only: Lebedev_integral
+   use scitools_def,only: dp,iu,zero,one
+   use scitools_utils,only: linspace
+   use scitools_quadrature,only: integral_1d
+   use scitools_special,only: spherical_bessel_jn
+   use scitools_lebedev_quad,only: Lebedev_integral
+   use scitools_vector_bsplines,only: cplx_vector_spline_t, cplx_matrix_spline_t
    use Mwignerd,only: ylm,ylm_cart
    use Mangcoeff,only: ClebGord,ThreeYlm
    use Mradialwf,only: radialwf_t
-   use Mvector_bsplines,only: cplx_vector_spline_t, cplx_matrix_spline_t
    use Mscattwf,only: scattwf_t
    use Mradialintegral,only: radialinteg_t
    implicit none
@@ -700,7 +700,7 @@ contains
 #ifdef MPI
    subroutine dipole_lambda_BesselTransform_mpi(lmax,lam_dip,swf,kmin,kmax,nk,lam_dip_bessel)
       use mpi
-      use Marray1d_dist,only: dist_array1d_t,GetDisplSize1D 
+      use scitools_array1d_dist,only: dist_array1d_t,GetDisplSize1D 
       real(dp),parameter :: small=1.0e-10_dp
       integer,intent(in)                     :: lmax
       type(cplx_matrix_spline_t),intent(in)  :: lam_dip
@@ -811,14 +811,14 @@ contains
 #endif
 !-------------------------------------------------------------------------------------- 
    function ZGregoryKintegral(f,k,a,b,nsample) result(res)
-      use Mintegration,only: GregoryIntegral
+      use scitools_gregory,only: GregoryIntegral
       real(dp),intent(in) :: k
       real(dp),intent(in) :: a,b
       integer,intent(in),optional :: nsample
       complex(dp) :: res
       interface 
          function f(x) 
-            use Mdef,only: dp
+            use scitools_def,only: dp
             real(dp),intent(in) :: x
             complex(dp) :: f
          end function f

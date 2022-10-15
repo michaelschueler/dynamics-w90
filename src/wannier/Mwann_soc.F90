@@ -2,7 +2,7 @@ module Mwann_soc
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
-   use Mdef,only: dp,iu,zero
+   use scitools_def,only: dp,iu,zero
    use Mham_w90,only: wann90_tb_t
    implicit none
    include "../formats.h"
@@ -61,7 +61,7 @@ contains
 !--------------------------------------------------------------------------------------
 #ifdef WITHHDF5
    subroutine ham_soc_ReadFromHDF5(me,fname)
-      use Mhdf5_utils
+      use scitools_hdf5_utils
       class(ham_soc_t) :: me
       character(len=*),intent(in) :: fname
       integer(HID_t) :: file_id
@@ -99,10 +99,21 @@ contains
 #endif
 !--------------------------------------------------------------------------------------
    subroutine AddSOC_Wannier(soc,lam,w90_nosoc,w90_soc)
-      type(ham_soc_t),intent(in)    :: soc
-      real(dp),intent(in)           :: lam(:)
-      type(wann90_tb_t),intent(in)  :: w90_nosoc
-      type(wann90_tb_t),intent(out) :: w90_soc
+   !! Extends the Hamiltonian \(H(\mathbf{k})\) without spin-orbit coupling (SOC) 
+   !! to a new Hamiltonian \(H_s(\mathbf{k})\) that includes SOC. The new Hamiltonian
+   !! is constructed by
+   !! $$ [H_s(\mathbf{k})]_{\sigma \sigma^\prime} = H(\mathbf{k})\delta_{\sigma \sigma^\prime}
+   !! + \sum^{n_g}_{i=1} \lambda_i \mathbf{s}_{\sigma \sigma^\prime} \cdot \mathbf{L}_i \ . $$
+   !! Here, \(n_g\) is the number of groups of orbitals, where \(\mathbf{L}_i\) is the matrix
+   !! representation of the orbital angular momentum in each orbital subspace with dimension \(N_i\).
+   !! Typically \(N_i = 2l_i  + 1\) where \(l_i\) is the angular momentum of full shell of s,p,d,...
+   !! orbitals. \(\mathbf{s}_{\sigma \sigma^\prime}\) is the vector of Pauli matrices.
+   !! See the script `SOCInput.py` / `SOCInput_txt.py` for how to construct the matrices \(\mathbf{L}_i\).
+      type(ham_soc_t),intent(in)    :: soc !! SOC class storing the matrices \(\mathbf{L}_i\) 
+      real(dp),intent(in)           :: lam(:) !! SOC constants for each group
+      type(wann90_tb_t),intent(in)  :: w90_nosoc !! Wannier Hamiltonian without SOC
+      type(wann90_tb_t),intent(out) :: w90_soc !! Wannier Hamiltonian with SOC. We follow the storage format
+                                               !! of `Wannier90` with `spinors=.true.`.
       integer :: norb,nbnd,i,j,idir,ir
       complex(dp),allocatable :: Hsoc(:,:)
       
@@ -176,9 +187,12 @@ contains
    end subroutine AddSOC_Wannier
 !--------------------------------------------------------------------------------------
    subroutine GetHam_SOC_onsite(soc,lam,H0)
-      type(ham_soc_t),intent(in)    :: soc
-      real(dp),intent(in)           :: lam(:)
-      complex(dp),intent(inout)     :: H0(:,:)
+      !! Generates the on-site atomic SOC term 
+      !! $$H^\mathrm{SOC}_{\sigma \sigma^\prime} = \sum^{n_g}_{i=1} \lambda_i \mathbf{s}_{\sigma \sigma^\prime} \cdot \mathbf{L}_i $$
+      !! (see [[AddSOC_Wannier]]). 
+      type(ham_soc_t),intent(in)    :: soc !! SOC class storing the matrices \(\mathbf{L}_i\) 
+      real(dp),intent(in)           :: lam(:) !! SOC constants for each group
+      complex(dp),intent(inout)     :: H0(:,:) !! atomic SOC term
       integer :: norb,nbnd,ig,imin,imax
       integer,allocatable :: orb_min(:)   
 

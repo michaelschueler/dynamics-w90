@@ -2,11 +2,11 @@ module Mpes_intensity
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
-   use Mdef,only: dp, iu, zero, one, gauss, save_exp
-   use Mutils,only: linspace, stop_error
-   use Mlinalg,only: get_large_size, util_matmul, util_zgemm, EigvalsHE
-   use Mbsplines,only: spline1d_t
-   use Mvector_bsplines,only: cplx_vector_spline_t, cplx_matrix_spline_t
+   use scitools_def,only: dp, iu, zero, one, gauss, save_exp
+   use scitools_utils,only: linspace, stop_error
+   use scitools_linalg,only: get_large_size, util_matmul, util_zgemm, EigvalsHE
+   use scitools_bsplines,only: spline1d_t
+   use scitools_vector_bsplines,only: cplx_vector_spline_t, cplx_matrix_spline_t
    use Mangcoeff,only: Transform_Y2X
    use Mradialwf,only: radialwf_t
    use Mscattwf,only: scattwf_t
@@ -64,7 +64,6 @@ contains
    end subroutine WannOrb_to_RadialWF
 !--------------------------------------------------------------------------------------
    subroutine PES_AtomicIntegrals_lambda(orbs,scwfs,lam,lmax,kmin,kmax,bessel_integ,gauge,Nr,Nk)
-      use Mtime,only: Timer_Tic,Timer_toc
       type(wannier_orbs_t),intent(in) :: orbs
       type(scattwf_t),intent(in)      :: scwfs(:)
       real(dp),intent(in)             :: lam
@@ -239,7 +238,7 @@ contains
 #ifdef MPI
    subroutine PES_AtomicIntegrals_lambda_mpi(orbs,scwfs,lam,lmax,kmin,kmax,bessel_integ,gauge,Nr,Nk)
       use mpi
-      use Marray1d_dist,only: dist_array1d_t,GetDisplSize1D 
+      use scitools_array1d_dist,only: dist_array1d_t,GetDisplSize1D 
       use Mmatrix_elements,only: dipole_lambda_BesselTransform_mpi
       type(wannier_orbs_t),intent(in) :: orbs
       type(scattwf_t),intent(in)      :: scwfs(:)
