@@ -1,6 +1,31 @@
 program wann_prune
 !! Compresses a Wannier Hamiltonian by cutting small hopping amplitudes. 
 !! Output can be written in original Wannier90 or in hdf5 format.
+!! 
+!! ## How to run ##
+!! Run the `wann_prune` program by
+!! ```
+!!    ./exe/wann_prune.x input_file output_file
+!! ```
+!! If no output file is provided as the second argument, the program will run, but
+!! no output will be produced.
+!!
+!! ## Input variables ##
+!! Input variables are read from `input_file` in Fortran name list format. The following
+!! name list tags and variables are read:
+!! ##### HAMILTONIAN #####
+!! * `file_ham` : File name for reading the Hamiltonian. Can be hdf5 format (`*.h5`) or
+!!                Wannier90 format (`*.dat` or `*.tb`)
+!! * `file_xyz` : File name for reading the Wannier centers. Only relevant if the 
+!!                Hamiltonian is given in Wannier90 format. If not provided,
+!!                the Wannier centers are not read and the output Hamiltonian will not
+!!                contain the Wannier centers.
+!! * `energy_thresh`: Threshold for cutting hopping amplitudes. Unit: atomic units.
+!!
+!! ## Output ##
+!! The pruned Hamiltonian will be written to `output_file` (if given). The file extension
+!! is used to determine the file format: `h5` triggers hdf5 output (if compiled with hdf5 support),
+!! otherwise the Wannier90 plain text format is used.
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
@@ -21,10 +46,10 @@ program wann_prune
    integer :: Narg,unit_inp
    character(len=255) :: FlIn,file_out
    ! -- internal variables --
-   real(dp) :: comp_rate
-   type(HamiltonianParams_t) :: par
-   type(wann90_tb_t) :: wann
-   type(wann90_tb_t) :: wann_pruned
+   real(dp) :: comp_rate !! compression rate
+   type(HamiltonianParams_t) :: par !! Collection of input variables
+   type(wann90_tb_t) :: wann !! orginal Hamiltonian 
+   type(wann90_tb_t) :: wann_pruned !! Hamiltonian with pruned hoppings
 !--------------------------------------------------------------------------------------
    call Timer_Act()
    call Timer_Tic('total',1)
