@@ -1,10 +1,10 @@
-module Mio_orbitals
+module io_orbitals
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
    use scitools_def,only: dp,iu,zero
    use scitools_utils,only: get_file_ext, check_file_ext
-   use Mwannier_orbitals,only: wannier_orbs_t
+   use wan_orbitals,only: wannier_orbs_t
    implicit none
    include "../formats.h"
 !--------------------------------------------------------------------------------------  
@@ -37,4 +37,4 @@ contains
 
 
 !======================================================================================
-end module Mio_orbitals
+end module io_orbitals

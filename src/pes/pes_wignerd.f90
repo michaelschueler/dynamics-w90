@@ -1,4 +1,4 @@
-module Mwignerd
+module pes_wignerd
 !======================================================================================
    !! this module contains Wigner-D matrices and spherical harmonics
    use scitools_def,only: dp,iu
@@ -237,4 +237,4 @@ contains
 !------------------------------------------------------------------------
 
 !======================================================================================
-end module Mwignerd
+end module pes_wignerd

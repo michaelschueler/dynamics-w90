@@ -5,11 +5,11 @@ module Mwannier_calc
    use scitools_def,only: dp,iu,zero
    use scitools_utils,only: str
    use scitools_linalg,only: EigH
-   use Mham_w90,only: wann90_tb_t
-   use Mwann_compress,only: PruneHoppings
-   use Mwann_slab,only: Wannier_BulkToSlab
-   use Mio_params,only: WannierCalcParams_t, HamiltonianParams_t
-   use Mio_hamiltonian,only: ReadHamiltonian
+   use wan_hamiltonian,only: wann90_tb_t
+   use wan_compress,only: PruneHoppings
+   use wan_slab,only: Wannier_BulkToSlab
+   use io_params,only: WannierCalcParams_t, HamiltonianParams_t
+   use io_hamiltonian,only: ReadHamiltonian
    implicit none
    include "../formats.h"
 !--------------------------------------------------------------------------------------

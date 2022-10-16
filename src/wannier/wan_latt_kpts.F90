@@ -1,4 +1,4 @@
-module Mlatt_kpts
+module wan_latt_kpts
 !! Provides tools to read k-points from file.
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
@@ -157,4 +157,4 @@ contains
 !--------------------------------------------------------------------------------------
 
 !======================================================================================   
-end module Mlatt_kpts
+end module wan_latt_kpts

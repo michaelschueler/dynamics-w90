@@ -1,4 +1,4 @@
-module Mpes_intensity
+module pes_main
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
@@ -7,15 +7,15 @@ module Mpes_intensity
    use scitools_linalg,only: get_large_size, util_matmul, util_zgemm, EigvalsHE
    use scitools_bsplines,only: spline1d_t
    use scitools_vector_bsplines,only: cplx_vector_spline_t, cplx_matrix_spline_t
-   use Mangcoeff,only: Transform_Y2X
-   use Mradialwf,only: radialwf_t
-   use Mscattwf,only: scattwf_t
-   use Mradialintegral,only: radialinteg_t
-   use Mmatrix_elements,only: ScattMatrixElement_Momentum, ScattMatrixElement_Length, &
+   use pes_angcoeff,only: Transform_Y2X
+   use pes_radialwf,only: radialwf_t
+   use pes_scattwf,only: scattwf_t
+   use pes_radialintegral,only: radialinteg_t
+   use pes_matrix_elements,only: ScattMatrixElement_Momentum, ScattMatrixElement_Length, &
       ApplyDipoleOp, Dipole_lambda_projection, ScattMatrixElement_Lambda, &
       dipole_lambda_BesselTransform
-   use Mwannier_orbitals,only: wannier_orbs_t
-   use Mham_w90,only: wann90_tb_t
+   use wan_orbitals,only: wannier_orbs_t
+   use wan_hamiltonian,only: wann90_tb_t
    implicit none
    include "../formats.h"
 !--------------------------------------------------------------------------------------
@@ -239,7 +239,7 @@ contains
    subroutine PES_AtomicIntegrals_lambda_mpi(orbs,scwfs,lam,lmax,kmin,kmax,bessel_integ,gauge,Nr,Nk)
       use mpi
       use scitools_array1d_dist,only: dist_array1d_t,GetDisplSize1D 
-      use Mmatrix_elements,only: dipole_lambda_BesselTransform_mpi
+      use pes_matrix_elements,only: dipole_lambda_BesselTransform_mpi
       type(wannier_orbs_t),intent(in) :: orbs
       type(scattwf_t),intent(in)      :: scwfs(:)
       real(dp),intent(in)             :: lam
@@ -1073,4 +1073,4 @@ contains
 !--------------------------------------------------------------------------------------
 
 !======================================================================================
-end module Mpes_intensity
+end module pes_main

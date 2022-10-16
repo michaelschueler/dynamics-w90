@@ -1,8 +1,8 @@
-module Mwann_compress
+module wan_compress
 !====================================================================================== 
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use scitools_def,only: dp
-   use Mham_w90,only: wann90_tb_t
+   use wan_hamiltonian,only: wann90_tb_t
    implicit none
 !--------------------------------------------------------------------------------------
    private
@@ -66,4 +66,4 @@ contains
 !--------------------------------------------------------------------------------------
 
 !======================================================================================   
-end module Mwann_compress
+end module wan_compress

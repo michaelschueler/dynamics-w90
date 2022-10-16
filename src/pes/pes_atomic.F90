@@ -1,4 +1,5 @@
-module Matomic
+module pes_atomic
+!! Contains the definition of hydrogen-like atomic radial wave-functions.
 !======================================================================================
    use Mdebug
    use scitools_def,only: dp,zero,iu,one
@@ -10,11 +11,13 @@ module Matomic
 contains
 !--------------------------------------------------------------------------------------
    elemental function SlaterWF_radial(r,Z,n,l,lam_z) result(Rrad)
+   !! Slater-type atomic radial wave-function \(R_{nl}(r)\)
       character(len=1),parameter ::  angular(0:3)=['s','p','d','f']
-      real(dp),intent(in)          :: r
-      real(dp),intent(in)          :: Z
-      integer,intent(in)           :: n,l
-      real(dp),intent(in),optional :: lam_z
+      real(dp),intent(in)          :: r !! radial distance
+      real(dp),intent(in)          :: Z !! charge of nucleus
+      integer,intent(in)           :: n !! principal quantum number
+      integer,intent(in)           :: l !! angular momentum quantum number
+      real(dp),intent(in),optional :: lam_z !! suppression of the type \(R_{nl}(r)\rightarrow R_{nl}(r)e^{-\lambda z}\)
       real(dp)                     :: Rrad
       real(dp) :: lam_z_
       real(dp) :: rho,Expr
@@ -72,11 +75,13 @@ contains
    end function SlaterWF_radial
 !--------------------------------------------------------------------------------------
    elemental function SlaterWF_radial_deriv(r,Z,n,l,lam_z) result(Rrad)
+    !! Derivative \(dR_{nl}(r)/dr\) Slater-type atomic radial wave-function \(R_{nl}(r)\)
       character(len=1),parameter ::  angular(0:3)=['s','p','d','f']
-      real(dp),intent(in)          :: r
-      real(dp),intent(in)          :: Z
-      integer,intent(in)           :: n,l
-      real(dp),intent(in),optional :: lam_z
+      real(dp),intent(in)          :: r !! radial distance
+      real(dp),intent(in)          :: Z !! charge of nucleus
+      integer,intent(in)           :: n !! principal quantum number
+      integer,intent(in)           :: l !! angular momentum quantum number
+      real(dp),intent(in),optional :: lam_z !! suppression of the type \(R_{nl}(r)\rightarrow R_{nl}(r)e^{-\lambda z}\)
       real(dp)                     :: Rrad
       real(dp) :: lam_z_
       real(dp) :: rho,Prho,dPdrho,Expr
@@ -158,4 +163,4 @@ contains
 !--------------------------------------------------------------------------------------
 
 !======================================================================================
-end module Matomic
+end module pes_atomic

@@ -4,14 +4,14 @@ include_directories(
 
 set(OBJECT_FILES
 	COUL90.f
-	Mangcoeff.F90
-	Matomic.F90
-	Mmatrix_elements.F90
-	Mradialwf.F90
-	Mscattwf.F90
-	Mwignerd.f90
-	Mradialintegral.F90
-	Mpes_intensity.F90
+	pes_angcoeff.F90
+	pes_atomic.F90
+	pes_matrix_elements.F90
+	pes_radialwf.F90
+	pes_scattwf.F90
+	pes_wignerd.f90
+	pes_radialintegral.F90
+	pes_main.F90
 )
 
 add_library(pes OBJECT ${OBJECT_FILES})

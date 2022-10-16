@@ -7,10 +7,10 @@ program wann_soc
    use scitools_time,only: Timer_act, Timer_Tic, Timer_Toc
    use scitools_utils,only: print_title, print_header, get_file_ext, check_file_ext, str, &
       stop_error
-   use Mham_w90,only: wann90_tb_t
-   use Mwann_soc,only: ham_soc_t, AddSOC_Wannier
-   use Mio_params,only: HamiltonianParams_t
-   use Mio_hamiltonian,only: ReadHamiltonian, WriteHamiltonian, Read_SOC_Hamiltonian,&
+   use wan_hamiltonian,only: wann90_tb_t
+   use wan_soc,only: ham_soc_t, AddSOC_Wannier
+   use io_params,only: HamiltonianParams_t
+   use io_hamiltonian,only: ReadHamiltonian, WriteHamiltonian, Read_SOC_Hamiltonian,&
       Read_SOC_lambda
    implicit none
    include '../formats.h'

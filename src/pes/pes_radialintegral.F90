@@ -1,12 +1,12 @@
-module Mradialintegral
+module pes_radialintegral
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
    use scitools_def,only: dp
    use scitools_bsplines,only: spline1d_t
    use scitools_quadrature,only: integral_1d
-   use Mradialwf,only: radialwf_t
-   use Mscattwf,only: scattwf_t
+   use pes_radialwf,only: radialwf_t
+   use pes_scattwf,only: scattwf_t
    implicit none
    include "../formats.h"
 !--------------------------------------------------------------------------------------
@@ -289,4 +289,4 @@ contains
 !--------------------------------------------------------------------------------------
 
 !======================================================================================
-end module Mradialintegral
+end module pes_radialintegral

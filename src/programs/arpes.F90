@@ -6,9 +6,9 @@ program arpes
    use scitools_def,only: dp,zero
    use scitools_time,only: Timer_act, Timer_Tic, Timer_Toc
    use scitools_utils,only: print_title, print_header
-   use Mlatt_kpts,only: Read_Kpoints
+   use wan_latt_kpts,only: Read_Kpoints
    use Marpes_calc,only: arpes_calc_t
-   use Mio_params,only: HamiltonianParams_t, PESParams_t
+   use io_params,only: HamiltonianParams_t, PESParams_t
    implicit none
    include '../formats.h'
 !--------------------------------------------------------------------------------------

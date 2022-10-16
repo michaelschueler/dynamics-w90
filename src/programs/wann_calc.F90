@@ -7,11 +7,11 @@ program wann_calc
    use scitools_def,only: dp,zero
    use scitools_time,only: Timer_act, Timer_Tic, Timer_Toc
    use scitools_utils,only: print_title, print_header
-   use Mlatt_kpts,only: Read_Kpoints
+   use wan_latt_kpts,only: Read_Kpoints
    use Mwannier_calc,only: wannier_calc_t
-   use Mio_params,only: HamiltonianParams_t, WannierCalcParams_t
-   use Mio_obs,only: WannierCalcOutput_t
-   use Mio_hamiltonian,only: ReadHamiltonian, WriteHamiltonian
+   use io_params,only: HamiltonianParams_t, WannierCalcParams_t
+   use io_obs,only: WannierCalcOutput_t
+   use io_hamiltonian,only: ReadHamiltonian, WriteHamiltonian
    implicit none
    include '../formats.h'
 !--------------------------------------------------------------------------------------

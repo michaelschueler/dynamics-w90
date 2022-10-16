@@ -1,9 +1,9 @@
-module Mwann_slab
+module wan_slab
 !======================================================================================
    use Mdebug
    use scitools_def,only: dp,zero
-   use Mlatt_utils,only: utility_recip_lattice, utility_recip_reduced
-   use Mham_w90,only: wann90_tb_t
+   use wan_latt_utils,only: utility_recip_lattice, utility_recip_reduced
+   use wan_hamiltonian,only: wann90_tb_t
    implicit none
    include "../formats.h"
 !--------------------------------------------------------------------------------------
@@ -166,4 +166,4 @@ contains
 !--------------------------------------------------------------------------------------
 
 !======================================================================================
-end module Mwann_slab
+end module wan_slab

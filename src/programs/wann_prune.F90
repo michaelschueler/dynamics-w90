@@ -7,10 +7,10 @@ program wann_prune
    use scitools_def,only: dp,zero
    use scitools_time,only: Timer_act, Timer_Tic, Timer_Toc
    use scitools_utils,only: print_title, print_header, get_file_ext, check_file_ext, str
-   use Mham_w90,only: wann90_tb_t
-   use Mwann_compress,only: PruneHoppings
-   use Mio_params,only: HamiltonianParams_t
-   use Mio_hamiltonian,only: ReadHamiltonian, WriteHamiltonian
+   use wan_hamiltonian,only: wann90_tb_t
+   use wan_compress,only: PruneHoppings
+   use io_params,only: HamiltonianParams_t
+   use io_hamiltonian,only: ReadHamiltonian, WriteHamiltonian
    implicit none
    include '../formats.h'
 !--------------------------------------------------------------------------------------

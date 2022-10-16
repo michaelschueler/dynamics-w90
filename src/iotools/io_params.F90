@@ -1,4 +1,5 @@
-module Mio_params
+module io_params
+!! This module provides high-level tools for reading input parameters for the various programs.
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
@@ -240,4 +241,4 @@ contains
 
 
 !====================================================================================== 
-end module Mio_params
+end module io_params

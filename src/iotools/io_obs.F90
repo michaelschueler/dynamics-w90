@@ -1,4 +1,4 @@
-module Mio_obs
+module io_obs
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
@@ -11,6 +11,7 @@ module Mio_obs
    include "../formats.h"  
 !--------------------------------------------------------------------------------------
    type WannierCalcOutput_t
+   !! Class for output of [[wann_calc]]. Controls which output is written to file.
       logical            :: calc_orbweight=.false.
       logical            :: calc_spin=.false.
       logical            :: calc_berry=.false.
@@ -48,86 +49,100 @@ module Mio_obs
    public :: WannierCalcOutput_t, SaveTDObs, SaveTDOccupation
 
    interface SaveTDObs
+   !! Interface for saving observables from a time-dependent run with [[wann_evol]].
+   !! Automatically selects the relevant observables based on the gauge of the light-matter coupling
       module procedure SaveTDObs_velo, SaveTDObs_dip
    end interface SaveTDObs
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
    subroutine wann_calc_AddEpsk(me,epsk)
+   !! Adds the band structure to the output
       class(WannierCalcOutput_t) :: me
-      real(dp),target,intent(in) :: epsk(:,:)
+      real(dp),target,intent(in) :: epsk(:,:) !! band structure, dimensions `[nbnd,nk]`
 
       me%epsk => epsk
 
    end subroutine wann_calc_AddEpsk
 !--------------------------------------------------------------------------------------
    subroutine wann_calc_AddKpts(me,kpts)
+   !! Adds the k-points used in the calculation to the output
       class(WannierCalcOutput_t) :: me
-      real(dp),target,intent(in) :: kpts(:,:)
+      real(dp),target,intent(in) :: kpts(:,:) !! k-points
 
       me%kpts => kpts
 
    end subroutine wann_calc_AddKpts
 !--------------------------------------------------------------------------------------
    subroutine wann_calc_AddOrbWeight(me,orb_weight)
+   !! Adds the orbital weight of each Wannier function to the output
       class(WannierCalcOutput_t) :: me
-      real(dp),target,intent(in) :: orb_weight(:,:,:)
+      real(dp),target,intent(in) :: orb_weight(:,:,:) !! orbital weight, dimension `[nwan,nwan,nk]`
 
       me%orb_weight => orb_weight
 
    end subroutine wann_calc_AddOrbWeight
 !--------------------------------------------------------------------------------------
    subroutine wann_calc_AddSpin(me,spin)
+   !! Adds the spin texture to the output
       class(WannierCalcOutput_t) :: me
-      real(dp),target,intent(in) :: spin(:,:,:)
+      real(dp),target,intent(in) :: spin(:,:,:) !! spin texture, dimension `[nwan,3,nk]`
 
       me%spin => spin
 
    end subroutine wann_calc_AddSpin
 !--------------------------------------------------------------------------------------
    subroutine wann_calc_AddBerry(me,berry)
+   !! Adds the Berry curvature to the output
       class(WannierCalcOutput_t) :: me
-      real(dp),target,intent(in) :: berry(:,:,:)
+      real(dp),target,intent(in) :: berry(:,:,:) !! Berry curvature, dimension `[nwan,3,nk]`
 
       me%berry => berry
 
    end subroutine wann_calc_AddBerry
 !--------------------------------------------------------------------------------------
    subroutine wann_calc_AddSpinBerry(me,spin_berry)
+   !! Adds the spin Berry curvature to the output
       class(WannierCalcOutput_t) :: me
-      real(dp),target,intent(in) :: spin_berry(:,:,:,:)
+      real(dp),target,intent(in) :: spin_berry(:,:,:,:) !! spin Berry curvature, dimension `[nwan,3,3,nk]`
 
       me%spin_berry => spin_berry
 
    end subroutine wann_calc_AddSpinBerry
 !--------------------------------------------------------------------------------------
    subroutine wann_calc_AddOAM(me,oam)
+   !! Adds the orbital angular momentum (OAM) texture to the output
       class(WannierCalcOutput_t) :: me
-      real(dp),target,intent(in) :: oam(:,:,:)
+      real(dp),target,intent(in) :: oam(:,:,:) !! OAM, dimension `[nwan,3,nk]`
 
       me%oam => oam
 
    end subroutine wann_calc_AddOAM
 !--------------------------------------------------------------------------------------
    subroutine wann_calc_AddMetric(me,metric)
+   !! Adds the quantum metric to the output
       class(WannierCalcOutput_t) :: me
-      real(dp),target,intent(in) :: metric(:,:,:,:)
+      real(dp),target,intent(in) :: metric(:,:,:,:) !! quantum metric, dimension `[nwan,3,3,nk]`
 
       me%metric => metric
 
    end subroutine wann_calc_AddMetric
 !--------------------------------------------------------------------------------------
    subroutine wann_calc_AddEvecs(me,evecs)
+   !! Adds the full eigenvectors at each k-point to the output
       class(WannierCalcOutput_t) :: me
-      complex(dp),target,intent(in) :: evecs(:,:,:)
+      complex(dp),target,intent(in) :: evecs(:,:,:) !! eigenvectors, dimension `[nwan,nwan,nk]`
 
       me%evecs => evecs
 
    end subroutine wann_calc_AddEvecs
 !--------------------------------------------------------------------------------------
    subroutine wann_calc_SaveToFile_txt(me,prefix)
+   !! Stores the output selected by the `wann_calc_AddXXX` routines to plain text file.
       class(WannierCalcOutput_t) :: me
-      character(len=*),intent(in) :: prefix
+      character(len=*),intent(in) :: prefix !! Prefix of output file name. The output files will
+                                            !! be named `prefix_XXX.txt`, where `XXX` denotes the
+                                            !! specific output quantity.
       integer :: nbnd,nwan,nk,i
       real(dp),allocatable :: rdata(:,:)
       character(len=256) :: fout
@@ -234,8 +249,10 @@ contains
 !--------------------------------------------------------------------------------------
 #ifdef WITHHDF5
    subroutine wann_calc_SaveToFile_hdf5(me,prefix)
+   !! Stores the output selected by the `wann_calc_AddXXX` routines to hdf5.
       class(WannierCalcOutput_t) :: me
-      character(len=*),intent(in) :: prefix
+      character(len=*),intent(in) :: prefix !! Prefix of output file name. Output will be
+                                            !! written to `prefix_wann_calc.h5`.
       integer :: nbnd,nwan,nk,i
       integer(HID_t) :: file_id
       real(dp),allocatable :: rdata(:,:,:)
@@ -291,8 +308,13 @@ contains
 #endif
 !--------------------------------------------------------------------------------------
    subroutine wann_calc_SaveToFile(me,prefix)
+   !! High-level interface to store the output selected by the `wann_calc_AddXXX` routines
+   !! to file. If `dynamics-w90` has been build with hdf5 support, the output will be 
+   !! written in hdf5 format; otherwise, plain text format is used.
       class(WannierCalcOutput_t) :: me
-      character(len=*),intent(in) :: prefix
+      character(len=*),intent(in) :: prefix !! Prefix of output file name. Dependening
+                                            !! on the output format, a single hdf5 file or
+                                            !! multiple plain text files will be written.
 
 #ifdef WITHHDF5
       call me%SaveToFile_hdf5(prefix)
@@ -551,4 +573,4 @@ contains
 !--------------------------------------------------------------------------------------
 
 !======================================================================================
-end module Mio_obs
+end module io_obs

@@ -1,9 +1,9 @@
-module Mwann_dyn
+module wan_dyn
 !======================================================================================
    use scitools_def,only: dp, zero, iu, nfermi
    use scitools_linalg,only: Eigh,util_rotate,util_rotate_cc,get_large_size
    use scitools_evol,only: GenU_CF2,GenU_CF4,UnitaryStepFBW
-   use Mham_w90,only: wann90_tb_t
+   use wan_hamiltonian,only: wann90_tb_t
    implicit none
 !--------------------------------------------------------------------------------------
    private
@@ -837,4 +837,4 @@ contains
 !--------------------------------------------------------------------------------------
 
 !======================================================================================
-end module Mwann_dyn
+end module wan_dyn

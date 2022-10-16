@@ -1,9 +1,9 @@
-module Mwann_soc
+module wan_soc
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
    use scitools_def,only: dp,iu,zero
-   use Mham_w90,only: wann90_tb_t
+   use wan_hamiltonian,only: wann90_tb_t
    implicit none
    include "../formats.h"
    include "../units_inc.f90"
@@ -235,4 +235,4 @@ contains
 !--------------------------------------------------------------------------------------
 
 !======================================================================================
-end module Mwann_soc
+end module wan_soc

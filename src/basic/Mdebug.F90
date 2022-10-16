@@ -1,5 +1,4 @@
 module Mdebug
-!======================================================================================
 !! Provides tools for debugging. The debug checks are disabled if compiled in release
 !! mode, which is trigged by the precompiler flag -DNDEBUG
 !======================================================================================

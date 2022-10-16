@@ -1,4 +1,4 @@
-module Mangcoeff
+module pes_angcoeff
 !======================================================================================
    use scitools_def,only: dp,iu,zero,one
    implicit none
@@ -225,4 +225,4 @@ contains
 
 
 !======================================================================================
-end module Mangcoeff
+end module pes_angcoeff

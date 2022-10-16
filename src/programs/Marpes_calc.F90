@@ -5,20 +5,20 @@ module Marpes_calc
    use scitools_def,only: dp,iu,zero
    use scitools_utils,only: str, linspace, savetxt
    use scitools_vector_bsplines,only: cplx_matrix_spline_t
-   use Mlatt_utils,only: utility_Cart2Red_2D
-   use Mham_w90,only: wann90_tb_t
-   use Mwann_compress,only: PruneHoppings
-   use Mwann_slab,only: Wannier_BulkToSlab
-   use Mwannier_orbitals,only: wannier_orbs_t
-   use Mradialwf,only: radialwf_t
-   use Mscattwf,only: scattwf_t
-   use Mradialintegral,only: radialinteg_t
-   use Mmatrix_elements,only: 
-   use Mpes_intensity,only: PES_Intensity, PES_Slab_Intensity, &
+   use wan_latt_utils,only: utility_Cart2Red_2D
+   use wan_hamiltonian,only: wann90_tb_t
+   use wan_compress,only: PruneHoppings
+   use wan_slab,only: Wannier_BulkToSlab
+   use wan_orbitals,only: wannier_orbs_t
+   use pes_radialwf,only: radialwf_t
+   use pes_scattwf,only: scattwf_t
+   use pes_radialintegral,only: radialinteg_t
+   use pes_matrix_elements,only: 
+   use pes_main,only: PES_Intensity, PES_Slab_Intensity, &
       PES_AtomicIntegrals_lambda
-   use Mio_params,only: HamiltonianParams_t, PESParams_t
-   use Mio_hamiltonian,only: ReadHamiltonian
-   use Mio_orbitals,only: ReadWannierOrbitals
+   use io_params,only: HamiltonianParams_t, PESParams_t
+   use io_hamiltonian,only: ReadHamiltonian
+   use io_orbitals,only: ReadWannierOrbitals
    implicit none
    include "../formats.h"
 !--------------------------------------------------------------------------------------

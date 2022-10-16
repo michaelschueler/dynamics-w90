@@ -1,4 +1,4 @@
-module Mwannier_orbitals
+module wan_orbitals
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
@@ -130,4 +130,4 @@ contains
 
 
 !======================================================================================    
-end module Mwannier_orbitals
+end module wan_orbitals

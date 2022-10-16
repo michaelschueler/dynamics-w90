@@ -3,10 +3,10 @@ include_directories(
   )
 
 set(OBJECT_FILES
-    Mio_params.F90
-		Mio_obs.F90
-		Mio_hamiltonian.F90
-    Mio_orbitals.F90
+    io_params.F90
+		io_obs.F90
+		io_hamiltonian.F90
+    io_orbitals.F90
 )
 
 add_library(iotools OBJECT ${OBJECT_FILES})

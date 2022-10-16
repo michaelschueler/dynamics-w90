@@ -5,8 +5,8 @@ module Mwann_evol
    use scitools_def,only: dp,iu,one,zero,nfermi
    use scitools_linalg,only: get_large_size,util_matmul,util_rotate,util_rotate_cc
    use scitools_rungekutta,only: ODE_step_rk5
-   use Mham_w90,only: wann90_tb_t
-   use Mwann_dyn
+   use wan_hamiltonian,only: wann90_tb_t
+   use wan_dyn
    implicit none
    include '../formats.h'
    include '../units_inc.f90'

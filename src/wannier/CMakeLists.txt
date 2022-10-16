@@ -3,16 +3,15 @@ include_directories(
  )
 
 set(OBJECT_FILES
-    Mlatt.f90
-    Mread_xyz.F90
-    Mham_w90.F90
-    Mlatt_utils.f90
-    Mlatt_kpts.F90
-    Mwann_compress.F90
-    Mwann_dyn.F90
-    Mwann_slab.F90
-    Mwann_soc.F90
-    Mwannier_orbitals.F90
+    wan_read_xyz.F90
+    wan_hamiltonian.F90
+    wan_latt_utils.f90
+    wan_latt_kpts.F90
+    wan_compress.F90
+    wan_dyn.F90
+    wan_slab.F90
+    wan_soc.F90
+    wan_orbitals.F90
 )
 
 # ~~ Installation targets ~~

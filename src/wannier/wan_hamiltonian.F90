@@ -1,11 +1,11 @@
-module Mham_w90
+module wan_hamiltonian
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
    use scitools_def,only: dp,iu,zero,one
    use scitools_linalg,only: get_large_size,util_zgemm,util_matmul,util_rotate,util_rotate_cc
-   use Mlatt_utils,only: utility_recip_lattice, utility_recip_reduced
-   use Mread_xyz,only: ReadXYZ
+   use wan_latt_utils,only: utility_recip_lattice, utility_recip_reduced
+   use wan_read_xyz,only: ReadXYZ
    implicit none
    include '../units_inc.f90'
    include '../formats.h'
@@ -1768,4 +1768,4 @@ contains
 !--------------------------------------------------------------------------------------
 
 !======================================================================================
-end module Mham_w90
+end module wan_hamiltonian

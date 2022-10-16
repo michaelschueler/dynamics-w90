@@ -1,4 +1,4 @@
-module Mio_hamiltonian
+module io_hamiltonian
 !! Provides generic interfaces for in/output the Wannier Hamiltonian in `Wannier90`
 !! or hdf5 format. Provides also tools for reading spin-orbit coupling parameters from file.
 !======================================================================================
@@ -6,8 +6,8 @@ module Mio_hamiltonian
    use Mdebug
    use scitools_def,only: dp,iu,zero
    use scitools_utils,only: get_file_ext, check_file_ext
-   use Mham_w90,only: wann90_tb_t
-   use Mwann_soc,only: ham_soc_t
+   use wan_hamiltonian,only: wann90_tb_t
+   use wan_soc,only: ham_soc_t
    implicit none
    include "../formats.h"
 !--------------------------------------------------------------------------------------  
@@ -120,4 +120,4 @@ contains
 
 
 !======================================================================================
-end module Mio_hamiltonian
+end module io_hamiltonian
