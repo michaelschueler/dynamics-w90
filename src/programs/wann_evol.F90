@@ -1,6 +1,84 @@
 program wann_evol
 !! Computes the time-dependent dynamics of an electron system described by a 
 !! Wannier Hamiltonian upon laser excitation and computes various observables.
+!!
+!! ## Description ##
+!!
+!! Computes the time evolution of the density matrix \(\rho(\mathbf{k},t)\) in the
+!! presence of an external electric field \(\mathbf{E}(t)\) (dipole approximation).
+!! The evolution can treated as fully coherent or as dissipative. 
+!! The initial state \(\rho_\mathrm{eq}(\mathbf{k},t)\) is computed in thermal equilibrium.
+!! 
+!! In the coherent case the evolution is computed by the unitary time-stepping 
+!! $$\rho(\mathbf{k},t_{n+1}) = U(\mathbf{k},t_{n+1},t_n) \rho(\mathbf{k},t_{n}) 
+!! U^\dagger(\mathbf{k},t_{n+1},t_n), $$ 
+!! where \(U(\mathbf{k},t_{n+1},t_n)\) is the time-evolution operator for time step 
+!! \(t_{n+1} = t_n + \Delta t\). We use the 4th order commutator-free method from
+!! [J. Comp. Phys. 230, 5930 (2011)](http://www.sciencedirect.com/science/article/pii/S0021999111002300).
+!!
+!! In the dissipative case we solve 
+!! $$ \frac{d}{dt}\rho(\mathbf{k},t) = -i [H(\mathbf{k},t),\rho(\mathbf{k},t) ] + D[\rho(\mathbf{k},t)] $$
+!! as an ODE using the 5th order Runge-Kutta-Fehlberg method. The dissipation term is given by
+!! $$D[\rho(\mathbf{k},t)] = \frac{\rho(\mathbf{k},t) - \rho_\mathrm{eq}(\mathbf{k})}{T_1} 
+!! + \left(\frac{1}{T_1} - \frac{1}{T_2}\right) \rho_\mathrm{off}(\mathbf{k},t) , $$ 
+!! where \(\rho_\mathrm{off}(\mathbf{k},t)\) is a purely off-diagonal matrix in the basis of the
+!! instantaneous Hamiltonian \(H(\mathbf{k},t)\) (Houston basis).
+!!
+!! The time-dependent Hamiltonian \(H(\mathbf{k},t)\) is constructed in velocity gauge (VG) or dipole gauge (DG).
+!! In case of VG, both the Hamiltonian and the density matrix are presented in the band basis, while
+!! the basis of Wannier orbitals is used in the DG. Check 
+!! [Phys. Rev. B 103, 1155409 (2021)](https://link.aps.org/doi/10.1103/PhysRevB.103.155409) 
+!! for more details.
+!!
+!! ## How to run ##
+!! Run the `wann_evol` program by
+!! ```
+!!    ./exe/wann_evol.x input_file output_prefix
+!! ```
+!! If no output file is provided as the second argument, the program will run, but
+!! no output will be produced.
+!!
+!! @Note OpenMP parallization is used for some internal routines. Set `OMP_NUM_THREADS` 
+!!       to control the number of threads used.
+!!
+!! ## Input variables ##
+!! Input variables are read from `input_file` in Fortran name list format. The following
+!! name list tags and variables are read:
+!! #### SYSPARAMS ####
+!! * `MuChem`: the chemical potential (a.u.)
+!! * `FixMuChem`: if `.true.`, the input chemical potential will be used. Otherwise the 
+!!    chemical potential will be recalculated to match the given filling.
+!! * `Filling`: Filling of the bands, corresponding to the total number of electrons per unit cell 
+!!   (per spin without SOC).
+!! * `Beta`: inverse temperature (a.u.)
+!! * `file_ham`: File with the Wannier Hamiltonian. This is the `_tb.dat` file obtained from Wannier90,
+!!               or an hdf5 file procuded by [[wann_prune]] or [[wann_soc]].
+!! * `gauge`: Velocity gauge (`gauge=0`), dipole gauge (`gauge=1`), empirical velocity gauge (`gauge=3`), 
+!!    Peierls substitution (`gauge=4`)
+!! * `Output_Occ_KPTS`: If `.true.`, the momentum-dependent band occupation will be written to file.
+!!                      This can produce large output file size; hdf5 support is recommended.
+!!
+!! #### TIMEPARAMS ####
+!! * `Nt`: The number of time steps.
+!! * `Tmax`: The propagation time (a.u.)
+!! * `output_step`: Calculate observables every `output_step` time steps.
+!! * `relaxation_dynamics`: If set to `.true`, the equation of motion for the density matrix with
+!!                          phenomenological damping `T1_relax` and decoherence `T2_relax` will be solved.
+!! * `T1_relax`: diagonal relaxation towards the instantaneous equilibrium density matrix.
+!! * `T2_relax`: decay time of off-diagonal elements of the density matrix.
+!! * `file_field`: Data file with three-dimensional electric field. The following format is expected: 
+!!    time (1st column), Ex (2nd column), Ey (3rd column), Ez (4th column). 
+!!    The time and field strength is expected in atomic units.
+!! 
+!! #### KPOINTS ####
+!! Specification of the k-points, which can be along a path, a Monkhorst-Pack grid, or a user-supplied. 
+!! See [[Read_Kpoints]] for details.
+!!
+!! ## Output ##
+!! If compiled with HDF5 support, after running the code the hdf5 file `output_prefix_observables.h5` will be produced. 
+!! The observables can be plotted by using the script `python_utils/plot_obs.h5`.
+!! Without HDF5 support there will be several output files `output_prefix_etot.txt`, `out/output_prefix_curr.txt` 
+!! etc. that can directly be plotted or read by numpy's `loadtxt`.
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use omp_lib
@@ -35,9 +113,9 @@ program wann_evol
    !......................................
    logical  :: relaxation_dynamics=.false.
    integer  :: Nt,output_step=1
-   real(dp) :: Tmax,tstart=0.0_dp,T1_relax=1.0e10_dp,T2_relax=1.0e10_dp
+   real(dp) :: Tmax,T1_relax=1.0e10_dp,T2_relax=1.0e10_dp
       character(len=255) :: file_field=""
-   namelist/TIMEPARAMS/Nt,Tmax,output_step,tstart,relaxation_dynamics,T1_relax,T2_relax,&
+   namelist/TIMEPARAMS/Nt,Tmax,output_step,relaxation_dynamics,T1_relax,T2_relax,&
       file_field
    !......................................
    ! -- internal variables --

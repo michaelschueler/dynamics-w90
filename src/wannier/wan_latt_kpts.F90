@@ -17,15 +17,34 @@ contains
 !--------------------------------------------------------------------------------------
    subroutine Read_Kpoints(fname,kpts,print_info,root_tag)
    !! Reads k-points from file. There are three formats of specifying k-points:
-   !! 1) A row-by-row list of points. Triggered by `kpoints_type="list"`.
-   !! 2) A path specified by the special points and the number of points in between.
-   !! Triggerd by `kpoints_type="path"`.
-   !! 3) A grid covering the full Brillouin zone. Triggerd by `kpoints_type="grid"`.
-   !! In this case the number of points along the reciprocal lattice directions `nk1`, `nk2`, `nk3`
-   !! is read from the `KPOINTS` name list.
+   !!
+   !! * A row-by-row list of points. Triggered by `kpoints_type="list"`.
+   !! * A path specified by the special points and the number of points in between.
+   !!   Triggerd by `kpoints_type="path"`.
+   !! * A grid covering the full Brillouin zone. Triggerd by `kpoints_type="grid"`.
+   !! 
+   !! If `kpoints_type="list"` the code expects a list of k-points with kx (1st column),
+   !! ky (2nd column), and kz (3d column). Input in reduced coordinates is expected.
+   !! If `kpoints_type="path"` a path in k-space will be constructed from the input. 
+   !! The `file_kpts` file has the following format:
+   !! ```
+   !!    npoints ndim
+   !!    nseg1 nseg2 ...
+   !!    point1 
+   !!    point2
+   !!    ..
+   !! ```
+   !! Here, `npoints` is the number of points to pass through, while `nseg1` is the number 
+   !! of segments between `point1` and `point2` and so on. Below the special points are listed.
+   !! 
+   !! 
+   !! For `kpoints_type="grid"`, the number of points along the reciprocal lattice directions 
+   !! `nk1`, `nk2`, `nk3` is read from the `KPOINTS` name list.
       character(len=*),intent(in) :: fname !! name of the input file containing the `KPOINTS` name list
       real(dp),allocatable,intent(out) :: kpts(:,:) !! the k-points read from file
-      logical,intent(in),optional :: print_info,root_tag
+      logical,intent(in),optional :: print_info !! if `.true.`, some basic info about the k-points is written
+      logical,intent(in),optional :: root_tag !! prints the k-point info only if `root_tag=.true.`. 
+                                              !! Useful for calls in an MPI program.
       logical :: info_,root_
       character(len=32)  :: kpoints_type="grid"
       character(len=255) :: file_kpts=""
