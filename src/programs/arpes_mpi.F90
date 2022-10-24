@@ -1,6 +1,15 @@
 program arpes_mpi
 !! Computes angle-resolved photoemission spectrum from Wannier functions. 
 !! MPI parallelized version.
+!!
+!! ## Description ##
+!! Computes the photoemission intensity
+!! $$I(\mathbf{k},E) = \sum_{\alpha} |M_\alpha(\mathbf{k},E)| g(\varepsilon_\alpha(\mathbf{k}) + 
+!! \omega - E) , $$
+!! where \(M_\alpha(\mathbf{k},E)\) is the photoemission matrix element, while
+!! \(g(\varepsilon)\) is Gaussian function representing (approximate) energy conservation.
+!! 
+!! 
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use mpi
@@ -43,7 +52,6 @@ program arpes_mpi
 !--------------------------------------------------------------------------------------
 !                               ++  Read input ++
 !--------------------------------------------------------------------------------------
-   ! call Timer_Tic('Initialize calculation', 2)
    tic = MPI_Wtime()
    Narg=command_argument_count()
    if(Narg >= 1) then
