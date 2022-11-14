@@ -4,6 +4,8 @@ program wann_soc
 !! \(H_{m\mathbf{R},m^\prime\mathbf{R}^\prime}\).
 !!
 !! ## Description ##
+!! The new Wannier Hamiltonian including SOC is constructed as
+!! 
 !! $$H^\mathrm{SOC}_{m\sigma\mathbf{R},m^\prime\sigma^\prime\mathbf{R}^\prime} = H_{m\mathbf{R},m^\prime\mathbf{R}^\prime} 
 !! \delta_{\sigma \sigma^\prime}
 !!  + \delta_{\mathbf{R},\mathbf{R}^\prime} \sum^{n_g}_{i=1} \lambda_i 
