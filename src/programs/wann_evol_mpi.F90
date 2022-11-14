@@ -20,7 +20,7 @@ program wann_evol_mpi
 !! In the dissipative case we solve 
 !! $$ \frac{d}{dt}\rho(\mathbf{k},t) = -i [H(\mathbf{k},t),\rho(\mathbf{k},t) ] + D[\rho(\mathbf{k},t)] $$
 !! as an ODE using the 5th order Runge-Kutta-Fehlberg method. The dissipation term is given by
-!! $$D[\rho(\mathbf{k},t)] = \frac{\rho(\mathbf{k},t) - \rho_\mathrm{eq}(\mathbf{k})}{T_1} 
+!! $$D[\rho(\mathbf{k},t)] = \frac{\rho(\mathbf{k},t) - \rho_\mathrm{eq}(\mathbf{k},t)}{T_1} 
 !! + \left(\frac{1}{T_1} - \frac{1}{T_2}\right) \rho_\mathrm{off}(\mathbf{k},t) , $$ 
 !! where \(\rho_\mathrm{off}(\mathbf{k},t)\) is a purely off-diagonal matrix in the basis of the
 !! instantaneous Hamiltonian \(H(\mathbf{k},t)\) (Houston basis).

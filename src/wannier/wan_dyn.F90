@@ -1,7 +1,7 @@
 module wan_dyn
 !======================================================================================
    use scitools_def,only: dp, zero, iu, nfermi
-   use scitools_linalg,only: Eigh,util_rotate,util_rotate_cc,get_large_size
+   use scitools_linalg,only: Eigh,util_matmul,util_rotate,util_rotate_cc,get_large_size
    use scitools_evol,only: GenU_CF2,GenU_CF4,UnitaryStepFBW
    use wan_hamiltonian,only: wann90_tb_t
    implicit none
@@ -628,19 +628,32 @@ contains
    end function Wann_Current_dip
 !--------------------------------------------------------------------------------------
    function Wann_Current_dip_calc(nbnd,Nk,Hk,grad_Hk,Dk,Rhok,dipole_current) result(Jcurr)
-      integer,intent(in)           :: nbnd,Nk
-      complex(dp),intent(in)       :: Hk(:,:,:)
-      complex(dp),intent(in)       :: grad_Hk(:,:,:,:),Dk(:,:,:,:)
+   !! Computes the time-dependent current with respect to the time-dependent density matrix
+   !! in dipole gauge \(\rho^\mathrm{DG}(\mathbf{k}),t\). The current is given by
+   !! $$\mathbf{J}(t) = \frac{q}{N} \sum_{\mathbf{k}} \left(\mathrm{Tr}[\nabla_{\mathbf{k}} H_0(\mathbf{k}) 
+   !! rho^\mathrm{DG}(\mathbf{k}),t)] + mathrm{Tr}[\mathbf{D}(\mathbf{k}) 
+   !! rho^\mathrm{DG}(\mathbf{k}),t)] \right).  $$
+   !! Here we assume that the external fields have been switched off, and the gradient of the field-free
+   !! Hamiltonian \(\nabla_{\mathbf{k}} H_0(\mathbf{k}) \) and the dipole matrix elements
+   !! \(\mathbf{D}(\mathbf{k}) \) have been pre-computed and are given as input to this function.
+      integer,intent(in)           :: nbnd !! number of bands/orbitals
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      complex(dp),intent(in)       :: Hk(:,:,:) !! Hamiltonian \(H_0(\mathbf{k})\),dimension [nbnd,nbnd,Nk]
+      complex(dp),intent(in)       :: grad_Hk(:,:,:,:) !! gradiant of the Hamiltonian
+      complex(dp),intent(in)       :: Dk(:,:,:,:)
       complex(dp),intent(in)       :: Rhok(:,:,:)
       logical,intent(in),optional  :: dipole_current
       real(dp)                     :: Jcurr(3)
       logical :: dip_curr
+      logical :: large_size
       integer :: ik
       real(dp) :: Jk(3)
-      complex(dp),dimension(nbnd,nbnd)   :: DRhok_dt
+      complex(dp),dimension(nbnd,nbnd)   :: DRhok_dt,H_Rho,Rho_H
 
       dip_curr = .true.
       if(present(dipole_current)) dip_curr = dipole_current
+
+      large_size = get_large_size(nbnd)
 
       Jcurr = 0.0_dp
 
@@ -650,7 +663,10 @@ contains
          Jk(3) = qc * DTRAB(nbnd,grad_Hk(:,:,ik,3),Rhok(:,:,ik))/Nk
          Jcurr = Jcurr + Jk
          if(dip_curr) then
-            DRhok_dt = -iu*(matmul(Hk(:,:,ik),Rhok(:,:,ik)) - matmul(Rhok(:,:,ik),Hk(:,:,ik)))
+            ! DRhok_dt = -iu*(matmul(Hk(:,:,ik),Rhok(:,:,ik)) - matmul(Rhok(:,:,ik),Hk(:,:,ik)))
+            call util_matmul(Hk(:,:,ik),Rhok(:,:,ik),H_Rho,large_size=large_size)
+            call util_matmul(Rhok(:,:,ik),Hk(:,:,ik),Rho_H,large_size=large_size)
+            DRhok_dt = -iu * (H_Rho - Rho_H)
             Jk(1) = qc * DTRAB(nbnd,Dk(:,:,ik,1),DRhok_dt)/Nk
             Jk(2) = qc * DTRAB(nbnd,Dk(:,:,ik,2),DRhok_dt)/Nk
             Jk(3) = qc * DTRAB(nbnd,Dk(:,:,ik,3),DRhok_dt)/Nk
@@ -661,30 +677,48 @@ contains
    end function Wann_Current_dip_calc
 !--------------------------------------------------------------------------------------
    function Get_Drhok_Dt_dip(w90,Avec,Efield,Rhok,kpt,rot_mat) result(DRhok_dt)
-      type(wann90_tb_t),intent(in) :: w90
-      real(dp),intent(in)          :: Avec(3),Efield(3)
-      complex(dp),intent(in)       :: Rhok(:,:)
-      real(dp),intent(in)          :: kpt(3)
-      complex(dp),intent(in),optional :: rot_mat(:,:)
+   !! Computes the time derivative \(\frac{d}{dt}\rho(\mathbf{k},t) = -i [H(\mathbf{k},t), \rho(\mathbf{k},t) ]\)
+   !! needed for the calculation of the current in dipole gauge.
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian including the lattice geometry
+      real(dp),intent(in)          :: Avec(3) !! vector potential \(\mathbf{A}(t)\) at time \(t\)
+      real(dp),intent(in)          :: Efield(3) !! electric field \(\mathbf{E}(t)\) at time \(t\)
+      complex(dp),intent(in)       :: Rhok(:,:) !! density matrix at specific k-point `kpt`, dimension [nbnd,nbnd]
+      real(dp),intent(in)          :: kpt(3) !! k-point at which the \(\frac{d}{dt}\rho(\mathbf{k},t) \) is
+                                             !! evaluated
+      complex(dp),intent(in),optional :: rot_mat(:,:) !! rotation matrix for the option to change basis
       complex(dp),dimension(w90%num_wann,w90%num_wann) :: DRhok_dt
-      complex(dp),dimension(w90%num_wann,w90%num_wann) :: Hk
+      logical :: large_size
+      complex(dp),dimension(w90%num_wann,w90%num_wann) :: Hk,H_Rho, Rho_H
+
+      large_size = get_large_size(w90%num_wann)
 
       Hk = Wann_GetHk_dip(w90,Avec,Efield,kpt,reducedA=.false.)
       if(present(rot_mat)) then
-         Hk = util_rotate(w90%num_wann,rot_mat,Hk)
+         Hk = util_rotate(w90%num_wann,rot_mat,Hk,large_size=large_size)
       end if
 
-      DRhok_dt = -iu*(matmul(Hk,Rhok) - matmul(Rhok,Hk))
+      call util_matmul(Hk,Rhok,H_Rho,large_size=large_size)
+      call util_matmul(Rhok,Hk,Rho_H,large_size=large_size)
+      DRhok_dt = -iu * (H_Rho - Rho_H)
+
+      ! DRhok_dt = -iu*(matmul(Hk,Rhok) - matmul(Rhok,Hk))
       
    end function Get_Drhok_Dt_dip
 !--------------------------------------------------------------------------------------
    function Wann_TotalEn_velo(w90,Nk,kpts,Avec,Rhok) result(Etot)
+   !! Computes the total energy with respect to the time-dependent Hamiltonian
+   !! in velocity gauge (VG):
+   !! $$E = \frac{1}{N}\sum_{\mathbf{k}} \mathrm{Tr}[H^\mathrm{VG}(\mathbf{k},t) \rho^\mathrm{VG}(\mathbf{k},t)] ,$$
+   !! where \(H^\mathrm{VG}(\mathbf{k},t) = H_0(\mathbf{k}) - q \mathbf{A}(t)\cdot\mathbf{v}(\mathbf{k}) +
+   !!  \frac{q^2 \mathbf{A}(t)^2}{2}\). 
+   !! Here the field-field Hamiltonian \(H_0(\mathbf{k})\) and the velocity matrix elements
+   !! \(\mathbf{v}(\mathbf{k})\) are computed on-the-fly. 
       use scitools_linalg,only: trace
-      type(wann90_tb_t),intent(in) :: w90
-      integer,intent(in)           :: Nk
-      real(dp),intent(in)          :: kpts(:,:)
-      real(dp),intent(in)          :: Avec(3)
-      complex(dp),intent(in)       :: Rhok(:,:,:)
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian including the lattice geometry
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
+      real(dp),intent(in)          :: Avec(3) !! vector potential \(\mathbf{A}(t)\) at time \(t\)
+      complex(dp),intent(in)       :: Rhok(:,:,:) !! density matrix, dimension [nbnd,nbnd,Nk]
       real(dp)                     :: Etot
       integer :: ik
       real(dp) :: Ek
@@ -704,12 +738,21 @@ contains
    end function Wann_TotalEn_velo
 !--------------------------------------------------------------------------------------
    function Wann_TotalEn_velo_calc(nbnd,Nk,Hk,vk,Avec,Rhok) result(Etot)
+   !! Computes the total energy with respect to the time-dependent Hamiltonian
+   !! in velocity gauge (VG):
+   !! $$E = \frac{1}{N}\sum_{\mathbf{k}} \mathrm{Tr}[H^\mathrm{VG}(\mathbf{k},t) \rho^\mathrm{VG}(\mathbf{k},t)] ,$$
+   !! where \(H^\mathrm{VG}(\mathbf{k},t) = H_0(\mathbf{k}) - q \mathbf{A}(t)\cdot\mathbf{v}(\mathbf{k}) +
+   !!  \frac{q^2 \mathbf{A}(t)^2}{2}\).
+   !! Here we assume that the field-field Hamiltonian \(H_0(\mathbf{k})\) and the velocity matrix elements
+   !! \(\mathbf{v}(\mathbf{k})\) have been computed are given as input to this function. 
       use scitools_linalg,only: trace
-      integer,intent(in)           :: nbnd,Nk
-      complex(dp),intent(in)       :: Hk(:,:,:)
-      complex(dp),intent(in)       :: vk(:,:,:,:)
-      real(dp),intent(in)          :: Avec(3)
-      complex(dp),intent(in)       :: Rhok(:,:,:)
+      integer,intent(in)           :: nbnd !! number of bands/orbitals
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      complex(dp),intent(in)       :: Hk(:,:,:) !! Hamiltonian \(H_0(\mathbf{k})\),dimension [nbnd,nbnd,Nk]
+      complex(dp),intent(in)       :: vk(:,:,:,:) !! velocity matrix elements \(\mathbf{v}(\mathbf{k})\),
+                                                  !! dimension [nbnd,nbnd,Nk,3]
+      real(dp),intent(in)          :: Avec(3) !! vector potential \(\mathbf{A}(t)\) at time \(t\)
+      complex(dp),intent(in)       :: Rhok(:,:,:) !! density matrix, dimension [nbnd,nbnd,Nk]
       real(dp)                     :: Etot
       integer :: ik
       real(dp) :: Ek
@@ -724,11 +767,16 @@ contains
    end function Wann_TotalEn_velo_calc
 !--------------------------------------------------------------------------------------
    function Wann_KineticEn(w90,Nk,kpts,Rhok,band_basis) result(Ekin)
-      type(wann90_tb_t),intent(in) :: w90
-      integer,intent(in)           :: Nk
-      real(dp),intent(in)          :: kpts(:,:)
-      complex(dp),intent(in)       :: Rhok(:,:,:)
-      logical,intent(in),optional  :: band_basis
+   !! Computes the kinetic (field-free) energy 
+   !! $$E = \frac{1}{N}\sum_{\mathbf{k}} \mathrm{Tr}[H_0(\mathbf{k}) \rho(\mathbf{k})]. $$
+   !! Here the Hamiltonian \(H_0(\mathbf{k})\) is constructed on-the-fly, either in Wannier or 
+   !! band basis.
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian including the lattice geometry
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
+      complex(dp),intent(in)       :: Rhok(:,:,:) !! density matrix, dimension [nbnd,nbnd,Nk]
+      logical,intent(in),optional  :: band_basis !! if `.true.`, the band basis (diagonal Hamiltonian)
+                                                 !! is assumed
       real(dp)                     :: Ekin
       logical :: bands_ = .false.
       integer :: ik
@@ -756,9 +804,13 @@ contains
    end function Wann_KineticEn
 !--------------------------------------------------------------------------------------
    function Wann_KineticEn_calc(nbnd,Nk,Hk,Rhok) result(Ekin)
-      integer,intent(in)           :: nbnd,Nk
-      complex(dp),intent(in)       :: Hk(:,:,:)
-      complex(dp),intent(in)       :: Rhok(:,:,:)
+   !! Computes the kinetic (field-free) energy 
+   !! $$E = \frac{1}{N}\sum_{\mathbf{k}} \mathrm{Tr}[H_0(\mathbf{k}) \rho(\mathbf{k})]. $$
+   !! Here we use the pre-computed Hamiltonian \(H_0(\mathbf{k})\) for fast evaluation.
+      integer,intent(in)           :: nbnd !! number of bands/orbitals
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      complex(dp),intent(in)       :: Hk(:,:,:) !! Hamiltonian \(H_0(\mathbf{k})\),dimension [nbnd,nbnd,Nk]
+      complex(dp),intent(in)       :: Rhok(:,:,:) !! density matrix, dimension [nbnd,nbnd,Nk]
       real(dp)                     :: Ekin
       integer :: ik
       real(dp) :: Ek
@@ -772,11 +824,15 @@ contains
    end function Wann_KineticEn_calc
 !--------------------------------------------------------------------------------------
    function Wann_TotalEn_dip(w90,Nk,kpts,Avec,Efield,Rhok) result(Etot)
-      type(wann90_tb_t),intent(in) :: w90
-      integer,intent(in)           :: Nk
-      real(dp),intent(in)          :: kpts(:,:)
-      real(dp),intent(in)          :: Avec(3),Efield(3)
-      complex(dp),intent(in)       :: Rhok(:,:,:)
+   !! Computes the total energy with respect to the time-dependent Hamiltonian
+   !! in dipole gauge (DG):
+   !! $$E = \frac{1}{N}\sum_{\mathbf{k}} \mathrm{Tr}[H^\mathrm{DG}(\mathbf{k},t) \rho^\mathrm{DG}(\mathbf{k},t)] $$
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian including the lattice geometry
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
+      real(dp),intent(in)          :: Avec(3) !! Vector potential \(\mathbf{A}(t)\) at time \(t\)
+      real(dp),intent(in)          :: Efield(3)  !! Electric field \(\mathbf{A}(t)\) at time \(t\)
+      complex(dp),intent(in)       :: Rhok(:,:,:) !! density matrix at time \(t\), dimension [nbnd,nbnd,Nk]
       real(dp)                     :: Etot
       integer :: ik
       real(dp) :: Ared(3),kAred(3),Ek
@@ -798,8 +854,9 @@ contains
    end function Wann_TotalEn_dip
 !--------------------------------------------------------------------------------------
    pure real(dp) function DTRAB(n,A,B)
-      integer,intent(in) :: n
-      complex(dp),intent(in) :: A(:,:),B(:,:)
+   !! Computes \(\mathrm{Tr}[A B]\) for two square matrices \(A,B\).
+      integer,intent(in) :: n !! the rank of the square matrices \(A,B\)
+      complex(dp),intent(in) :: A(:,:),B(:,:) !! the square matrices \(A,B\)
       integer :: i
 
       DTRAB = 0.0_dp
@@ -810,8 +867,13 @@ contains
    end function DTRAB
 !--------------------------------------------------------------------------------------
    real(dp) function Wann_DTRAB_kpts(nbnd,Nk,A,B)
-      integer,intent(in) :: nbnd,Nk
-      complex(dp),intent(in) :: A(:,:,:),B(:,:,:)
+   !! Computes the expectation value 
+   !! $$ \langle A B \rangle = \frac{1}{N}\sum_{\mathrm{k}} \mathrm{Tr}[A_\mathbf{k} B_\mathbf{k}] $$
+   !! with two operators \(A_\mathbf{k}, B_\mathbf{k}\).
+      integer,intent(in) :: nbnd !! number of bands/orbitals = dimension of matrices \(A_\mathbf{k}, B_\mathbf{k}\)
+      integer,intent(in) :: Nk !! number of k-points \(N\)
+      complex(dp),intent(in) :: A(:,:,:),B(:,:,:) !! operators \(A_\mathbf{k}, B_\mathbf{k}\), 
+                                                  !! dimension [nbnd,nbnd,Nk]
       integer :: i,ik
       real(dp) :: val
 
@@ -827,9 +889,10 @@ contains
    end function Wann_DTRAB_kpts
 !--------------------------------------------------------------------------------------
    function Cart_to_red(w90,kvec) result(kred)
-      type(wann90_tb_t),intent(in) :: w90
-      real(dp),intent(in)          :: kvec(3)
-      real(dp)                     :: kred(3)
+   !! converts a k-vector given in cartisian coordinates to a k-point in reduced coordinates
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian containing the recip. lattice vectors
+      real(dp),intent(in)          :: kvec(3) !! k-vector in cartesian coordinates
+      real(dp)                     :: kred(3) !! k-point in reducec coordinates
 
       kred = matmul(w90%recip_reduced(1:3,1:3), kvec)
 

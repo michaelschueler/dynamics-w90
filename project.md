@@ -18,7 +18,7 @@ display: public
 Description
 -----------------
 
-**dynamocs-w90** is a software package for computing Berry phase properties, light-induced dynamics, photoemission & more from Wannier functions.
+**dynamics-w90** is a software package for computing Berry phase properties, light-induced dynamics, photoemission & more from Wannier functions.
 
 Here is a list of the main programs:
 
