@@ -744,7 +744,7 @@ contains
    !! where \(H^\mathrm{VG}(\mathbf{k},t) = H_0(\mathbf{k}) - q \mathbf{A}(t)\cdot\mathbf{v}(\mathbf{k}) +
    !!  \frac{q^2 \mathbf{A}(t)^2}{2}\).
    !! Here we assume that the field-field Hamiltonian \(H_0(\mathbf{k})\) and the velocity matrix elements
-   !! \(\mathbf{v}(\mathbf{k})\) have been computed are given as input to this function. 
+   !! \(\mathbf{v}(\mathbf{k})\) have been precomputed are given as input to this function. 
       use scitools_linalg,only: trace
       integer,intent(in)           :: nbnd !! number of bands/orbitals
       integer,intent(in)           :: Nk !! The number of k-points / supercells
