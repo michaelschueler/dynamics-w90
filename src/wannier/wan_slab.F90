@@ -1,4 +1,5 @@
 module wan_slab
+!! Provides functions to extend a bulk Wannier Hamiltonian to construct a slab.
 !======================================================================================
    use Mdebug
    use scitools_def,only: dp,zero
@@ -13,9 +14,20 @@ module wan_slab
 contains
 !--------------------------------------------------------------------------------------
    subroutine Wannier_BulkToSlab(bulk_w90,nlayer,slab_w90,ijmax)
-      type(wann90_tb_t),intent(in)  :: bulk_w90
-      integer,intent(in)            :: nlayer
-      type(wann90_tb_t),intent(out) :: slab_w90
+   !! Given a bulk Wannier Hamiltonian, constructs a slab Wannier Hamiltonian.
+   !! .We assume the slab is constructed along the 
+   !! \(\mathbf{c} = \mathbf{a}\_1\times \mathbf{a}\_2\) direction, where 
+   !! \(\mathbf{a}_{1,2}\) are the in-plane lattice vectors of the bulk Hamiltonian.
+   !! 
+   !! The slab Hamiltonian is equivalent to a two-dimensional system with enlarged 
+   !! orbital space. By defining the new orbital indicies \(m = (j l)\)  with 
+   !! \(j\) denoting the orbitals of the bulk Hamiltonian and \(l\) representing the 
+   !! layer index, the slab Hamiltonian can be represented in the same standard format as
+   !! any Wannier Hamiltonian
+      type(wann90_tb_t),intent(in)  :: bulk_w90 !! The bulk Wannier Hamiltonian
+      integer,intent(in)            :: nlayer !! number of layers
+      type(wann90_tb_t),intent(out) :: slab_w90 !! The slab Wannier Hamiltonian with 
+                                                !! enlarged orbital space.
       integer,intent(in),optional   :: ijmax
       integer :: ijmax_
       integer :: nwan,nrpts_2d,irpt,irpt2d

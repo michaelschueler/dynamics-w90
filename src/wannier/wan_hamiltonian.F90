@@ -1,4 +1,6 @@
 module wan_hamiltonian
+!! Provides tools for reading/writing the Wannier Hamiltonian and for computing 
+!! band structures, observables, and Berry-phase properties.
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
