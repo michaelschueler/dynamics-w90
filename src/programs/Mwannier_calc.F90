@@ -5,6 +5,7 @@ module Mwannier_calc
    use scitools_def,only: dp,iu,zero
    use scitools_utils,only: str
    use scitools_linalg,only: EigH
+   use scitools_laserpulse,only: scalarfunc_spline_t
    use wan_hamiltonian,only: wann90_tb_t
    use wan_compress,only: PruneHoppings
    use wan_slab,only: Wannier_BulkToSlab
@@ -17,12 +18,13 @@ module Mwannier_calc
    public :: wannier_calc_t
 !--------------------------------------------------------------------------------------
    type wannier_calc_t
-      logical :: soc_mode=.false., berry_valence=.false.
+      logical :: soc_mode=.false., berry_valence=.false., static_potential=.false.
       integer :: nbnd,nwan,Nk
       real(dp) :: muchem
       real(dp),allocatable,dimension(:,:) :: kpts,epsk
       complex(dp),allocatable,dimension(:,:,:) :: vectk
       type(wann90_tb_t) :: ham
+      type(scalarfunc_spline_t) :: elpot
    contains
       procedure,public  :: Init
       procedure,public  :: GetOrbitalWeight
@@ -59,6 +61,13 @@ contains
          call me%ham%Set(ham_tmp)
       end if
       call ham_tmp%Clean()
+
+      me%static_potential = (len_trim(par_ham%file_elpot) > 0)
+
+      if(me%static_potential) then
+         call me%elpot%Load_function(par_ham%file_elpot)
+         write(output_unit,fmt_info) "including electrostatic potential in Hamiltonian"
+      end if
 
       me%soc_mode = par_ham%w90_with_soc
       me%berry_valence = par_calc%berry_valence
@@ -109,6 +118,11 @@ contains
             Hk = me%Ham%get_ham_field(me%kpts(ik,:),par_ham%Efield,par_ham%field_mode)
             call EigH(Hk,me%epsk(:,ik),me%vectk(:,:,ik))
          end do
+      elseif(me%static_potential) then
+         do ik=1,me%Nk
+            Hk = me%Ham%get_ham_elpot(me%kpts(ik,:),elpot_func)
+            call EigH(Hk,me%epsk(:,ik),me%vectk(:,:,ik))
+         end do
       else
          do ik=1,me%Nk
             Hk = me%Ham%get_ham(me%kpts(ik,:))
@@ -116,6 +130,18 @@ contains
          end do
       end if
       deallocate(Hk)
+
+   !.......................................................
+   contains
+   !.......................................................
+      function elpot_func(z) result(v)
+         real(dp),intent(in) :: z
+         real(dp) :: v
+
+         v = me%elpot%fval(z)
+
+      end function elpot_func
+   !.......................................................
 
    end subroutine Init
 !--------------------------------------------------------------------------------------

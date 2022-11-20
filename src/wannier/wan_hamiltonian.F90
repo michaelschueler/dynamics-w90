@@ -39,6 +39,7 @@ module wan_hamiltonian
       procedure,public  :: get_ham_diag
       procedure,public  :: get_ham
       procedure,public  :: get_ham_field 
+      procedure,public  :: get_ham_elpot
       procedure,public  :: get_gradk_ham
       procedure,public  :: get_hess_ham
       procedure,public  :: get_dipole
@@ -186,6 +187,27 @@ contains
 
 
    end function get_ham_field
+!--------------------------------------------------------------------------------------
+   function get_ham_elpot(me,kpt,elpot) result(Hk)
+      class(wann90_tb_t)  :: me
+      real(dp),intent(in) :: kpt(3)
+      interface 
+         function elpot(z) result(v)
+            use scitools_def,only: dp
+            real(dp),intent(in) :: z
+            real(dp) :: v
+         end function elpot
+      end interface
+      complex(dp) :: Hk(me%num_wann,me%num_wann)
+      integer :: i,idir
+      complex(dp),dimension(me%num_wann,me%num_wann,3) :: Dk,AA
+   
+      Hk = me%get_ham(kpt)
+      do i=1,me%num_wann
+         Hk(i,i) = Hk(i,i) - elpot(me%coords(i,3))
+      end do
+
+   end function get_ham_elpot
 !--------------------------------------------------------------------------------------
    function get_gradk_ham(me,kpt) result(grad_Hk)
       class(wann90_tb_t)  :: me

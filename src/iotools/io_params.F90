@@ -39,6 +39,7 @@ module io_params
       character(len=256) :: file_xyz="" !! file name for the Wannier centers
       character(len=256) :: file_lam="" !! file name for SOC constants
       character(len=256) :: file_soc="" !! file name for SOC Hamiltonian
+      character(len=256) :: file_elpot="" !! file name for scalar electrostatic potential
       logical            :: w90_with_soc=.false. !! if .true., we assume the SOC is already 
                                                  !! included in the Hamiltonian from `Wannier90`
       logical            :: apply_field=.false. !! Option to include a static electric field in
@@ -141,6 +142,7 @@ contains
       character(len=256) :: file_xyz=""
       character(len=256) :: file_lam=""
       character(len=256) :: file_soc=""
+      character(len=256) :: file_elpot=""
       logical            :: w90_with_soc=.false.
       logical            :: apply_field=.false.
       logical            :: slab_mode=.false.
@@ -152,7 +154,7 @@ contains
       logical            :: force_herm=.true.
       logical            :: force_antiherm=.true.
       real(dp)           :: degen_thresh=1.0e-5_dp  
-      namelist/HAMILTONIAN/file_ham,file_xyz,file_lam,file_soc,slab_mode,w90_with_soc,&
+      namelist/HAMILTONIAN/file_ham,file_xyz,file_lam,file_soc,file_elpot,slab_mode,w90_with_soc,&
          energy_thresh,use_degen_pert,force_herm,force_antiherm,degen_thresh,apply_field,&
          field_mode,Efield,MuChem
       integer :: slab_nlayer=0
@@ -169,6 +171,7 @@ contains
       me%file_xyz = file_xyz
       me%file_lam = file_lam
       me%file_soc = file_soc
+      me%file_elpot = file_elpot
       me%w90_with_soc = w90_with_soc
       me%slab_mode = slab_mode
       me%apply_field = apply_field
