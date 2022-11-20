@@ -116,9 +116,9 @@ program wann_evol_mpi
    !......................................
    logical  :: relaxation_dynamics=.false.
    integer  :: Nt,output_step=1
-   real(dp) :: Tmax,tstart=0.0_dp,T1_relax=1.0e10_dp,T2_relax=1.0e10_dp
+   real(dp) :: Tmax,T1_relax=1.0e10_dp,T2_relax=1.0e10_dp
    character(len=255) :: file_field=""
-   namelist/TIMEPARAMS/Nt,Tmax,output_step,tstart,relaxation_dynamics,T1_relax,T2_relax,&
+   namelist/TIMEPARAMS/Nt,Tmax,output_step,relaxation_dynamics,T1_relax,T2_relax,&
       file_field
    !......................................
    ! -- internal variables --
@@ -287,8 +287,8 @@ program wann_evol_mpi
       call lattsys%GetOccupationKPTS(Occk(:,:,0))
    end if
 
-   pulse_tmin = min(pulse_x%Tmin,pulse_y%Tmin,pulse_z%Tmin) - tstart
-   pulse_tmax = max(pulse_x%Tmax,pulse_y%Tmax,pulse_z%Tmax) - tstart
+   pulse_tmin = min(pulse_x%Tmin,pulse_y%Tmin,pulse_z%Tmin)
+   pulse_tmax = max(pulse_x%Tmax,pulse_y%Tmax,pulse_z%Tmax)
    if(.not. ApplyField) pulse_tmax = 0.0_dp
 
    step = 0
@@ -357,12 +357,12 @@ contains
       AF = 0.0_dp; EF = 0.0_dp
 
       if(ApplyField) then
-         AF(1) = pulse_x%Afield(t+tstart)
-         AF(2) = pulse_y%Afield(t+tstart)
-         AF(3) = pulse_z%Afield(t+tstart)
-         EF(1) = pulse_x%Efield(t+tstart)
-         EF(2) = pulse_y%Efield(t+tstart)
-         EF(3) = pulse_z%Efield(t+tstart)
+         AF(1) = pulse_x%Afield(t)
+         AF(2) = pulse_y%Afield(t)
+         AF(3) = pulse_z%Afield(t)
+         EF(1) = pulse_x%Efield(t)
+         EF(2) = pulse_y%Efield(t)
+         EF(3) = pulse_z%Efield(t)
       end if
 
    end subroutine external_field

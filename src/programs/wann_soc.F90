@@ -98,10 +98,10 @@ program wann_soc
       write(output_unit,*)
    end if
 
-   if(len_trim(par%file_xyz) > 0) then
-      call ReadHamiltonian(par%file_ham,w90_nosoc,file_xyz=par%file_xyz)
+   if(len_trim(par_ham%file_xyz) > 0) then
+      call ReadHamiltonian(par_ham%file_ham,w90_nosoc,file_xyz=par_ham%file_xyz)
    else
-      call ReadHamiltonian(par%file_ham,w90_nosoc)
+      call ReadHamiltonian(par_ham%file_ham,w90_nosoc)
    end if
 
    call Read_SOC_lambda(par_ham%file_lam,lam)
