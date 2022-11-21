@@ -39,10 +39,12 @@ module wan_dyn
 contains
 !--------------------------------------------------------------------------------------
    subroutine Wann_GenHk(w90,Nk,kpts,Hk)
-      type(wann90_tb_t),intent(in) :: w90
-      integer,intent(in)           :: Nk
-      real(dp),intent(in)          :: kpts(:,:)
-      complex(dp),intent(inout)    :: Hk(:,:,:)
+   !! Generates the Wannier Hamiltonian \(H(\mathbf{k})\) for given k-points
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian containing the recip. lattice vectors
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      real(dp),intent(in)          :: kpts(:,:)  !! List of k-points, dimension [Nk,3]
+      complex(dp),intent(inout)    :: Hk(:,:,:) !! Hamiltonian \(H(\mathbf{k})\) in Wannier basis,
+                                                !! dimension [nbnd,nbnd,Nk]
       integer :: ik  
 
       do ik=1,Nk
@@ -52,10 +54,13 @@ contains
    end subroutine Wann_GenHk
 !--------------------------------------------------------------------------------------
    subroutine Wann_GenGradkHk(w90,Nk,kpts,grad_Hk)
-      type(wann90_tb_t),intent(in) :: w90
-      integer,intent(in)           :: Nk
-      real(dp),intent(in)          :: kpts(:,:)
-      complex(dp),intent(inout)    :: grad_Hk(:,:,:,:)
+   !! Generates the gradient Wannier Hamiltonian \(\nabla_{\mathbf{k}} H(\mathbf{k})\) for given k-points
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian containing the recip. lattice vectors
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
+      complex(dp),intent(inout)    :: grad_Hk(:,:,:,:) !! Gradient of the Hamiltonian 
+                                                       !! \(\nabla_{\mathbf{k}} H(\mathbf{k})\) in Wannier basis,
+                                                       !! dimension [nbnd,nbnd,Nk,3]
       integer :: ik  
 
       do ik=1,Nk
@@ -65,10 +70,13 @@ contains
    end subroutine Wann_GenGradkHk
 !--------------------------------------------------------------------------------------
    subroutine Wann_GenVelok(w90,Nk,kpts,velok)
-      type(wann90_tb_t),intent(in) :: w90
-      integer,intent(in)           :: Nk
-      real(dp),intent(in)          :: kpts(:,:)
-      complex(dp),intent(inout)    :: velok(:,:,:,:)
+   !! Generates the velocity matrix elements \(\mathbf{v}_{\alpha\alpha^\prime}(\mathbf{k})\) 
+   !! (band basis) for given k-points
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian containing the recip. lattice vectors
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
+      complex(dp),intent(inout)    :: velok(:,:,:,:) !! velocity matrix elements \(\mathbf{v}_{\alpha\alpha^\prime}(\mathbf{k})\),
+                                                     !! dimension [nbnd,nbnd,Nk,3]
       complex(dp) :: vk(w90%num_wann,w90%num_wann,3)
       integer :: ik  
 
@@ -80,10 +88,13 @@ contains
    end subroutine Wann_GenVelok
 !--------------------------------------------------------------------------------------
    subroutine Wann_GenDipk(w90,Nk,kpts,Dipk)
-      type(wann90_tb_t),intent(in) :: w90
-      integer,intent(in)           :: Nk
-      real(dp),intent(in)          :: kpts(:,:)
-      complex(dp),intent(inout)    :: Dipk(:,:,:,:)
+   !! Generates the dipole matrix elements \(\mathbf{D}_{jj^\prime}(\mathbf{k})\) 
+   !! (Wannier basis) for given k-points
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian containing the recip. lattice vectors
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
+      complex(dp),intent(inout)    :: Dipk(:,:,:,:) !! velocity matrix elements \(\mathbf{D}_{jj^\prime}(\mathbf{k})\),
+                                                    !! dimension [nbnd,nbnd,Nk,3]
       integer :: ik  
       complex(dp) :: Dk(w90%num_wann,w90%num_wann,3)
 
@@ -95,12 +106,16 @@ contains
    end subroutine Wann_GenDipk
 !--------------------------------------------------------------------------------------
    subroutine Wann_GenRhok_eq(w90,Nk,kpts,Mu,Beta,Rhok,band_basis)
-      type(wann90_tb_t),intent(in) :: w90
-      integer,intent(in)           :: Nk
-      real(dp),intent(in)          :: kpts(:,:)
-      real(dp),intent(in)          :: Mu,Beta
-      complex(dp),intent(inout)    :: Rhok(:,:,:)
-      logical,intent(in),optional  :: band_basis
+   !! Generates the equilibrium density matrix \(\rho_\mathrm{eq}(\mathbf{k})\) for given k-points,
+   !! either in band or in Wannier basis. The occupations are determined by the Fermi-Dirac distribution.
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian containing the recip. lattice vectors
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
+      real(dp),intent(in)          :: Mu !! The chemical potential
+      real(dp),intent(in)          :: Beta !! The inverse temperature
+      complex(dp),intent(inout)    :: Rhok(:,:,:) !! density matrix \(\rho_\mathrm{eq}(\mathbf{k})\)
+      logical,intent(in),optional  :: band_basis !! if `.true.`, the band basis is assumed, otherwise
+                                                 !! the density matrix is constructed in Wannier basis
       logical :: bands_=.false.
       logical :: large_size
       integer :: ik,j

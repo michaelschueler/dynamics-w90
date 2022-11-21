@@ -13,7 +13,7 @@ module wan_slab
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Wannier_BulkToSlab(bulk_w90,nlayer,slab_w90,ijmax)
+   subroutine Wannier_BulkToSlab(bulk_w90,nlayer,slab_w90)
    !! Given a bulk Wannier Hamiltonian, constructs a slab Wannier Hamiltonian.
    !! .We assume the slab is constructed along the 
    !! \(\mathbf{c} = \mathbf{a}\_1\times \mathbf{a}\_2\) direction, where 
@@ -28,16 +28,14 @@ contains
       integer,intent(in)            :: nlayer !! number of layers
       type(wann90_tb_t),intent(out) :: slab_w90 !! The slab Wannier Hamiltonian with 
                                                 !! enlarged orbital space.
-      integer,intent(in),optional   :: ijmax
-      integer :: ijmax_
+      integer :: ijmax
       integer :: nwan,nrpts_2d,irpt,irpt2d
       integer :: i1,i2,i3,i,j,idir
-      real(dp) :: e3p(3),oop_vec(3),Ua(3,3)
+      real(dp) :: e3p(3),oop_vec(3),Ua(3,3),pos_r_slab(3)
       complex(dp),allocatable :: Hij(:,:,:,:),pos_r(:,:,:,:)
       complex(dp),allocatable :: Dij(:,:,:,:,:)
 
-      ijmax_ = 10
-      if(present(ijmax)) ijmax_ = ijmax
+      ijmax = nint(nlayer/2.0_dp) + 1
 
       nwan = bulk_w90%num_wann
       slab_w90%real_lattice = bulk_w90%real_lattice
@@ -110,17 +108,19 @@ contains
          end do
       end do
 
+      do irpt=1,slab_w90%nrpts
+         do i=1,nlayer
+            slab_w90%pos_r((i-1)*nwan+1:i*nwan,(i-1)*nwan+1:i*nwan,irpt,3) = &
+               slab_w90%pos_r((i-1)*nwan+1:i*nwan,(i-1)*nwan+1:i*nwan,irpt,3) - (i-1) * norm2(oop_vec)
+         end do
+      end do
+
       if(bulk_w90%coords_present) then
          slab_w90%coords_present = .true.
 
          allocate(slab_w90%coords(slab_w90%num_wann,3))
          do i=1,nlayer
-            slab_w90%coords((i-1)*nwan+1:i*nwan,1) = bulk_w90%coords(1:nwan,1) &
-               - (i-1) * oop_vec(1)
-            slab_w90%coords((i-1)*nwan+1:i*nwan,2) = bulk_w90%coords(1:nwan,2) &
-               - (i-1) * oop_vec(2)
-            slab_w90%coords((i-1)*nwan+1:i*nwan,3) = bulk_w90%coords(1:nwan,3) &
-               - (i-1) * oop_vec(3)
+            slab_w90%coords((i-1)*nwan+1:i*nwan,1:3) = matmul(bulk_w90%coords(1:nwan,1:3) - (i-1)*oop_vec(1:3),Ua)
          end do
       end if
 

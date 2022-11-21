@@ -76,7 +76,7 @@ contains
       if(par_ham%slab_mode .and. par_ham%slab_nlayer > 0) then
          write(output_unit,fmt_info) "building slab with "//str(par_ham%slab_nlayer)//" layers"
          call ham_tmp%Set(me%ham)
-         call Wannier_BulkToSlab(ham_tmp,par_ham%slab_nlayer,me%ham,ijmax=par_ham%slab_max_zhop)
+         call Wannier_BulkToSlab(ham_tmp,par_ham%slab_nlayer,me%ham)
       end if
       call ham_tmp%Clean()
 

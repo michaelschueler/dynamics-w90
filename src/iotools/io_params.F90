@@ -63,8 +63,6 @@ module io_params
       ! .. slab parameters ..
       integer            :: slab_nlayer=0 !! number of layers in a slab calculation, triggered by
                                           !! `slab_mode = .true.`
-      integer            :: slab_max_zhop=10 !! hopping cutoff of hopping in the out-of-plane
-                                             !! direction for slab calculation
    contains
       procedure, public :: ReadFromFile => Ham_ReadFromFile  
    end type HamiltonianParams_t
@@ -158,8 +156,7 @@ contains
          energy_thresh,use_degen_pert,force_herm,force_antiherm,degen_thresh,apply_field,&
          field_mode,Efield,MuChem
       integer :: slab_nlayer=0
-      integer :: slab_max_zhop=10
-      namelist/SLAB/slab_nlayer,slab_max_zhop
+      namelist/SLAB/slab_nlayer
 
       integer :: unit_inp
 
@@ -190,7 +187,6 @@ contains
          close(unit_inp)
 
          me%slab_nlayer = slab_nlayer
-         me%slab_max_zhop = slab_max_zhop
       end if
 
    end subroutine Ham_ReadFromFile
