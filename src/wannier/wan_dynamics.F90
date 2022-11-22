@@ -1,14 +1,17 @@
-module wan_dyn
+module wan_dynamics
 !======================================================================================
+   use Mdebug
    use scitools_def,only: dp, zero, iu, nfermi
    use scitools_linalg,only: Eigh,util_matmul,util_rotate,util_rotate_cc,get_large_size
    use scitools_evol,only: GenU_CF2,GenU_CF4,UnitaryStepFBW
+   use scitools_rungekutta,only: ODE_step_rk5
    use wan_hamiltonian,only: wann90_tb_t
    implicit none
 !--------------------------------------------------------------------------------------
    private
    public :: Wann_GenHk, Wann_GenGradkHk, Wann_GenVelok, Wann_GenDipk, Wann_GetHk_dip
-   public :: Wann_GenRhok_eq, Wann_Rhok_timestep_velo, Wann_Rhok_timestep_dip
+   public :: Wann_GenRhok_eq, Wann_GenRhok_eq_calc
+   public :: Wann_Rhok_timestep_velo, Wann_Rhok_timestep_dip
    public :: Wann_Current_para_velo, Wann_Current_dia_velo, Wann_Current_Intra_velo 
    public :: Wann_Pol_velo, Wann_Pol_dip, Wann_Current_dip
    public :: Wann_KineticEn, Wann_TotalEn_velo, Wann_TotalEn_dip
@@ -18,10 +21,15 @@ module wan_dyn
    public :: Wann_Pol_dip_calc, Wann_Current_dip_calc
    public :: Wann_GetDk_dip, Wann_GetGradHk_dip
    public :: Wann_DTRAB_kpts
+   public :: Wann_timestep_RelaxTime
 !--------------------------------------------------------------------------------------
    interface Wann_Rhok_timestep_dip
       module procedure :: Wann_Rhok_timestep_dip_field, Wann_Rhok_timestep_dip_free
    end interface Wann_Rhok_timestep_dip
+
+   interface Wann_timestep_RelaxTime
+      module procedure :: Wann_timestep_RelaxTime_dip, Wann_timestep_RelaxTime_velo_calc
+   end interface Wann_timestep_RelaxTime
 !--------------------------------------------------------------------------------------
    integer,parameter :: qc = 1
    real(dp),parameter :: c1=0.5_dp-sqrt(3.0_dp)/6.0_dp
@@ -140,6 +148,297 @@ contains
       end do
 
    end subroutine Wann_GenRhok_eq
+!--------------------------------------------------------------------------------------
+   subroutine Wann_GenRhok_eq_calc(nbnd,Nk,Hk,Mu,Beta,Rhok,band_basis)
+   !! Generates the equilibrium density matrix \(\rho_\mathrm{eq}(\mathbf{k})\)
+   !! either in band or in Wannier basis. The occupations are determined by the Fermi-Dirac distribution.
+   !! Here we assume that the Hamiltonian \(H_0(\mathbf{k})\) has been precomputed and is given
+   !! as input.
+      integer,intent(in)           :: nbnd !! The number of bands/orbitals
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      complex(dp),intent(in)       :: Hk(:,:,:) !! Hamiltonian \(H_0(\mathbf{k})\),dimension [nbnd,nbnd,Nk]
+      real(dp),intent(in)          :: Mu !! The chemical potential
+      real(dp),intent(in)          :: Beta !! The inverse temperature
+      complex(dp),intent(inout)    :: Rhok(:,:,:) !! density matrix \(\rho_\mathrm{eq}(\mathbf{k})\)
+      logical,intent(in),optional  :: band_basis !! if `.true.`, the band basis is assumed, otherwise
+                                                 !! the density matrix is constructed in Wannier basis
+      logical :: bands_=.false.
+      logical :: large_size
+      integer :: ik,j
+      real(dp),dimension(nbnd) :: En
+      complex(dp),dimension(nbnd,nbnd) :: Rhod,Qk
+
+      large_size = get_large_size(nbnd)
+
+      if(present(band_basis)) bands_ = band_basis
+      do ik=1,Nk
+         rhod = zero
+         call eigh(Hk(:,:,ik),En,Qk)
+         do j=1,nbnd
+            rhod(j,j) = nfermi(Beta,En(j)-Mu)
+         end do   
+         if(bands_) then
+            Rhok(:,:,ik) = RhoD
+         else
+            Rhok(:,:,ik) =  util_rotate_cc(nbnd,Qk,RhoD,large_size=large_size)
+         end if
+      end do
+
+   end subroutine Wann_GenRhok_eq_calc
+!--------------------------------------------------------------------------------------
+   subroutine Wann_GenRho_eq(w90,Nk,kpt,Mu,Beta,Rho,band_basis)
+   !! Generates the equilibrium density matrix \(\rho_\mathrm{eq}(\mathbf{k})\) at a single k-point,
+   !! either in band or in Wannier basis. The occupations are determined by the Fermi-Dirac distribution.
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian containing the recip. lattice vectors
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      real(dp),intent(in)          :: kpt(3) !! The k-point where the density matrix is computed
+      real(dp),intent(in)          :: Mu !! The chemical potential
+      real(dp),intent(in)          :: Beta !! The inverse temperature
+      complex(dp),intent(inout)    :: Rho(:,:) !! density matrix \(\rho_\mathrm{eq}(\mathbf{k})\)
+      logical,intent(in),optional  :: band_basis !! if `.true.`, the band basis is assumed, otherwise
+                                                 !! the density matrix is constructed in Wannier basis
+      logical :: bands_=.false.
+      logical :: large_size
+      integer :: j
+      real(dp),dimension(w90%num_wann) :: En
+      complex(dp),dimension(w90%num_wann,w90%num_wann) :: Hk,Rhod,Qk
+
+      large_size = get_large_size(w90%num_wann)
+
+      if(present(band_basis)) bands_ = band_basis
+
+      rhod = zero
+      Hk = w90%get_ham(kpt)
+      call eigh(Hk,En,Qk)
+      do j=1,w90%num_wann
+         rhod(j,j) = nfermi(Beta,En(j)-Mu)
+      end do   
+      if(bands_) then
+         Rho = RhoD
+      else
+         Rho = util_rotate_cc(w90%num_wann,Qk,RhoD,large_size=large_size)
+      end if
+
+   end subroutine Wann_GenRho_eq
+!--------------------------------------------------------------------------------------
+   subroutine Wann_GenRho_eq_calc(nbnd,H0,Mu,Beta,Rho,band_basis)
+   !! Generates the equilibrium density matrix \(\rho_\mathrm{eq}(\mathbf{k})\) at a single k-point
+   !! either in band or in Wannier basis. The occupations are determined by the Fermi-Dirac distribution.
+   !! Here we assume that the Hamiltonian \(H_0(\mathbf{k})\) has been precomputed and is given
+   !! as input.
+      integer,intent(in)           :: nbnd !! The number of bands/orbitals
+      complex(dp),intent(in)       :: H0(:,:) !! Hamiltonian \(H_0(\mathbf{k})\),dimension [nbnd,nbnd]
+      real(dp),intent(in)          :: Mu !! The chemical potential
+      real(dp),intent(in)          :: Beta !! The inverse temperature
+      complex(dp),intent(inout)    :: Rho(:,:) !! density matrix \(\rho_\mathrm{eq}(\mathbf{k})\)
+      logical,intent(in),optional  :: band_basis !! if `.true.`, the band basis is assumed, otherwise
+                                                 !! the density matrix is constructed in Wannier basis
+      logical :: bands_=.false.
+      logical :: large_size
+      integer :: j
+      real(dp),dimension(nbnd) :: En
+      complex(dp),dimension(nbnd,nbnd) :: Rhod,Qk
+
+      large_size = get_large_size(nbnd)
+
+      if(present(band_basis)) bands_ = band_basis
+
+      rhod = zero
+      call eigh(H0,En,Qk)
+      do j=1,nbnd
+         rhod(j,j) = nfermi(Beta,En(j)-Mu)
+      end do   
+      if(bands_) then
+         Rho = RhoD
+      else
+         Rho =  util_rotate_cc(nbnd,Qk,RhoD,large_size=large_size)
+      end if
+
+   end subroutine Wann_GenRho_eq_calc
+!--------------------------------------------------------------------------------------
+   subroutine Wann_timestep_RelaxTime_dip(w90,Nk,kpts,tstp,dt,field,T1,T2,Beta,Mu,Rhok,empirical)
+   !! Performs the time step \(\rho(\mathbf{k},t) \rightarrow \rho(\mathbf{k},t + \Delta t) \)
+   !! assuming phenomenological dissipative dynamics. The Hamiltonian and density matrix 
+   !! are treated in the dipole gauge.
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian containing the recip. lattice vectors
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
+      integer,intent(in)           :: tstp !! the time step where the density matrix is known
+      real(dp),intent(in)          :: dt !! time step size 
+      procedure(vecpot_efield_func),pointer :: field !! External field: vector potential + electric field
+      real(dp),intent(in)          :: T1 !! The time constant for relaxation to equilibrium
+      real(dp),intent(in)          :: T2 !! Time time constant for dephasing of off-diagonal components
+      real(dp),intent(in)          :: Beta !! effective temperature for equilibrium state
+      real(dp),intent(in)          :: Mu !! effective chemical potential for equilibrium state
+      complex(dp),intent(inout)    :: Rhok(:,:,:) !! On input: density matrix at `tstp`; on output:
+                                                  !! density matrix at `tstp+1`
+      logical,intent(in),optional  :: empirical !! if `.true.` the dipole term is ignore (equivalent to
+                                                !! the Peieerls substitution)
+      logical :: empirical_
+      logical :: large_size
+      integer :: nbnd,ik,k_index
+      real(dp) :: gm1,gm2,gm12
+      real(dp) :: kpt(3)
+      complex(dp),allocatable :: Rhok_old(:,:)
+
+      empirical_ = .false.
+      if(present(empirical)) empirical_ = empirical
+
+      gm1 = 1.0_dp / T1
+      gm2 = 1.0_dp / T2
+      gm12 = gm1 - gm2
+
+      nbnd = size(Rhok,dim=1)
+      call assert_shape(Rhok,[nbnd,nbnd,Nk],"Wann_timestep_RelaxTime_dip","Rhok")
+
+      large_size = get_large_size(nbnd)
+
+      allocate(Rhok_old(nbnd,nbnd))
+
+      do ik=1,Nk
+         k_index = ik
+         kpt = kpts(ik,:)
+         Rhok_old = Rhok(:,:,ik)
+         Rhok(:,:,ik) = ODE_step_RK5(nbnd,tstp,dt,deriv_dipole_gauge,Rhok_old)
+      end do
+
+      deallocate(Rhok_old)
+      !......................................................
+      contains
+      !......................................................
+      function deriv_dipole_gauge(nst,t,yt) result(dydt)
+         integer,intent(in) :: nst
+         real(dp),intent(in) :: t 
+         complex(dp),intent(in) :: yt(:,:)
+         complex(dp) :: dydt(nst,nst)
+         integer :: i
+         real(dp),dimension(nst) :: epsk,occk
+         complex(dp),dimension(nst,nst) :: ht,ht_yt,yt_ht,Uk
+         complex(dp),dimension(nst,nst) :: rho_off,rhod,rho_eq,rho12
+         real(dp) :: AF(3),EF(3)
+
+         AF = 0.0_dp; EF = 0.0_dp
+         if(associated(field)) call field(t,AF,EF)
+
+         ht = Wann_GetHk_dip(w90,AF,EF,kpt,reducedA=.false.,&
+            Peierls_only=empirical_)
+         call EigH(ht,epsk,Uk)
+
+         occk = nfermi(Beta,epsk - Mu)
+
+         RhoD = zero
+         do i=1,nst
+            RhoD(i,i) = occk(i)
+         end do
+         rho_eq = util_rotate_cc(nst,Uk,RhoD,large_size=large_size)
+
+         rho_off = util_rotate(nst,Uk,yt,large_size=large_size)
+         do i=1,nst
+            rho_off(i,i) = zero
+         end do
+         rho12 = util_rotate_cc(nst,Uk,rho_off,large_size=large_size)
+
+         call util_matmul(ht,yt,ht_yt,large_size=large_size)
+         call util_matmul(yt,ht,yt_ht,large_size=large_size)
+         dydt = -iu * (ht_yt - yt_ht)
+         dydt = dydt - gm1 * (yt - Rho_eq)
+         dydt = dydt + gm12 * rho12
+
+      end function deriv_dipole_gauge
+      !....................................................
+   end subroutine Wann_timestep_RelaxTime_dip
+!--------------------------------------------------------------------------------------
+   subroutine Wann_timestep_RelaxTime_velo_calc(nbnd,Nk,Hk,vk,tstp,dt,field,T1,T2,Beta,Mu,Rhok)
+   !! Performs the time step \(\rho(\mathbf{k},t) \rightarrow \rho(\mathbf{k},t + \Delta t) \)
+   !! assuming phenomenological dissipative dynamics. The Hamiltonian and density matrix 
+   !! are treated in the velocity gauge with precomputed Hamiltonian \(H_0(\mathbf{k})\) and velocity matrix
+   !! elements `\(v^\mu(\mathbf{k}) \ , \ \mu=x,y,z\)`.
+      integer,intent(in)           :: nbnd !! number of bands/orbitals
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      complex(dp),intent(in)       :: Hk(:,:,:) !! Hamiltonian \(H_0(\mathbf{k})\),dimension [nbnd,nbnd,Nk]
+      complex(dp),intent(in)       :: vk(:,:,:,:) !! velocity matrix elements \(v^\mu(\mathbf{k})\), 
+                                                  !! dimension [nbnd,nbnd,Nk,3]
+      integer,intent(in)           :: tstp !! the time step where the density matrix is known
+      real(dp),intent(in)          :: dt !! time step size 
+      procedure(vecpot_efield_func),pointer :: field !! External field: vector potential + electric field
+      real(dp),intent(in)          :: T1 !! The time constant for relaxation to equilibrium
+      real(dp),intent(in)          :: T2 !! Time time constant for dephasing of off-diagonal components
+      real(dp),intent(in)          :: Beta !! effective temperature for equilibrium state
+      real(dp),intent(in)          :: Mu !! effective chemical potential for equilibrium state
+      complex(dp),intent(inout)    :: Rhok(:,:,:) !! On input: density matrix at `tstp`; on output:
+                                                  !! density matrix at `tstp+1`
+      logical :: large_size
+      integer :: ik,k_index
+      real(dp) :: gm1,gm2,gm12
+      complex(dp),allocatable :: Rhok_old(:,:)
+
+      gm1 = 1.0_dp / T1
+      gm2 = 1.0_dp / T2
+      gm12 = gm1 - gm2
+
+      call assert_shape(Hk,[nbnd,nbnd,Nk],"Wann_timestep_RelaxTime_velo_calc","Hk")
+      call assert_shape(vk,[nbnd,nbnd,Nk,3],"Wann_timestep_RelaxTime_velo_calc","vk")
+      call assert_shape(Rhok,[nbnd,nbnd,Nk],"Wann_timestep_RelaxTime_velo_calc","Rhok")
+
+      large_size = get_large_size(nbnd)
+
+      allocate(Rhok_old(nbnd,nbnd))
+
+      do ik=1,Nk
+         k_index = ik
+         Rhok_old = Rhok(:,:,ik)
+         Rhok(:,:,ik) = ODE_step_RK5(nbnd,tstp,dt,deriv_velocity_gauge,Rhok_old)
+      end do
+
+      deallocate(Rhok_old)
+      !......................................................
+      contains
+      !......................................................
+      function deriv_velocity_gauge(nst,t,yt) result(dydt)
+         integer,intent(in) :: nst
+         real(dp),intent(in) :: t 
+         complex(dp),intent(in) :: yt(:,:)
+         complex(dp) :: dydt(nst,nst)
+         integer :: i,j
+         real(dp),dimension(nst) :: epsk,occk
+         complex(dp),dimension(nst,nst) :: ht,ht_yt,yt_ht,Uk
+         complex(dp),dimension(nst,nst) :: rho_off,rhod,rho_eq,rho12
+         real(dp) :: AF(3),EF(3)
+         integer :: idir
+
+         AF = 0.0_dp; EF = 0.0_dp
+         if(associated(field)) call field(t,AF,EF)
+
+         ht = Hk(:,:,k_index)
+         do idir=1,3
+            ht = ht - qc * AF(idir) * vk(:,:,k_index,idir)
+         end do
+         call EigH(ht,epsk,Uk)
+
+         occk = nfermi(Beta,epsk - Mu)
+
+         RhoD = zero
+         do i=1,nst
+            RhoD(i,i) = occk(i)
+         end do
+         rho_eq = util_rotate_cc(nst,Uk,RhoD,large_size=large_size)
+
+         rho_off = util_rotate(nst,Uk,yt,large_size=large_size)
+         do i=1,nst
+            rho_off(i,i) = zero
+         end do
+         rho12 = util_rotate_cc(nst,Uk,rho_off,large_size=large_size)
+
+         call util_matmul(ht,yt,ht_yt,large_size=large_size)
+         call util_matmul(yt,ht,yt_ht,large_size=large_size)
+         dydt = -iu * (ht_yt - yt_ht)
+         dydt = dydt - gm1 * (yt - Rho_eq)
+         dydt = dydt + gm12 * rho12
+
+      end function deriv_velocity_gauge
+      !....................................................
+
+   end subroutine Wann_timestep_RelaxTime_velo_calc
 !--------------------------------------------------------------------------------------
    subroutine Wann_Rhok_timestep_velo(w90,Nk,kpts,tstp,dt,field,Rhok)
       type(wann90_tb_t),intent(in) :: w90
@@ -915,4 +1214,4 @@ contains
 !--------------------------------------------------------------------------------------
 
 !======================================================================================
-end module wan_dyn
+end module wan_dynamics

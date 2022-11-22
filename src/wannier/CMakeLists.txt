@@ -8,7 +8,7 @@ set(OBJECT_FILES
     wan_latt_utils.f90
     wan_latt_kpts.F90
     wan_compress.F90
-    wan_dyn.F90
+    wan_dynamics.F90
     wan_slab.F90
     wan_soc.F90
     wan_orbitals.F90

@@ -8,7 +8,7 @@ module Mwann_evol_mpi
    use scitools_rungekutta,only: ODE_step_rk5
    use scitools_array1d_dist,only: dist_array1d_t,GetDisplSize1D
    use wan_hamiltonian,only: wann90_tb_t
-   use wan_dyn
+   use wan_dynamics
    implicit none
    include '../formats.h'
    include '../units_inc.f90'
