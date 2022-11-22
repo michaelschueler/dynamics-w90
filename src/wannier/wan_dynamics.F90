@@ -764,11 +764,18 @@ contains
    end function Wann_Current_Intra_velo_calc
 !--------------------------------------------------------------------------------------
    function Wann_Pol_velo(w90,Nk,kpts,Rhok,band_basis) result(dipole)
-      type(wann90_tb_t),intent(in) :: w90
-      integer,intent(in)           :: Nk
-      real(dp),intent(in)          :: kpts(:,:)
-      complex(dp),intent(in)       :: Rhok(:,:,:)
-      logical,intent(in),optional  :: band_basis
+   !! Computes the expectation value of the dipole operator with respect to the 
+   !! time-dependent density matrix in velocity gauge \(\rho^\mathrm{VG}(\mathbf{k}),t)\):
+   !! $$\mathbf{P}(t) = \frac{q}{N} \sum_{\mathbf{k}} \mathrm{Tr}[ 
+   !! \mathbf{D}(\mathbf{k}) \rho^\mathrm{VG}(\mathbf{k}),t) ] . $$
+   !! The dipole matrix elements \(\mathbf{D}(\mathbf{k})\) are
+   !! generate on-the-fly.
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian including the lattice geometry
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
+      complex(dp),intent(in)       :: Rhok(:,:,:)  !! density matrix at time \(t\), dimension [nbnd,nbnd,Nk]
+      logical,intent(in),optional  :: band_basis !! if `.true.` we assume the density matrix is
+                                                 !! expressed in the band basis
       real(dp)                     :: dipole(3)
       logical :: band_basis_=.false.
       integer :: ik
@@ -790,12 +797,18 @@ contains
    end function Wann_Pol_velo
 !--------------------------------------------------------------------------------------
    function Wann_Pol_dip(w90,Nk,kpts,Avec,Rhok,rot_mat) result(dipole)
-      type(wann90_tb_t),intent(in) :: w90
-      integer,intent(in)           :: Nk
-      real(dp),intent(in)          :: kpts(:,:)
-      real(dp),intent(in)          :: Avec(3)
-      complex(dp),intent(in)       :: Rhok(:,:,:)
-      complex(dp),intent(in),optional :: rot_mat(:,:,:)
+   !! Computes the expectation value of the dipole operator with respect to the 
+   !! time-dependent density matrix in dipole gauge \(\rho^\mathrm{DG}(\mathbf{k}),t)\):
+   !! $$\mathbf{P}(t) = \frac{q}{N} \sum_{\mathbf{k}} \mathrm{Tr}[ 
+   !! \mathbf{D}(\mathbf{k}- q\mathbf{A}(t)) \rho^\mathrm{DG}(\mathbf{k}),t) ] . $$
+   !! The dipole matrix elements \(\mathbf{D}(\mathbf{k}- q\mathbf{A}(t))\) are
+   !! generate on-the-fly.
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian including the lattice geometry
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
+      real(dp),intent(in)          :: Avec(3) !! Vector potential \(\mathbf{A}(t)\) at time \(t\)
+      complex(dp),intent(in)       :: Rhok(:,:,:) !! density matrix at time \(t\), dimension [nbnd,nbnd,Nk]
+      complex(dp),intent(in),optional :: rot_mat(:,:,:) !! rotation matrix to allow a change of basis
       real(dp)                     :: dipole(3)
       integer :: ik,idir
       real(dp) :: Ared(3),kAred(3),Dipk(3)
@@ -829,9 +842,15 @@ contains
    end function Wann_Pol_dip
 !--------------------------------------------------------------------------------------
    function Wann_Pol_dip_calc(nbnd,Nk,Dk,Rhok) result(dipole)
-      integer,intent(in)           :: nbnd,Nk
-      complex(dp),intent(in)       :: Dk(:,:,:,:)
-      complex(dp),intent(in)       :: Rhok(:,:,:)
+   !! Computes the expectation value of the dipole operator with respect to the 
+   !! time-dependent density matrix \(\rho(\mathbf{k}),t)\):
+   !! $$\mathbf{P}(t) = \frac{q}{N} \sum_{\mathbf{k}} \mathrm{Tr}[ 
+   !! \mathbf{D}(\mathbf{k}) \rho(\mathbf{k}),t) ] . $$
+   !! The dipole matrix elements \(\mathbf{D}(\mathbf{k})\) are input here.
+      integer,intent(in)           :: nbnd !! number of bands/orbitals
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      complex(dp),intent(in)       :: Dk(:,:,:,:) !! dipole matrix elements, dimension [nbnd,nbnd,Nk,3]
+      complex(dp),intent(in)       :: Rhok(:,:,:) !! density matrix, dimension [nbnd,nbnd,Nk
       real(dp)                     :: dipole(3)
       integer :: ik
       real(dp) :: Dipk(3)
@@ -849,12 +868,26 @@ contains
    end function Wann_Pol_dip_calc
 !--------------------------------------------------------------------------------------
    subroutine Wann_Current_dip_kpt(w90,Nk,kpts,Avec,EF,Rhok,Jk)
-      type(wann90_tb_t),intent(in) :: w90
-      integer,intent(in)           :: Nk
-      real(dp),intent(in)          :: kpts(:,:)
-      real(dp),intent(in)          :: Avec(3),EF(3)
-      complex(dp),intent(in)       :: Rhok(:,:,:)
-      real(dp),intent(inout)       :: Jk(:,:)
+   !! Computes the time-dependent and momentum-resolved current with respect to the 
+   !! time-dependent density matrix in dipole gauge \(\rho^\mathrm{DG}(\mathbf{k}),t\).
+   !! The current is given by the sum of
+   !! two contributions \(\mathbf{J}(\mathbf{k},t) = \mathbf{J}^{(1)}(\mathbf{k},t) 
+   !! + \mathbf{J}^{(2)}(\mathbf{k},t)\).
+   !! We split the two contributions as follows:
+   !! $$\mathbf{J}^{(1)}(\mathbf{k},t) = \frac{q}{N}
+   !! \mathrm{Tr}[\nabla_{\mathbf{k}} H_0(\mathbf{k}-q\mathbf{A}(t)) 
+   !! \rho^\mathrm{DG}(\mathbf{k}),t)], $$
+   !! $$ \mathbf{J}^{(2)}(\mathbf{k},t) = \frac{q}{N} \mathrm{Tr}\left[ 
+   !! \mathbf{D}(\mathbf{k}-q\mathbf{A}(t)) \frac{d}{dt} \rho^\mathrm{DG}(\mathbf{k}),t) \right] .$$
+   !! Here the field-field Hamiltonian \(H_0(\mathbf{k})\) and the dipole matrix elements
+   !! \(\mathbf{D}(\mathbf{k})\) are computed on-the-fly. 
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian including the lattice geometry
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
+      real(dp),intent(in)          :: Avec(3) !! Vector potential \(\mathbf{A}(t)\) at time \(t\)
+      real(dp),intent(in)          :: EF(3)  !! Electric field \(\mathbf{A}(t)\) at time \(t\)
+      complex(dp),intent(in)       :: Rhok(:,:,:) !! density matrix at time \(t\), dimension [nbnd,nbnd,Nk]
+      real(dp),intent(inout)       :: Jk(:,:) !! k-resolved current at time \(t\), dimension [3,Nk]
       integer :: ik,idir
       real(dp) :: Ared(3),kAred(3)
       complex(dp),dimension(w90%num_wann,w90%num_wann)   :: DRhok_dt
@@ -878,13 +911,26 @@ contains
    end subroutine Wann_Current_dip_kpt
 !--------------------------------------------------------------------------------------
    function Wann_Current_dip(w90,Nk,kpts,Avec,EF,Rhok,dipole_current,rot_mat) result(jcurr)
-      type(wann90_tb_t),intent(in) :: w90
-      integer,intent(in)           :: Nk
-      real(dp),intent(in)          :: kpts(:,:)
-      real(dp),intent(in)          :: Avec(3),EF(3)
-      complex(dp),intent(in)       :: Rhok(:,:,:)
-      logical,intent(in),optional  :: dipole_current
-      complex(dp),intent(in),optional :: rot_mat(:,:,:)
+   !! Computes the time-dependent current with respect to the time-dependent density matrix
+   !! in dipole gauge \(\rho^\mathrm{DG}(\mathbf{k}),t\). The current is given by the sum of
+   !! two contributions \(\mathbf{J}(t) = \mathbf{J}^{(1)}(t) + \mathbf{J}^{(2)}(t)\).
+   !! We split the two contributions as follows:
+   !! $$\mathbf{J}^{(1)}(t) = \frac{q}{N} \sum_{\mathbf{k}} 
+   !! \left(\mathrm{Tr}[\nabla_{\mathbf{k}} H_0(\mathbf{k}-q\mathbf{A}(t)) 
+   !! \rho^\mathrm{DG}(\mathbf{k}),t)], $$
+   !! $$ \mathbf{J}^{(2)}(t) = \frac{q}{N} \sum_{\mathbf{k}} \left(\mathrm{Tr}[ 
+   !! \mathbf{D}(\mathbf{k}-q\mathbf{A}(t)) \frac{d}{dt} \rho^\mathrm{DG}(\mathbf{k}),t) \right] .$$
+   !! Here the field-field Hamiltonian \(H_0(\mathbf{k})\) and the dipole matrix elements
+   !! \(\mathbf{D}(\mathbf{k})\) are computed on-the-fly. 
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian including the lattice geometry
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
+      real(dp),intent(in)          :: Avec(3) !! Vector potential \(\mathbf{A}(t)\) at time \(t\)
+      real(dp),intent(in)          :: EF(3)  !! Electric field \(\mathbf{A}(t)\) at time \(t\)
+      complex(dp),intent(in)       :: Rhok(:,:,:) !! density matrix at time \(t\), dimension [nbnd,nbnd,Nk]
+      logical,intent(in),optional  :: dipole_current !! if `.false.`, the contribution \(\mathbf{J}^{(2)}(t)\)
+                                                     !! is neglected 
+      complex(dp),intent(in),optional :: rot_mat(:,:,:) !! rotation matrix to allow a change of basis
       real(dp)                     :: jcurr(3)
       logical :: dip_curr
       integer :: ik,idir
