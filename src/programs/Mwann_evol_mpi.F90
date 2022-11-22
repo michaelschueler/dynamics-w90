@@ -198,107 +198,22 @@ contains
    end subroutine SolveEquilibrium
 !--------------------------------------------------------------------------------------
    subroutine Timestep_RelaxTime(me,T1,T2,tstp,dt)
-      use scitools_linalg,only: EigH
-      integer,parameter :: qc=1
-      class(wann_evol_t)      :: me
+      class(wann_evol_t)        :: me
       real(dp),intent(in)       :: T1,T2
       integer,intent(in)        :: tstp
       real(dp),intent(in)       :: dt
-      logical :: emperical
-      integer :: ik
-      real(dp) :: gm1,gm2,gm12
-      real(dp) :: kpt(3)
-      complex(dp),allocatable :: Rhok_eq(:,:),Rhok_old(:,:)
 
-      gm1 = 1.0_dp / T1
-      gm2 = 1.0_dp / T2
-      gm12 = gm1 - gm2
-
-      emperical = me%gauge == dip_emp_gauge
-
-      allocate(Rhok_eq(me%nbnd,me%nbnd),Rhok_old(me%nbnd,me%nbnd))
-
-      do ik=1,me%Nk_loc
-         kpt = me%kcoord_loc(ik,:)
-         Rhok_eq = me%Rhok_eq(:,:,ik)
-         Rhok_old = me%Rhok(:,:,ik)
-
-         select case(me%gauge)
-         case(dipole_gauge, dip_emp_gauge)
-            me%Rhok(:,:,ik) = ODE_step_RK5(me%nbnd,tstp,dt,deriv_dipole_gauge,Rhok_old)
-         case(velocity_gauge,velo_emp_gauge)
-            me%Rhok(:,:,ik) = ODE_step_RK5(me%nbnd,tstp,dt,deriv_velocity_gauge,Rhok_old)
-         end select
-
-      end do
-
-      deallocate(Rhok_eq,Rhok_old)
-      !......................................................
-      contains
-      !......................................................
-      function deriv_dipole_gauge(nst,t,yt) result(dydt)
-         integer,intent(in) :: nst
-         real(dp),intent(in) :: t 
-         complex(dp),intent(in) :: yt(:,:)
-         complex(dp) :: dydt(nst,nst)
-         integer :: i
-         real(dp),dimension(nst) :: occk
-         complex(dp),dimension(nst,nst) :: ht,ht_yt,yt_ht,Uk,rho_off,rho12
-         real(dp) :: AF(3),EF(3)
-
-         AF = 0.0_dp; EF = 0.0_dp
-         if(associated(field)) call field(t,AF,EF)
-
-         ht = Wann_GetHk_dip(me%ham,AF,EF,kpt,reducedA=.false.,&
-            Peierls_only=emperical)
-         call EigH(ht,occk,Uk)
-
-         rho_off = util_rotate(nst,Uk,yt,large_size=large_size)
-         do i=1,nst
-            rho_off(i,i) = zero
-         end do
-         rho12 = util_rotate_cc(nst,Uk,rho_off,large_size=large_size)
-
-         call util_matmul(ht,yt,ht_yt,large_size=large_size)
-         call util_matmul(yt,ht,yt_ht,large_size=large_size)
-         dydt = -iu * (ht_yt - yt_ht)
-         dydt = dydt - gm1 * (yt - Rhok_eq)
-         dydt = dydt + gm12 * rho12
-
-      end function deriv_dipole_gauge
-      !....................................................
-      function deriv_velocity_gauge(nst,t,yt) result(dydt)
-         integer,intent(in) :: nst
-         real(dp),intent(in) :: t 
-         complex(dp),intent(in) :: yt(:,:)
-         complex(dp) :: dydt(nst,nst)
-         integer :: i,j
-         complex(dp),dimension(nst,nst) :: ht,ht_yt,yt_ht
-         real(dp) :: AF(3),EF(3)
-         integer :: idir
-
-         AF = 0.0_dp; EF = 0.0_dp
-         if(associated(field)) call field(t,AF,EF)
-
-         ht = me%Hk(:,:,ik)
-         do idir=1,3
-            ht = ht - qc * AF(idir) * me%velok(:,:,ik,idir)
-         end do
-         call util_matmul(ht,yt,ht_yt,large_size=large_size)
-         call util_matmul(yt,ht,yt_ht,large_size=large_size)
-         dydt = -iu * (ht_yt - yt_ht)
-         do i=1,nst
-            dydt(i,i) = dydt(i,i) - gm1 * (yt(i,i) - Rhok_eq(i,i))
-         end do
-         do i=1,nst
-            do j=1,nst
-               if(i == j) cycle
-               dydt(i,j) = dydt(i,j) - gm2 * yt(i,j)
-            end do
-         end do
-
-      end function deriv_velocity_gauge
-      !....................................................
+      select case(me%gauge)
+      case(dipole_gauge)
+         call Wann_timestep_RelaxTime(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,field,T1,T2,&
+            me%Beta,me%MuChem,me%Rhok)
+      case(dip_emp_gauge)
+         call Wann_timestep_RelaxTime(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,field,T1,T2,&
+            me%Beta,me%MuChem,me%Rhok,empirical=.true.)        
+      case(velocity_gauge,velo_emp_gauge)
+         call Wann_timestep_RelaxTime(me%nbnd,me%Nk_loc,me%Hk,me%velok,tstp,dt,field,T1,T2,&
+            me%Beta,me%MuChem,me%Rhok)
+      end select
 
    end subroutine Timestep_RelaxTime
 !--------------------------------------------------------------------------------------
