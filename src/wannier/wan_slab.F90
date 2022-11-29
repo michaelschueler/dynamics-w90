@@ -18,6 +18,9 @@ contains
    !! .We assume the slab is constructed along the 
    !! \(\mathbf{c} = \mathbf{a}\_1\times \mathbf{a}\_2\) direction, where 
    !! \(\mathbf{a}_{1,2}\) are the in-plane lattice vectors of the bulk Hamiltonian.
+   !! Restriction: we assume the \(\mathbf{a}_{1,2}\) are in the \(x\)-\(y\) plane:
+   !! \(\mathbf{a}_{1,2} \cdot \hat{z} = 0\), where \(\hat{z}\) is the unit vector
+   !! in \(z\)-direction.
    !! 
    !! The slab Hamiltonian is equivalent to a two-dimensional system with enlarged 
    !! orbital space. By defining the new orbital indicies \(m = (j l)\)  with 
@@ -30,7 +33,7 @@ contains
                                                 !! enlarged orbital space.
       integer :: ijmax
       integer :: nwan,nrpts_2d,irpt,irpt2d
-      integer :: i1,i2,i3,i,j,idir,iorb
+      integer :: i1,i2,i3,i,j,idir
       real(dp) :: e3p(3),oop_vec(3),Ua(3,3),pos_r_slab(3)
       complex(dp),allocatable :: Hij(:,:,:,:),pos_r(:,:,:,:)
       complex(dp),allocatable :: Dij(:,:,:,:,:)
@@ -40,7 +43,8 @@ contains
       nwan = bulk_w90%num_wann
       slab_w90%real_lattice = bulk_w90%real_lattice
       call GetDipoleRotation(bulk_w90%real_lattice,e3p,Ua)
-      slab_w90%real_lattice(3,:) = e3p
+      ! slab_w90%real_lattice = matmul(bulk_w90%real_lattice, Ua)
+      ! slab_w90%real_lattice(3,:) = e3p
 
       ! call GetOutOfPlaneVector(bulk_w90%real_lattice,oop_vec)
       !!! CHECK
@@ -70,7 +74,8 @@ contains
       do irpt=1,bulk_w90%nrpts
          do j=1,bulk_w90%num_wann
             do i=1,bulk_w90%num_wann
-               pos_r(i,j,irpt,1:3) = matmul(bulk_w90%pos_r(i,j,irpt,1:3),Ua)
+               ! pos_r(i,j,irpt,1:3) = matmul(bulk_w90%pos_r(i,j,irpt,1:3),Ua)
+               pos_r(i,j,irpt,1:3) = bulk_w90%pos_r(i,j,irpt,1:3)
             end do
          end do
       end do
@@ -85,6 +90,8 @@ contains
             irpt2d = get_index_i3(bulk_w90,i1,i2)
             Hij(:,:,i3+ijmax+1,irpt2d) = bulk_w90%ham_r(:,:,irpt)
             Dij(:,:,i3+ijmax+1,irpt2d,1) = pos_r(:,:,irpt,1)
+            Dij(:,:,i3+ijmax+1,irpt2d,2) = pos_r(:,:,irpt,2)
+            Dij(:,:,i3+ijmax+1,irpt2d,3) = pos_r(:,:,irpt,3)
             slab_w90%irvec(irpt2d,1) = i1
             slab_w90%irvec(irpt2d,2) = i2
             slab_w90%irvec(irpt2d,3) = i3
@@ -98,12 +105,10 @@ contains
             do j=1,nlayer
                slab_w90%ham_r((j-1)*nwan+1:j*nwan,(i-1)*nwan+1:i*nwan,irpt2d) = &
                   Hij(:,:,i-j+ijmax+1,irpt2d)
-               slab_w90%pos_r((j-1)*nwan+1:j*nwan,(i-1)*nwan+1:i*nwan,irpt2d,1) = &
-                  Dij(:,:,i-j+ijmax+1,irpt2d,1)
-               slab_w90%pos_r((j-1)*nwan+1:j*nwan,(i-1)*nwan+1:i*nwan,irpt2d,2) = &
-                  Dij(:,:,i-j+ijmax+1,irpt2d,2)
-               slab_w90%pos_r((j-1)*nwan+1:j*nwan,(i-1)*nwan+1:i*nwan,irpt2d,3) = &
-                  Dij(:,:,i-j+ijmax+1,irpt2d,3)
+               do idir=1,3
+                  slab_w90%pos_r((j-1)*nwan+1:j*nwan,(i-1)*nwan+1:i*nwan,irpt2d,idir) = &
+                     Dij(:,:,i-j+ijmax+1,irpt2d,idir)
+               end do
             end do
          end do
       end do
@@ -120,9 +125,12 @@ contains
 
          allocate(slab_w90%coords(slab_w90%num_wann,3))
          do i=1,nlayer
-            slab_w90%coords((i-1)*nwan+1:i*nwan,1:3) = matmul(bulk_w90%coords(1:nwan,1:3),Ua)
-            slab_w90%coords((i-1)*nwan+1:i*nwan,3) = slab_w90%coords((i-1)*nwan+1:i*nwan,3) &
-               - (i-1) * norm2(oop_vec)
+            ! slab_w90%coords((i-1)*nwan+1:i*nwan,1:3) = matmul(bulk_w90%coords(1:nwan,1:3),Ua)
+            slab_w90%coords((i-1)*nwan+1:i*nwan,1:3) = bulk_w90%coords(1:nwan,1:3)
+            do idir=1,3
+               slab_w90%coords((i-1)*nwan+1:i*nwan,idir) = slab_w90%coords((i-1)*nwan+1:i*nwan,idir) &
+                  - (i-1) * bulk_w90%real_lattice(3,idir)
+            end do
          end do
       end if
 
