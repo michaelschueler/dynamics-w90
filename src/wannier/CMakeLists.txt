@@ -15,7 +15,7 @@ set(OBJECT_FILES
 )
 
 # ~~ Installation targets ~~
-add_library(wannier OBJECT ${OBJECT_FILES})
+add_library(wannier STATIC ${OBJECT_FILES})
 target_link_libraries(wannier basic scitools ${COMMON_LIBS})
 
 if(scitools_prefix)

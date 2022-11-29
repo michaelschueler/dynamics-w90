@@ -7,7 +7,7 @@ set(OBJECT_FILES
 
 
 # ~~ Installation targets ~~
-add_library(basic OBJECT ${OBJECT_FILES})
+add_library(basic STATIC ${OBJECT_FILES})
 target_link_libraries(basic scitools ${COMMON_LIBS})
 if(scitools_prefix)
 
