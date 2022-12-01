@@ -3,6 +3,7 @@ module Mwann_evol
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
    use scitools_def,only: dp,iu,one,zero,nfermi
+   use scitools_utils,only: stop_error
    use scitools_linalg,only: get_large_size,util_matmul,util_rotate,util_rotate_cc
    use wan_hamiltonian,only: wann90_tb_t
    use wan_dynamics
@@ -20,7 +21,7 @@ module Mwann_evol
    public :: wann_evol_t
 !--------------------------------------------------------------------------------------
    type wann_evol_t
-      logical  :: free_evol=.false.
+      logical  :: free_evol=.false., spin_current=.false.
       integer  :: gauge
       integer  :: Nk,nbnd
       real(dp) :: Beta,MuChem,nelec
@@ -40,6 +41,8 @@ module Mwann_evol
       procedure,public  :: Timestep
       procedure,public  :: CalcObservables_velo
       procedure,public  :: CalcObservables_dip
+      procedure,public  :: CalcSpinCurrent_velo
+      procedure,public  :: CalcSpinCurrent_dip      
       procedure,public  :: GetOccupationKPTS
    end type wann_evol_t
 !--------------------------------------------------------------------------------------
@@ -54,14 +57,14 @@ module Mwann_evol
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,Beta,MuChem,ham,kpts,gauge)
+   subroutine Init(me,Beta,MuChem,ham,kpts,gauge,spin_current)
       class(wann_evol_t)           :: me
       real(dp),intent(in)          :: Beta
       real(dp),intent(in)          :: MuChem
       type(wann90_tb_t),intent(in) :: ham
       real(dp),target,intent(in)   :: kpts(:,:)
       integer,intent(in)           :: gauge
-      character(len=32) :: sampling
+      logical,intent(in),optional  :: spin_current
 
       me%gauge = gauge
       me%Nk = size(kpts,dim=1)
@@ -76,6 +79,13 @@ contains
       allocate(me%Rhok(me%nbnd,me%nbnd,me%Nk))
 
       large_size = get_large_size(me%nbnd)
+
+      if(present(spin_current)) me%spin_current = spin_current
+      if(me%spin_current) then
+         if(mod(me%nbnd, 2) /= 0) then
+            call stop_error("Number of bands odd. Not compatible with spinor mode.")
+         end if
+      end if
 
    end subroutine Init
 !--------------------------------------------------------------------------------------
@@ -308,6 +318,23 @@ contains
             
    end subroutine CalcObservables_velo
 !--------------------------------------------------------------------------------------
+   subroutine CalcSpinCurrent_velo(me,tstp,dt,Jspin)
+      class(wann_evol_t),intent(in) :: me
+      integer,intent(in)   :: tstp
+      real(dp),intent(in)  :: dt
+      real(dp),intent(out) :: Jspin(3,3)
+      real(dp) :: AF(3),EF(3)
+      real(dp) :: Jpara(3,3),Jdia(3,3)
+
+      AF = 0.0_dp; EF = 0.0_dp
+      if(associated(field)) call field(tstp*dt,AF,EF)
+
+      Jpara = Wann_SpinCurrent_para_velo(me%nbnd,me%Nk,me%velok,me%wan_rot,me%Rhok)
+      Jdia = Wann_SpinCurrent_dia_velo(me%nbnd,me%Nk,AF,me%wan_rot,me%Rhok)
+      Jspin = Jpara + Jdia
+
+   end subroutine CalcSpinCurrent_velo
+!--------------------------------------------------------------------------------------
    subroutine CalcObservables_dip(me,tstp,dt,Ekin,Etot,Jcurr,Jhk,Jpol,Dip,BandOcc)
       class(wann_evol_t),intent(in) :: me
       integer,intent(in)   :: tstp
@@ -372,6 +399,26 @@ contains
       end if
 
    end subroutine CalcObservables_dip
+!--------------------------------------------------------------------------------------
+   subroutine CalcSpinCurrent_dip(me,tstp,dt,Jspin)
+      class(wann_evol_t),intent(in) :: me
+      integer,intent(in)   :: tstp
+      real(dp),intent(in)  :: dt
+      real(dp),intent(out) :: Jspin(3,3)
+      real(dp) :: AF(3),EF(3)
+
+      AF = 0.0_dp; EF = 0.0_dp
+      if(associated(field)) call field(tstp*dt,AF,EF)
+
+      if(me%free_evol) then
+         Jspin = Wann_SpinCurrent_dip_calc(me%nbnd,me%Nk,me%Hk,me%grad_Hk,me%Dk,me%Rhok,&
+            dipole_current=(me%gauge == dipole_gauge))
+      else
+         Jspin = Wann_SpinCurrent_dip(me%ham,me%Nk,me%kcoord,AF,EF,me%Rhok,&
+            dipole_current=(me%gauge == dipole_gauge))
+      end if
+
+   end subroutine CalcSpinCurrent_dip
 !--------------------------------------------------------------------------------------
    subroutine GetOccupationKPTS(me,Occk)
       class(wann_evol_t),intent(in) :: me

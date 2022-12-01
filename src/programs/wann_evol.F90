@@ -44,7 +44,7 @@ program wann_evol
 !! ## Input variables ##
 !! Input variables are read from `input_file` in Fortran name list format. The following
 !! name list tags and variables are read:
-!! #### SYSPARAMS ####
+!! #### HAMILTONIAN ####
 !! * `MuChem`: the chemical potential (a.u.)
 !! * `FixMuChem`: if `.true.`, the input chemical potential will be used. Otherwise the 
 !!    chemical potential will be recalculated to match the given filling.
@@ -53,10 +53,9 @@ program wann_evol
 !! * `Beta`: inverse temperature (a.u.)
 !! * `file_ham`: File with the Wannier Hamiltonian. This is the `_tb.dat` file obtained from Wannier90,
 !!               or an hdf5 file procuded by [[wann_prune]] or [[wann_soc]].
-!! * `gauge`: Velocity gauge (`gauge=0`), dipole gauge (`gauge=1`), empirical velocity gauge (`gauge=3`), 
-!!    Peierls substitution (`gauge=4`)
-!! * `Output_Occ_KPTS`: If `.true.`, the momentum-dependent band occupation will be written to file.
-!!                      This can produce large output file size; hdf5 support is recommended.
+!! * `lm_gauge`: Velocity gauge (`lm_gauge=0`), dipole gauge (`lm_gauge=1`), empirical velocity gauge (`lm_gauge=3`), 
+!!    Peierls substitution (`lm_gauge=4`)
+
 !!
 !! #### TIMEPARAMS ####
 !! * `Nt`: The number of time steps.
@@ -70,6 +69,13 @@ program wann_evol
 !!    time (1st column), Ex (2nd column), Ey (3rd column), Ez (4th column). 
 !!    The time and field strength is expected in atomic units.
 !! 
+!! #### OUTPUT ####
+!! * `spin_current`: Triggers the calculation of spin currents for systems with SOC. The Hamiltonian
+!!                   supports \(n_b = 2 n_\mathrm{orb}\) bands, where \(n_\mathrm{orb}\) is the
+!!                   number of Wannier functions without spin. 
+!! * `Output_Occ_KPTS`: If `.true.`, the momentum-dependent band occupation will be written to file.
+!!                      This can produce large output file size; hdf5 support is recommended.
+!!
 !! #### KPOINTS ####
 !! Specification of the k-points, which can be along a path, a Monkhorst-Pack grid, or a user-supplied. 
 !! See [[Read_Kpoints]] for details.
@@ -85,12 +91,14 @@ program wann_evol
    use Mdebug
    use scitools_def,only: dp,zero
    use scitools_time,only: Timer_Act, Timer_Tic, Timer_Toc
-   use scitools_utils,only: print_title, print_header, get_file_ext, check_file_ext
+   use scitools_utils,only: print_title, print_header, get_file_ext, check_file_ext,&
+      stop_error
    use scitools_laserpulse,only: LaserPulse_spline_t
    use wan_hamiltonian,only: wann90_tb_t
    use wan_latt_kpts,only: Read_Kpoints
+   use io_params,only: HamiltonianParams_t, TimeParams_t
    use io_hamiltonian,only: ReadHamiltonian
-   use io_obs,only: SaveTDObs, SaveTDOccupation
+   use io_obs,only: SaveTDObs, SaveTDOccupation, SaveSpinCurrent
    use Mwann_evol,only: wann_evol_t
    implicit none
    include '../formats.h'
@@ -104,20 +112,10 @@ program wann_evol
    integer :: Narg,unit_inp
    character(len=255) :: FlIn,FlOutPref
    ! -- input variables --
-   logical            :: Output_Occ_KPTS=.false.
-   logical            :: FixMuChem=.true.
-   integer            :: gauge
-   real(dp)           :: MuChem,Beta,Filling
-   character(len=255) :: file_ham
-   namelist/SYSPARAMS/MuChem,FixMuChem,Filling,Beta,file_ham,gauge,Output_Occ_KPTS
-   !......................................
-   logical  :: relaxation_dynamics=.false.
-   integer  :: Nt,output_step=1
-   real(dp) :: Tmax,T1_relax=1.0e10_dp,T2_relax=1.0e10_dp
-      character(len=255) :: file_field=""
-   namelist/TIMEPARAMS/Nt,Tmax,output_step,relaxation_dynamics,T1_relax,T2_relax,&
-      file_field
-   !......................................
+   type(HamiltonianParams_t) :: par_ham
+   type(TimeParams_t) :: par_time
+   logical :: spin_current=.false.,Output_Occ_KPTS=.false.
+   namelist/OUTPUT/spin_current,Output_Occ_KPTS
    ! -- internal variables --
    logical  :: file_ok
    logical  :: ApplyField=.false.
@@ -126,7 +124,7 @@ program wann_evol
    real(dp),allocatable,dimension(:)     :: Etot,Ekin
    real(dp),allocatable,dimension(:,:)   :: kpts,BandOcc,Jcurr,Dip
    real(dp),allocatable,dimension(:,:)   :: Jpara,Jdia,JHk,Jpol,Jintra
-   real(dp),allocatable,dimension(:,:,:) :: Occk
+   real(dp),allocatable,dimension(:,:,:) :: Occk,Jspin
    type(LaserPulse_spline_t) :: pulse_x,pulse_y,pulse_z
    type(wann90_tb_t)         :: Ham
    type(wann_evol_t)         :: lattsys
@@ -153,13 +151,13 @@ program wann_evol
    Narg=command_argument_count()
    if(Narg>=1) then
       call get_command_argument(1,FlIn)
-      open(newunit=unit_inp,file=trim(FlIn),status='OLD',action='READ')
-      read(unit_inp,nml=SYSPARAMS) ; rewind(unit_inp)
-      read(unit_inp,nml=TIMEPARAMS)
+      call par_ham%ReadFromFile(FlIn)
+      call par_time%ReadFromFile(FlIn)
+      open(newunit=unit_inp,file=trim(FlIn),STATUS='OLD',ACTION='READ')
+      read(unit_inp,nml=OUTPUT)
       close(unit_inp)
    else
-      write(output_unit,fmt900) 'Please provide a namelist input file.'
-      stop
+      call stop_error('Please provide a namelist input file.')
    end if
 
    if(Narg>=2) then
@@ -170,27 +168,25 @@ program wann_evol
       write(output_unit,fmt_info) 'No output prefix given. No output will be produced.'
    end if
 
-   inquire(file=trim(file_ham),exist=file_ok)
+   inquire(file=trim(par_ham%file_ham),exist=file_ok)
    if(.not.file_ok) then
-      write(error_unit,fmt900) 'Input file does not exist: '//trim(file_ham)
-      stop
+      call stop_error('Input file does not exist: '//trim(par_ham%file_ham))
    end if
-   write(output_unit,fmt_input) 'Hamiltionian from file: '//trim(file_ham)
-   call ReadHamiltonian(file_ham,Ham)
+   write(output_unit,fmt_input) 'Hamiltionian from file: '//trim(par_ham%file_ham)
+   call ReadHamiltonian(par_ham%file_ham,Ham)
 
    call Read_Kpoints(FlIn,kpts,print_info=.true.)
 
-   ApplyField = len_trim(file_field) > 0
+   ApplyField = len_trim(par_time%file_field) > 0
    if(ApplyField) then
-      inquire(file=trim(file_field),exist=file_ok)
+      inquire(file=trim(par_time%file_field),exist=file_ok)
       if(.not.file_ok) then
-         write(error_unit,fmt900) 'Input file does not exist: '//trim(file_field)
-         stop
+         call stop_error('Input file does not exist: '//trim(par_time%file_field))
       end if
-      write(output_unit,fmt_input) 'External field from file: '//trim(file_field)
-      call pulse_x%Load_ElectricField(file_field,usecol=2,CalcAfield=.true.)
-      call pulse_y%Load_ElectricField(file_field,usecol=3,CalcAfield=.true.)
-      call pulse_z%Load_ElectricField(file_field,usecol=4,CalcAfield=.true.)
+      write(output_unit,fmt_input) 'External field from file: '//trim(par_time%file_field)
+      call pulse_x%Load_ElectricField(par_time%file_field,usecol=2,CalcAfield=.true.)
+      call pulse_y%Load_ElectricField(par_time%file_field,usecol=3,CalcAfield=.true.)
+      call pulse_z%Load_ElectricField(par_time%file_field,usecol=4,CalcAfield=.true.)
    end if
 
    write(output_unit,*)
@@ -201,14 +197,14 @@ program wann_evol
    call print_header(output_unit,"Equilibrium","*")
    call Timer_Tic('equilibrium', 2)
 
-   call lattsys%Init(Beta,MuChem,ham,kpts,gauge)
+   call lattsys%Init(par_ham%Beta,par_ham%MuChem,ham,kpts,par_ham%lm_gauge)
    call lattsys%SetLaserPulse(external_field)
 
-   if(FixMuChem) then
+   if(par_ham%FixMuChem) then
       call lattsys%SolveEquilibrium()
       write(output_unit,fmt149) "number of electrons", lattsys%nelec
    else
-      call lattsys%SolveEquilibrium(Filling)
+      call lattsys%SolveEquilibrium(par_ham%Filling)
       write(output_unit,fmt149) "chemical potential", lattsys%MuChem
    end if
 
@@ -217,7 +213,7 @@ program wann_evol
    write(output_unit,*)
 
    write(output_unit,fmt_info,advance='no') "gauge: "
-   select case(gauge)
+   select case(par_ham%lm_gauge)
    case(dipole_gauge)
       write(output_unit,*) "dipole gauge"
    case(dip_emp_gauge)
@@ -229,34 +225,41 @@ program wann_evol
    case default
       write(error_unit,fmt900) "unrecognized gauge"
    end select
+   write(output_unit,fmt_info) "spin currents will be computed"
 !--------------------------------------------------------------------------------------
 !                         ++  Time propagation ++
 !--------------------------------------------------------------------------------------
    call print_header(output_unit,"Time propagation","*")
    call Timer_Tic('propagation', 2)
 
-   Nsteps = ceiling((Nt+1)/dble(output_step)) - 1
+   Nsteps = ceiling((par_time%Nt+1)/dble(par_time%output_step)) - 1
 
-   dt = Tmax/dble(Nt)
+   dt = par_time%Tmax/dble(par_time%Nt)
 
    allocate(Ekin(0:Nsteps),Etot(0:Nsteps),Jcurr(3,0:Nsteps),Dip(3,0:Nsteps))
    allocate(BandOcc(Ham%num_wann,0:Nsteps))
-   if(gauge == dipole_gauge .or. gauge == dip_emp_gauge) then
+   if(par_ham%lm_gauge == dipole_gauge .or. par_ham%lm_gauge == dip_emp_gauge) then
       allocate(JHk(3,0:Nsteps),Jpol(3,0:Nsteps))
    else
       allocate(Jpara(3,0:Nsteps),Jdia(3,0:Nsteps),Jintra(3,0:Nsteps))
+   end if
+
+   if(spin_current) then
+      allocate(Jspin(3,3,0:Nsteps))
    end if
 
    if(Output_Occ_KPTS) then
       allocate(Occk(lattsys%nbnd,lattsys%Nk,0:Nsteps))
    end if
 
-   if(gauge == dipole_gauge .or. gauge == dip_emp_gauge) then
+   if(par_ham%lm_gauge == dipole_gauge .or. par_ham%lm_gauge == dip_emp_gauge) then
       call lattsys%CalcObservables_dip(0,dt,Ekin(0),Etot(0),Jcurr(:,0),JHk(:,0),Jpol(:,0),&
                Dip(:,0),BandOcc(:,0))
+      if(spin_current) call lattsys%CalcSpinCurrent_dip(tstp,dt,Jspin(:,:,0))
    else
       call lattsys%CalcObservables_velo(0,dt,Ekin(0),Etot(0),Jcurr(:,0),Jpara(:,0),Jdia(:,0),&
          Jintra(:,0),Dip(:,0),BandOcc(:,0))
+      if(spin_current) call lattsys%CalcSpinCurrent_velo(tstp,dt,Jspin(:,:,0))
    end if
 
    if(Output_Occ_KPTS) then
@@ -268,22 +271,24 @@ program wann_evol
    if(.not. ApplyField) pulse_tmax = 0.0_dp
 
    step = 0
-   do tstp=0,Nt-1
-      if(relaxation_dynamics) then
-         call lattsys%Timestep_RelaxTime(T1_relax,T2_relax,tstp,dt)
+   do tstp=0,par_time%Nt-1
+      if(par_time%relaxation_dynamics) then
+         call lattsys%Timestep_RelaxTime(par_time%T1_relax,par_time%T2_relax,tstp,dt)
       else
          call lattsys%Timestep(tstp,dt,field_tmax=pulse_tmax)
       end if
 
-      if(mod(tstp+1, output_step) == 0) then
+      if(mod(tstp+1, par_time%output_step) == 0) then
          step = step + 1
 
-         if(gauge == dipole_gauge .or. gauge == dip_emp_gauge) then
+         if(par_ham%lm_gauge == dipole_gauge .or. par_ham%lm_gauge == dip_emp_gauge) then
             call lattsys%CalcObservables_dip(tstp+1,dt,Ekin(step),Etot(step),Jcurr(:,step),JHk(:,step),&
                   Jpol(:,step),Dip(:,step),BandOcc(:,step))
+            if(spin_current) call lattsys%CalcSpinCurrent_dip(tstp,dt,Jspin(:,:,step))
          else
             call lattsys%CalcObservables_velo(tstp+1,dt,Ekin(step),Etot(step),Jcurr(:,step),Jpara(:,step),&
                   Jdia(:,step),Jintra(:,step),Dip(:,step),BandOcc(:,step))
+            if(spin_current) call lattsys%CalcSpinCurrent_velo(tstp,dt,Jspin(:,:,step))
          end if
 
          if(Output_Occ_KPTS) then
@@ -300,17 +305,21 @@ program wann_evol
    call Timer_Toc(N=2)
 !--------------------------------------------------------------------------------------
    if(PrintToFile) then
-      select case(gauge)
+      select case(par_ham%lm_gauge)
       case(velocity_gauge, velo_emp_gauge)
-         call SaveTDObs(FlOutPref,Nsteps,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
+         call SaveTDObs(FlOutPref,Nsteps,par_time%output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
             Jpara,Jdia,Jintra)
       case(dipole_gauge, dip_emp_gauge)
-         call SaveTDObs(FlOutPref,Nsteps,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
+         call SaveTDObs(FlOutPref,Nsteps,par_time%output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
             JHk,Jpol)         
       end select
 
+      if(spin_current) then
+         call SaveSpinCurrent(FlOutPref,Nsteps,par_time%output_step,dt,Jspin)
+      end if
+
       if(Output_Occ_KPTS) then
-         call SaveTDOccupation(FlOutPref,Nsteps,output_step,dt,Occk)
+         call SaveTDOccupation(FlOutPref,Nsteps,par_time%output_step,dt,Occk)
       end if
    end if
 !--------------------------------------------------------------------------------------

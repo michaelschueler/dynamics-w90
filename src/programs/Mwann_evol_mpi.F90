@@ -4,8 +4,8 @@ module Mwann_evol_mpi
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
    use scitools_def,only: dp,iu,one,zero,nfermi
+   use scitools_utils,only: stop_error
    use scitools_linalg,only: get_large_size,util_matmul,util_rotate,util_rotate_cc
-   use scitools_rungekutta,only: ODE_step_rk5
    use scitools_array1d_dist,only: dist_array1d_t,GetDisplSize1D
    use wan_hamiltonian,only: wann90_tb_t
    use wan_dynamics
@@ -29,7 +29,7 @@ module Mwann_evol_mpi
    public :: wann_evol_t
 !--------------------------------------------------------------------------------------
    type wann_evol_t
-      logical  :: free_evol=.false.
+      logical  :: free_evol=.false., spin_current=.false.
       integer  :: gauge
       integer  :: Nk,Nk_loc,nbnd
       real(dp) :: Beta,MuChem,nelec
@@ -48,6 +48,8 @@ module Mwann_evol_mpi
       procedure,public  :: Timestep
       procedure,public  :: CalcObservables_velo
       procedure,public  :: CalcObservables_dip
+      procedure,public  :: CalcSpinCurrent_velo
+      procedure,public  :: CalcSpinCurrent_dip    
       procedure,public  :: GetOccupationKPTS
    end type wann_evol_t
 !--------------------------------------------------------------------------------------
@@ -62,14 +64,14 @@ module Mwann_evol_mpi
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,Beta,MuChem,ham,kpts,gauge)
+   subroutine Init(me,Beta,MuChem,ham,kpts,gauge,spin_current)
       class(wann_evol_t)           :: me
       real(dp),intent(in)          :: Beta
       real(dp),intent(in)          :: MuChem
       type(wann90_tb_t),intent(in) :: ham
       real(dp),intent(in)          :: kpts(:,:)
       integer,intent(in)           :: gauge
-      character(len=32) :: sampling
+      logical,intent(in),optional  :: spin_current
       integer :: ik,ik_glob
 
       call MPI_COMM_RANK(MPI_COMM_WORLD, taskid, ierr)
@@ -98,6 +100,14 @@ contains
       me%MuChem = MuChem
 
       allocate(me%Rhok(me%nbnd,me%nbnd,me%Nk_loc))
+
+      if(present(spin_current)) me%spin_current = spin_current
+      if(me%spin_current) then
+         if(mod(me%nbnd, 2) /= 0) then
+            call stop_error("Number of bands odd. Not compatible with spinor mode.",&
+               root_flag=on_root)
+         end if
+      end if
 
    end subroutine Init
 !--------------------------------------------------------------------------------------
@@ -351,6 +361,28 @@ contains
       
    end subroutine CalcObservables_velo
 !--------------------------------------------------------------------------------------
+   subroutine CalcSpinCurrent_velo(me,tstp,dt,Jspin)
+      class(wann_evol_t),intent(in) :: me
+      integer,intent(in)   :: tstp
+      real(dp),intent(in)  :: dt
+      real(dp),intent(out) :: Jspin(3,3)
+      real(dp) :: ck
+      real(dp) :: AF(3),EF(3)
+      real(dp),dimension(3,3) :: Jpara_loc,Jdia_loc,Jspin_loc
+
+      AF = 0.0_dp; EF = 0.0_dp
+      if(associated(field)) call field(tstp*dt,AF,EF)
+
+      ck = me%Nk_loc / dble(me%Nk)
+
+      Jpara_loc = Wann_SpinCurrent_para_velo(me%nbnd,me%Nk_loc,me%velok,me%wan_rot,me%Rhok)
+      Jdia_loc = Wann_SpinCurrent_dia_velo(me%nbnd,me%Nk_loc,AF,me%wan_rot,me%Rhok)
+      Jspin_loc = ck * (Jpara_loc + Jdia_loc)
+
+      call MPI_ALLREDUCE(Jspin_loc,Jspin,9,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
+
+   end subroutine CalcSpinCurrent_velo
+!--------------------------------------------------------------------------------------
    subroutine CalcObservables_dip(me,tstp,dt,Ekin,Etot,Jcurr,Jhk,Jpol,Dip,BandOcc)
       class(wann_evol_t),intent(in) :: me
       integer,intent(in)   :: tstp
@@ -428,6 +460,31 @@ contains
       end if
 
    end subroutine CalcObservables_dip
+!--------------------------------------------------------------------------------------
+   subroutine CalcSpinCurrent_dip(me,tstp,dt,Jspin)
+      class(wann_evol_t),intent(in) :: me
+      integer,intent(in)   :: tstp
+      real(dp),intent(in)  :: dt
+      real(dp),intent(out) :: Jspin(3,3)
+      real(dp) :: AF(3),EF(3)
+      real(dp),dimension(3,3) :: Jspin_loc
+
+      AF = 0.0_dp; EF = 0.0_dp
+      if(associated(field)) call field(tstp*dt,AF,EF)
+
+      if(me%free_evol) then
+         Jspin_loc = Wann_SpinCurrent_dip_calc(me%nbnd,me%Nk_loc,me%Hk,me%grad_Hk,me%Dk,me%Rhok,&
+            dipole_current=(me%gauge == dipole_gauge))
+      else
+         Jspin_loc = Wann_SpinCurrent_dip(me%ham,me%Nk_loc,me%kcoord_loc,AF,EF,me%Rhok,&
+            dipole_current=(me%gauge == dipole_gauge))
+      end if
+
+      Jspin_loc = me%Nk_loc / dble(me%Nk) * Jspin_loc
+
+      call MPI_ALLREDUCE(Jspin_loc,Jspin,9,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)      
+
+   end subroutine CalcSpinCurrent_dip
 !--------------------------------------------------------------------------------------
    subroutine GetOccupationKPTS(me,Occk)
       class(wann_evol_t),intent(in) :: me

@@ -8,7 +8,7 @@ module io_params
    include "../formats.h"  
 !--------------------------------------------------------------------------------------
    private
-   public :: WannierCalcParams_t, HamiltonianParams_t, PESParams_t
+   public :: WannierCalcParams_t, HamiltonianParams_t, PESParams_t, TimeParams_t
 !--------------------------------------------------------------------------------------
    integer,parameter :: field_mode_positions=0,field_mode_dipole=1,field_mode_berry=2
    integer,parameter :: gauge_len=0, gauge_mom=1
@@ -33,6 +33,20 @@ module io_params
       procedure, public :: ReadFromFile => wannier_calc_ReadFromFile
    end type WannierCalcParams_t
 
+   type :: TimeParams_t
+   !! Options and parameters for the time evolution by [[wann_evol]]
+      character(len=256) :: file_field="" !! file name for external electric field
+      logical  :: relaxation_dynamics !! If set to `.true.`, the equation of motion for the density matrix with
+                                      !! phenomenological damping `T1_relax` and decoherence `T2_relax` will be solved.
+      integer  :: Nt=100 !! Number of time steps
+      integer  :: output_step=1 !! output will we written to file evert `output_step` time steps
+      real(dp) :: Tmax=1.0_dp !! propagation time, defining the time step `dt=Tmax / Nt`
+      real(dp) :: T1_relax=1.0e10_dp  !! Diagonal relaxation towards the instantaneous equilibrium density matrix.
+      real(dp) :: T2_relax=1.0e10_dp  !! Decay time of off-diagonal elements of the density matrix.
+   contains
+      procedure, public :: ReadFromFile => Time_ReadFromFile  
+   end type TimeParams_t
+
    type :: HamiltonianParams_t
    !! Options and parameters for the Wannier Hamiltonian
       character(len=256) :: file_ham="" !! file name for the Wannier Hamiltonian
@@ -48,7 +62,11 @@ module io_params
                                               !! a bulk Wannier Hamiltonian
       integer            :: field_mode=field_mode_positions !! How to include the effects of the   
                                                             !! static electric field
+      real(dp)           :: Beta=1000.0_dp !! inverse temperature
+      real(dp)           :: filling=1.0_dp !! number of electrons per unit cell (per spin in the case without SOC)
       real(dp)           :: MuChem=0.0_dp !! Chemical potential for separating occupied vs. unoccupied bands
+      logical            :: FixMuChem=.true. !! if `.true.` the occupations will be computed with respect to
+                                             !! the input chemical potential `MuChem`
       real(dp)           :: energy_thresh=0.0_dp !! Hopping amplitudes smaller than `energy_thresh` will 
                                                  !! be disregarded when compressing the Hamiltonian
       real(dp)           :: Efield(3)=[0.0_dp,0.0_dp,0.0_dp] !! static electric field
@@ -60,6 +78,8 @@ module io_params
       logical            :: force_antiherm=.true. !! [Export] if .true., only the anti-hermitian
                                                   !! part of the Berry connection is computed
       real(dp)           :: degen_thresh=1.0e-5_dp  !! threshold for considering to bands degenerate
+      ! .. light-matter coupling ..
+      integer            :: lm_gauge=0 !! gauge of light-matter coupling 
       ! .. slab parameters ..
       integer            :: slab_nlayer=0 !! number of layers in a slab calculation, triggered by
                                           !! `slab_mode = .true.`
@@ -133,6 +153,34 @@ contains
 
    end subroutine wannier_calc_ReadFromFile
 !--------------------------------------------------------------------------------------
+   subroutine Time_ReadFromFile(me,fname)
+      class(TimeParams_t)          :: me
+      character(len=*),intent(in)  :: fname
+      integer :: unit_inp
+      character(len=256) :: file_field="" 
+      logical  :: relaxation_dynamics 
+      integer  :: Nt=100 
+      integer  :: output_step=1 
+      real(dp) :: Tmax=1.0_dp 
+      real(dp) :: T1_relax=1.0e10_dp  
+      real(dp) :: T2_relax=1.0e10_dp  
+      namelist/TIMEPARAMS/Nt,Tmax,output_step,relaxation_dynamics,T1_relax,T2_relax,&
+         file_field
+
+      open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
+      read(unit_inp,nml=TIMEPARAMS)
+      close(unit_inp)
+
+      me%Nt = Nt
+      me%Tmax = Tmax
+      me%output_step = output_step
+      me%relaxation_dynamics = relaxation_dynamics
+      me%T1_relax = T1_relax
+      me%T2_relax = T2_relax
+      me%file_field = file_field
+
+   end subroutine Time_ReadFromFile
+!--------------------------------------------------------------------------------------
    subroutine Ham_ReadFromFile(me,fname)
       class(HamiltonianParams_t)   :: me
       character(len=*),intent(in)  :: fname
@@ -145,16 +193,20 @@ contains
       logical            :: apply_field=.false.
       logical            :: slab_mode=.false.
       integer            :: field_mode=field_mode_positions
-      real(dp)           :: MuChem=0.0_dp
+      real(dp)           :: Beta=1000.0_dp 
+      real(dp)           :: filling=1.0_dp 
+      real(dp)           :: MuChem=0.0_dp 
+      logical            :: FixMuChem=.true. 
       real(dp)           :: Efield(3)=[0.0_dp,0.0_dp,0.0_dp]
       real(dp)           :: energy_thresh=0.0_dp
       logical            :: use_degen_pert=.false.
       logical            :: force_herm=.true.
       logical            :: force_antiherm=.true.
       real(dp)           :: degen_thresh=1.0e-5_dp  
+      integer            :: lm_gauge=0
       namelist/HAMILTONIAN/file_ham,file_xyz,file_lam,file_soc,file_elpot,slab_mode,w90_with_soc,&
          energy_thresh,use_degen_pert,force_herm,force_antiherm,degen_thresh,apply_field,&
-         field_mode,Efield,MuChem
+         field_mode,Efield,Beta,Filling,MuChem,FixMuChem,lm_gauge
       integer :: slab_nlayer=0
       namelist/SLAB/slab_nlayer
 
@@ -174,12 +226,16 @@ contains
       me%apply_field = apply_field
       me%field_mode = field_mode
       me%Efield = Efield
+      me%Beta = Beta
       me%MuChem = MuChem
+      me%Filling = Filling
+      me%FixMuChem = FixMuChem
       me%energy_thresh = energy_thresh
       me%use_degen_pert = use_degen_pert
       me%force_herm = force_herm
       me%force_antiherm = force_antiherm
       me%degen_thresh = degen_thresh
+      me%lm_gauge = lm_gauge
 
       if(me%slab_mode) then
          open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')

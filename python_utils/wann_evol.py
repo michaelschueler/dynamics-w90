@@ -15,26 +15,25 @@ class WannierEvolution():
         self.PathInp = PathInp
         self.PathOut = PathOut
         self.PathLog = PathLog
+        self.Output = {'spin_current': False, 'Output_Occ_KPTS': False}
     #========================================
-    def SetSysParams(self,MuChem,Beta,file_ham,gauge,FixMuChem=True,Filling=1.0,Output_Occ_KPTS=False):
-        self.sysparams = {
+    def SetHamiltonian(self,MuChem,Beta,file_ham,gauge,FixMuChem=True,Filling=1.0):
+        self.hamiltonian = {
             'MuChem': MuChem,
             'Beta': Beta,
             'file_ham': file_ham,
             'gauge': gauge,
             'FixMuChem': FixMuChem,
-            'Filling': Filling,
-            'Output_Occ_KPTS': Output_Occ_KPTS
+            'Filling': Filling
         }
     #========================================
-    def SetTimeParams(self,Nt,Tmax,file_field="",output_step=1,tstart=0.0,\
+    def SetTimeParams(self,Nt,Tmax,file_field="",output_step=1,\
         relaxation_dynamics=None,T1_relax=None,T2_relax=None):
         self.timeparams = {
             'Nt': Nt,
             'Tmax': Tmax,
             'file_field': file_field,
-            'output_step': output_step,
-            'tstart': tstart
+            'output_step': output_step
         }
 
         if relaxation_dynamics != None:
@@ -54,10 +53,15 @@ class WannierEvolution():
             'nk3': nk3
         }
     #========================================
+    def SetOutput(self,spin_current=False,Output_Occ_KPTS=False):
+        self.Output['spin_current'] = spin_current
+        self.Output['Output_Occ_KPTS'] = Output_Occ_KPTS
+    #========================================
     def WriteInput(self,file_inp):
         inp = {
-            'SYSPARAMS': self.sysparams,
+            'HAMILTONIAN': self.hamiltonian,
             'TIMEPARAMS': self.timeparams,
+            'OUTPUT': self.Output,
             'KPOINTS': self.kpoints
             }
         with open(file_inp, 'w') as nml_file:

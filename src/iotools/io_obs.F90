@@ -46,7 +46,7 @@ module io_obs
    end type WannierCalcOutput_t
 !--------------------------------------------------------------------------------------
    private
-   public :: WannierCalcOutput_t, SaveTDObs, SaveTDOccupation
+   public :: WannierCalcOutput_t, SaveTDObs, SaveTDOccupation, SaveSpinCurrent
 
    interface SaveTDObs
    !! Interface for saving observables from a time-dependent run with [[wann_evol]].
@@ -385,6 +385,20 @@ contains
 
    end subroutine SaveTDOccupation
 !--------------------------------------------------------------------------------------
+   subroutine SaveSpinCurrent(prefix,Nt,output_step,dt,Jspin)
+      character(len=*),intent(in) :: prefix
+      integer,intent(in)  :: Nt,output_step
+      real(dp),intent(in) :: dt
+      real(dp),intent(in) :: Jspin(:,:,0:)
+
+#ifdef WITHHDF5
+      call SaveSpinCurrent_hdf5(prefix,Nt,output_step,dt,Jspin)
+#else
+      call SaveSpinCurrent_txt(prefix,Nt,Jspin)
+#endif
+
+   end subroutine SaveSpinCurrent
+!--------------------------------------------------------------------------------------
 #ifdef WITHHDF5
    subroutine SaveTDObs_velo_hdf5(prefix,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
       Jcurr_para,Jcurr_dia,Jcurr_intra)
@@ -571,6 +585,51 @@ contains
 
    end subroutine SaveTDOccupation_txt
 !--------------------------------------------------------------------------------------
+#ifdef WITHHDF5
+   subroutine SaveSpinCurrent_hdf5(prefix,Nt,output_step,dt,Jspin)
+      character(len=*),intent(in) :: prefix
+      integer,intent(in)  :: Nt,output_step
+      real(dp),intent(in) :: dt
+      real(dp),intent(in) :: Jspin(:,:,0:)
+      integer(HID_t) :: file_id
+      character(len=255) :: Flname
+      integer  :: tstp
+      real(dp),allocatable :: ts(:)
+
+      Flname = trim(prefix)//'_occupation.h5'
+      call hdf_open_file(file_id, trim(Flname), STATUS='NEW')
+
+      allocate(ts(0:Nt))
+      forall(tstp=0:Nt) ts(tstp) = dt * tstp * output_step
+      call hdf_write_dataset(file_id,'time',ts)   
+
+      call hdf_write_dataset(file_id,'spin-current',Jspin)
+
+      call hdf_close_file(file_id)
+      deallocate(ts)
+
+   end subroutine SaveSpinCurrent_hdf5
+#endif
+!--------------------------------------------------------------------------------------
+   subroutine SaveSpinCurrent_txt(prefix,Nt,Jspin)
+      character(len=*),intent(in) :: prefix
+      integer,intent(in)  :: Nt
+      real(dp),intent(in) :: Jspin(:,:,0:)
+      integer  :: tstp
+      integer :: unit_out
+      integer :: i,j
+      character(len=256) :: file_out
+
+      file_out = trim(prefix)//'_jspin.h5'
+      open(newunit=unit_out,file=trim(file_out),STATUS='REPLACE')
+      do tstp=0,Nt
+         write(unit_out,'(9(F14.7,1x))') ((Jspin(i,j,tstp),i=1,3),j=1,3)
+      end do
+      close(unit_out)
+
+   end subroutine SaveSpinCurrent_txt
+!--------------------------------------------------------------------------------------
+
 
 !======================================================================================
 end module io_obs

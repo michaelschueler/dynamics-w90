@@ -1,7 +1,7 @@
 module wan_dynamics
 !======================================================================================
    use Mdebug
-   use scitools_def,only: dp, zero, iu, nfermi
+   use scitools_def,only: dp, zero, one, iu, nfermi
    use scitools_linalg,only: Eigh,util_matmul,util_rotate,util_rotate_cc,get_large_size
    use scitools_evol,only: GenU_CF2,GenU_CF4,UnitaryStepFBW
    use scitools_rungekutta,only: ODE_step_rk5
@@ -22,6 +22,8 @@ module wan_dynamics
    public :: Wann_GetDk_dip, Wann_GetGradHk_dip
    public :: Wann_DTRAB_kpts
    public :: Wann_timestep_RelaxTime
+   public :: Wann_SpinCurrent_para_velo, Wann_SpinCurrent_dia_velo
+   public :: Wann_SpinCurrent_dip, Wann_SpinCurrent_dip_calc
 !--------------------------------------------------------------------------------------
    interface Wann_Rhok_timestep_dip
       module procedure :: Wann_Rhok_timestep_dip_field, Wann_Rhok_timestep_dip_free
@@ -680,15 +682,39 @@ contains
 
    end function Wann_Current_para_velo_calc
 !--------------------------------------------------------------------------------------
+   function Wann_SpinCurrent_para_velo(nbnd,Nk,vk,vectk,Rhok) result(Jpara)
+      character(len=*),parameter :: proc_name="Wann_SpinCurrent_para_velo"
+      integer,intent(in)           :: nbnd
+      integer,intent(in)           :: Nk
+      complex(dp),intent(in)       :: vk(:,:,:,:)
+      complex(dp),intent(in)       :: vectk(:,:,:)
+      complex(dp),intent(in)       :: Rhok(:,:,:)
+      real(dp)                     :: Jpara(3,3)
+      integer :: idir
+
+      call assert_shape(vk, [nbnd, nbnd, Nk, 3], proc_name, "vk")
+      call assert_shape(vectk, [nbnd, nbnd, Nk], proc_name, "vectk")
+      call assert_shape(Rhok, [nbnd, nbnd, Nk], proc_name, "Rhok")
+
+      do idir=1,3
+         Jpara(:,idir) = Wann_DTRAB_kpts_spin(nbnd,Nk,Rhok,vk(:,:,:,idir),rot_mat=vectk)
+      end do
+
+   end function Wann_SpinCurrent_para_velo
+!--------------------------------------------------------------------------------------
    function Wann_Current_dia_velo(Nk,Avec,Rhok) result(current)
       use scitools_linalg,only: trace
+      character(len=*),parameter :: proc_name="Wann_Current_dia_velo"
       integer,intent(in)           :: Nk
       real(dp),intent(in)          :: Avec(3)
       complex(dp),intent(in)       :: Rhok(:,:,:)
       real(dp)                     :: current(3)
-      integer :: ik
+      integer :: nbnd,ik
       real(dp) :: Jk(3),npart
  
+      nbnd = size(Rhok, dim=1)
+      call assert_shape(Rhok, [nbnd, nbnd, Nk], proc_name, "Rhok")
+
       npart = 0.0_dp
       do ik=1,Nk
          npart = npart + dble(trace(Rhok(:,:,ik)))/Nk
@@ -697,6 +723,39 @@ contains
       current = -qc**2 * npart * Avec
 
    end function Wann_Current_dia_velo
+!--------------------------------------------------------------------------------------
+   function Wann_SpinCurrent_dia_velo(nbnd,Nk,Avec,vectk,Rhok) result(Jpara)
+      character(len=*),parameter :: proc_name="Wann_SpinCurrent_dia_velo"
+      integer,intent(in)           :: nbnd
+      integer,intent(in)           :: Nk
+      real(dp),intent(in)          :: Avec(3)
+      complex(dp),intent(in)       :: vectk(:,:,:)
+      complex(dp),intent(in)       :: Rhok(:,:,:)
+      real(dp)                     :: Jpara(3,3)
+      integer :: idir,i,ik
+      complex(dp) :: Aeye(nbnd,nbnd,3)
+
+      call assert_shape(vectk, [nbnd, nbnd, Nk], proc_name, "vectk")
+      call assert_shape(Rhok, [nbnd, nbnd, Nk], proc_name, "Rhok")
+
+      Aeye = zero
+      do idir=1,3
+         do i=1,nbnd
+            Aeye(i,i,idir) = - Avec(idir)
+         end do
+      end do
+
+      Jpara = 0.0_dp
+      do ik=1,Nk
+         do idir=1,3
+            Jpara(:,idir) = Jpara(:,idir) + Wann_DTRAB_spin(nbnd,Rhok(:,:,ik),Aeye(:,:,idir),&
+               rot_mat=vectk(:,:,ik))
+         end do
+      end do
+
+      Jpara = Jpara / Nk
+
+   end function Wann_SpinCurrent_dia_velo
 !--------------------------------------------------------------------------------------
    subroutine Wann_Current_velo_kpt(nbnd,Nk,vk,Avec,Rhok,Jk)
       use scitools_linalg,only: trace
@@ -949,21 +1008,19 @@ contains
          do ik=1,Nk
             kAred = kpts(ik,:) - Ared
             grad_Hk = w90%get_gradk_ham(kAred) 
-            do idir=1,2
+            do idir=1,3
                grad_Hk(:,:,idir) = util_rotate(w90%num_wann,rot_mat(:,:,ik),grad_Hk(:,:,idir))
                Jk(idir) = qc * DTRAB(w90%num_wann,grad_Hk(:,:,idir),Rhok(:,:,ik))/Nk
             end do
             Jcurr = Jcurr + Jk
             if(dip_curr) then
                Dk = w90%get_dipole(kAred)
-               do idir=1,2
-                  Dk(:,:,idir) = util_rotate(w90%num_wann,rot_mat(:,:,ik),Dk(:,:,idir))
-               end do
                DRhok_dt = Get_Drhok_Dt_dip(w90,Avec,EF,Rhok(:,:,ik),[kpts(ik,1),kpts(ik,2),kpts(ik,3)],&
                   rot_mat=rot_mat(:,:,ik))
-               Jk(1) = qc * DTRAB(w90%num_wann,Dk(:,:,1),DRhok_dt)/Nk
-               Jk(2) = qc * DTRAB(w90%num_wann,Dk(:,:,2),DRhok_dt)/Nk
-               Jk(3) = qc * DTRAB(w90%num_wann,Dk(:,:,3),DRhok_dt)/Nk
+               do idir=1,3
+                  Dk(:,:,idir) = util_rotate(w90%num_wann,rot_mat(:,:,ik),Dk(:,:,idir))
+                  Jk(idir) = qc * DTRAB(w90%num_wann,Dk(:,:,idir),DRhok_dt)/Nk
+               end do
                Jcurr = Jcurr + Jk
             end if
          end do
@@ -971,21 +1028,78 @@ contains
          do ik=1,Nk
             kAred = kpts(ik,:) - Ared
             grad_Hk = w90%get_gradk_ham(kAred) 
-            Jk(1) = qc * DTRAB(w90%num_wann,grad_Hk(:,:,1),Rhok(:,:,ik))/Nk
-            Jk(2) = qc * DTRAB(w90%num_wann,grad_Hk(:,:,2),Rhok(:,:,ik))/Nk
+            do idir=1,3
+               Jk(idir) = qc * DTRAB(w90%num_wann,grad_Hk(:,:,1),Rhok(:,:,ik))/Nk
+            end do
             Jcurr = Jcurr + Jk
             if(dip_curr) then
                Dk = w90%get_dipole(kAred)
                DRhok_dt = Get_Drhok_Dt_dip(w90,Avec,EF,Rhok(:,:,ik),[kpts(ik,1),kpts(ik,2),kpts(ik,3)])
-               Jk(1) = qc * DTRAB(w90%num_wann,Dk(:,:,1),DRhok_dt)/Nk
-               Jk(2) = qc * DTRAB(w90%num_wann,Dk(:,:,2),DRhok_dt)/Nk
-               Jk(3) = qc * DTRAB(w90%num_wann,Dk(:,:,3),DRhok_dt)/Nk
+               do idir=1,3
+                  Jk(idir) = qc * DTRAB(w90%num_wann,Dk(:,:,idir),DRhok_dt)/Nk
+               end do
                Jcurr = Jcurr + Jk
             end if
          end do
       end if
 
    end function Wann_Current_dip
+!--------------------------------------------------------------------------------------
+   function Wann_SpinCurrent_dip(w90,Nk,kpts,Avec,EF,Rhok,dipole_current) result(Jspin)
+   !! Computes the time-dependent current with respect to the time-dependent density matrix
+   !! in dipole gauge \(\rho^\mathrm{DG}(\mathbf{k}),t\). The current is given by the sum of
+   !! two contributions \(\mathbf{J}(t) = \mathbf{J}^{(1)}(t) + \mathbf{J}^{(2)}(t)\).
+   !! We split the two contributions as follows:
+   !! $$\mathbf{J}^{(1)}(t) = \frac{q}{N} \sum_{\mathbf{k}} 
+   !! \left(\mathrm{Tr}[\nabla_{\mathbf{k}} H_0(\mathbf{k}-q\mathbf{A}(t)) 
+   !! \rho^\mathrm{DG}(\mathbf{k}),t)], $$
+   !! $$ \mathbf{J}^{(2)}(t) = \frac{q}{N} \sum_{\mathbf{k}} \left(\mathrm{Tr}[ 
+   !! \mathbf{D}(\mathbf{k}-q\mathbf{A}(t)) \frac{d}{dt} \rho^\mathrm{DG}(\mathbf{k}),t) \right] .$$
+   !! Here the field-field Hamiltonian \(H_0(\mathbf{k})\) and the dipole matrix elements
+   !! \(\mathbf{D}(\mathbf{k})\) are computed on-the-fly. 
+      character(len=*),parameter :: proc_name="Wann_SpinCurrent_dip"
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian including the lattice geometry
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
+      real(dp),intent(in)          :: Avec(3) !! Vector potential \(\mathbf{A}(t)\) at time \(t\)
+      real(dp),intent(in)          :: EF(3)  !! Electric field \(\mathbf{A}(t)\) at time \(t\)
+      complex(dp),intent(in)       :: Rhok(:,:,:) !! density matrix at time \(t\), dimension [nbnd,nbnd,Nk]
+      logical,intent(in),optional  :: dipole_current !! if `.false.`, the contribution \(\mathbf{J}^{(2)}(t)\)
+                                                     !! is neglected 
+      real(dp)                     :: Jspin(3,3)
+      logical :: dip_curr
+      integer :: ik,idir
+      real(dp) :: Ared(3),kAred(3)
+      complex(dp),dimension(w90%num_wann,w90%num_wann)   :: DRhok_dt
+      complex(dp),dimension(w90%num_wann,w90%num_wann,3) :: grad_Hk,Dk
+
+      call assert_shape(kpts, [Nk, 3], proc_name, "kpts")
+      call assert_shape(Rhok, [w90%num_wann,w90%num_wann,Nk], proc_name, "Rhok")
+
+      dip_curr = .true.
+      if(present(dipole_current)) dip_curr = dipole_current
+
+      Ared = Cart_to_red(w90,Avec)
+
+      Jspin = 0.0_dp
+      do ik=1,Nk
+         kAred = kpts(ik,:) - Ared
+         grad_Hk = w90%get_gradk_ham(kAred) 
+         do idir=1,3
+            Jspin(:,idir) = Jspin(:,idir) + Wann_DTRAB_spin(w90%num_wann,Rhok(:,:,ik),grad_Hk(:,:,idir)) 
+         end do
+         if(dip_curr) then
+            Dk = w90%get_dipole(kAred)
+            DRhok_dt = Get_Drhok_Dt_dip(w90,Avec,EF,Rhok(:,:,ik),[kpts(ik,1),kpts(ik,2),kpts(ik,3)])
+            do idir=1,3
+               Jspin(:,idir) = Jspin(:,idir) + Wann_DTRAB_spin(w90%num_wann,DRhok_dt,Dk(:,:,idir))
+            end do
+         end if
+      end do
+
+      Jspin = Jspin / Nk
+
+   end function Wann_SpinCurrent_dip
 !--------------------------------------------------------------------------------------
    function Wann_Current_dip_calc(nbnd,Nk,Hk,grad_Hk,Dk,Rhok,dipole_current) result(Jcurr)
    !! Computes the time-dependent current with respect to the time-dependent density matrix
@@ -1035,6 +1149,60 @@ contains
       end do
 
    end function Wann_Current_dip_calc
+!--------------------------------------------------------------------------------------
+   function Wann_SpinCurrent_dip_calc(nbnd,Nk,Hk,grad_Hk,Dk,Rhok,dipole_current) result(Jspin)
+   !! Computes the time-dependent current with respect to the time-dependent density matrix
+   !! in dipole gauge \(\rho^\mathrm{DG}(\mathbf{k}),t\). The current is given by
+   !! $$\mathbf{J}(t) = \frac{q}{N} \sum_{\mathbf{k}} \left(\mathrm{Tr}[\nabla_{\mathbf{k}} H_0(\mathbf{k}) 
+   !! rho^\mathrm{DG}(\mathbf{k}),t)] + mathrm{Tr}[\mathbf{D}(\mathbf{k}) 
+   !! rho^\mathrm{DG}(\mathbf{k}),t)] \right).  $$
+   !! Here we assume that the external fields have been switched off, and the gradient of the field-free
+   !! Hamiltonian \(\nabla_{\mathbf{k}} H_0(\mathbf{k}) \) and the dipole matrix elements
+   !! \(\mathbf{D}(\mathbf{k}) \) have been pre-computed and are given as input to this function.
+      character(len=*),parameter :: proc_name="Wann_SpinCurrent_dip_calc"
+      integer,intent(in)           :: nbnd !! number of bands/orbitals
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      complex(dp),intent(in)       :: Hk(:,:,:) !! Hamiltonian \(H_0(\mathbf{k})\),dimension [nbnd,nbnd,Nk]
+      complex(dp),intent(in)       :: grad_Hk(:,:,:,:) !! gradiant of the Hamiltonian
+      complex(dp),intent(in)       :: Dk(:,:,:,:)
+      complex(dp),intent(in)       :: Rhok(:,:,:)
+      logical,intent(in),optional  :: dipole_current
+      real(dp)                     :: Jspin(3,3)
+      logical :: dip_curr
+      logical :: large_size
+      integer :: ik,idir
+      complex(dp),dimension(nbnd,nbnd)   :: DRhok_dt,H_Rho,Rho_H
+
+      call assert_shape(Hk, [nbnd,nbnd,Nk], proc_name, "Hk")
+      call assert_shape(grad_Hk, [nbnd,nbnd,Nk,3], proc_name, "grad_Hk")
+      call assert_shape(Dk, [nbnd,nbnd,Nk,3], proc_name, "Dk")
+      call assert_shape(Rhok, [nbnd,nbnd,Nk], proc_name, "Rhok")
+
+      dip_curr = .true.
+      if(present(dipole_current)) dip_curr = dipole_current
+
+      large_size = get_large_size(nbnd)
+
+      Jspin = 0.0_dp
+
+      do ik=1,Nk
+         do idir=1,3
+            Jspin(:,idir) = Jspin(:,idir) + Wann_DTRAB_spin(nbnd,Rhok(:,:,ik),grad_Hk(:,:,ik,idir))
+         end do
+         if(dip_curr) then
+            ! DRhok_dt = -iu*(matmul(Hk(:,:,ik),Rhok(:,:,ik)) - matmul(Rhok(:,:,ik),Hk(:,:,ik)))
+            call util_matmul(Hk(:,:,ik),Rhok(:,:,ik),H_Rho,large_size=large_size)
+            call util_matmul(Rhok(:,:,ik),Hk(:,:,ik),Rho_H,large_size=large_size)
+            DRhok_dt = -iu * (H_Rho - Rho_H)
+            do idir=1,3
+               Jspin(:,idir) = Jspin(:,idir) + Wann_DTRAB_spin(nbnd,DRhok_dt,Dk(:,:,ik,idir))
+            end do
+         end if
+      end do
+
+      Jspin = Jspin / Nk
+
+   end function Wann_SpinCurrent_dip_calc
 !--------------------------------------------------------------------------------------
    function Get_Drhok_Dt_dip(w90,Avec,Efield,Rhok,kpt,rot_mat) result(DRhok_dt)
    !! Computes the time derivative \(\frac{d}{dt}\rho(\mathbf{k},t) = -i [H(\mathbf{k},t), \rho(\mathbf{k},t) ]\)
@@ -1247,6 +1415,141 @@ contains
       Wann_DTRAB_kpts = val
 
    end function Wann_DTRAB_kpts
+!--------------------------------------------------------------------------------------
+   function Wann_DTRAB_spin(n,A,B,rot_mat) result(val)
+   !! Computes \(\mathrm{Tr}[A \{B,\sigma_\nu\}]\) for two square matrices \(A,B\) 
+   !! that are understood in spin-orbital space; \(\sigma_\nu\) are the Pauli matrices.
+      integer,intent(in) :: n !! the rank of the square matrices \(A,B\)
+      complex(dp),intent(in) :: A(:,:),B(:,:) !! the square matrices \(A,B\)
+      complex(dp),intent(in),optional :: rot_mat(:,:) !! rotation matrix to change basis
+                                                      !! of the spin operators
+      real(dp) :: val(3)
+      logical :: large_size
+      integer :: norb,i,j,nu
+      complex(dp),allocatable :: sgm(:,:,:),sgmk(:,:),Bsp(:,:)
+
+      call assert_shape(A, [n,n], "Wann_DTRAB_spin", "A")
+      call assert_shape(B, [n,n], "Wann_DTRAB_spin", "B")
+      if(present(rot_mat)) then
+         call assert_shape(rot_mat, [n,n], "Wann_DTRAB_spin", "rot_mat")
+      end if
+
+      large_size = get_large_size(n)
+
+      norb = nint(n / 2.0_dp)
+      allocate(sgm(n,n,3)); sgm = zero
+
+      do i=1,norb
+         do j=1,norb
+            sgm(2*i-1, 2*j, 1) = one
+            sgm(2*i, 2*j-1, 1) = one
+            sgm(2*i-1, 2*j, 2) = -iu
+            sgm(2*i, 2*j-1, 2) = iu
+            sgm(2*i-1, 2*j-1, 3) = one
+            sgm(2*i, 2*j, 3) = -one
+         end do
+      end do
+
+      allocate(Bsp(n,n))
+      allocate(sgmk(n,n))
+
+      val = 0.0_dp
+      do nu=1,3
+
+         if(present(rot_mat)) then
+            sgmk = util_rotate(n,rot_mat,sgm(:,:,nu),large_size=large_size)
+         else
+            sgmk = sgm(:,:,nu)
+         end if
+
+         Bsp = zero
+         call util_matmul(B,sgmk,Bsp,alpha=one,beta=zero,large_size=large_size)
+         call util_matmul(sgmk,B,Bsp,alpha=one,beta=one,large_size=large_size)
+         do i=1,n
+            val(nu) = val(nu) + dble(sum(A(i,:) * Bsp(:,i)))
+         end do
+      end do
+
+      deallocate(sgm)
+      deallocate(sgmk)
+      deallocate(Bsp)
+
+   end function Wann_DTRAB_spin
+!--------------------------------------------------------------------------------------
+   function Wann_DTRAB_kpts_spin(nbnd,Nk,A,B,rot_mat) result(val)
+   !! Computes the expectation value 
+   !! $$ \langle A \{B,\sigma_\nu\} \rangle = \frac{1}{N}\sum_{\mathrm{k}} 
+   !! \mathrm{Tr}[A_\mathbf{k} \{B_\mathbf{k},\sigma_\nu\}] $$
+   !! with two operators \(A_\mathbf{k}, B_\mathbf{k}\) in spin-orbital (or band) space.
+   !! \(\sigma_\nu\) are the Pauli matrices.
+      integer,intent(in) :: nbnd !! number of bands/orbitals = dimension of matrices \(A_\mathbf{k}, B_\mathbf{k}\)
+      integer,intent(in) :: Nk !! number of k-points \(N\)
+      complex(dp),intent(in) :: A(:,:,:),B(:,:,:) !! operators \(A_\mathbf{k}, B_\mathbf{k}\), 
+                                                  !! dimension [nbnd,nbnd,Nk]
+      complex(dp),intent(in),optional :: rot_mat(:,:,:) !! rotation matrix to change basis
+                                                      !! of the spin operators
+      real(dp) :: val(3)
+      logical :: large_size
+      integer :: norb,i,j,ik,nu
+      complex(dp),allocatable :: sgm(:,:,:),sgmk(:,:),Bsp(:,:)
+
+      call assert_shape(A, [nbnd, nbnd, Nk], "Wann_DTRAB_kpts_spin", "A")
+      call assert_shape(B, [nbnd, nbnd, Nk], "Wann_DTRAB_kpts_spin", "B")
+      if(present(rot_mat)) then
+         call assert_shape(rot_mat, [nbnd, nbnd, Nk], "Wann_DTRAB_kpts_spin", "rot_mat")
+      end if
+
+      large_size = get_large_size(nbnd)
+
+      norb = nint(nbnd / 2.0_dp)
+      allocate(sgm(nbnd,nbnd,3)); sgm = zero
+
+      do i=1,norb
+         do j=1,norb
+            sgm(2*i-1, 2*j, 1) = one
+            sgm(2*i, 2*j-1, 1) = one
+            sgm(2*i-1, 2*j, 2) = -iu
+            sgm(2*i, 2*j-1, 2) = iu
+            sgm(2*i-1, 2*j-1, 3) = one
+            sgm(2*i, 2*j, 3) = -one
+         end do
+      end do
+
+      val = 0.0_dp
+
+      !$OMP PARALLEL PRIVATE(sgmk,Bsp)
+
+      allocate(Bsp(nbnd,nbnd))
+      allocate(sgmk(nbnd,nbnd))
+
+      !$OMP DO REDUCTION(+:val) 
+      do ik=1,Nk
+         do nu=1,3
+
+            if(present(rot_mat)) then
+               sgmk = util_rotate(nbnd,rot_mat(:,:,ik),sgmk,large_size=large_size)
+            else
+               sgmk = sgm(:,:,nu)
+            end if
+
+            Bsp = zero
+            call util_matmul(B(:,:,ik),sgmk,Bsp,alpha=one,beta=zero,large_size=large_size)
+            call util_matmul(sgmk,B(:,:,ik),Bsp,alpha=one,beta=one,large_size=large_size)
+            do i=1,nbnd
+               val(nu) = val(nu) + dble(sum(A(i,:,ik) * Bsp(:,i))) / Nk
+            end do
+         end do
+      end do
+      !$OMP END DO
+
+      deallocate(sgmk)
+      deallocate(Bsp)
+
+      !$OMP END PARALLEL
+
+      deallocate(sgm)
+
+   end function Wann_DTRAB_kpts_spin
 !--------------------------------------------------------------------------------------
    function Cart_to_red(w90,kvec) result(kred)
    !! converts a k-vector given in cartisian coordinates to a k-point in reduced coordinates
