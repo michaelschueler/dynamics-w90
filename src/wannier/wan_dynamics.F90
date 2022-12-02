@@ -509,81 +509,81 @@ contains
 !       end do
 
 !    end subroutine Wann_Rhok_timestep_velo_calc
-! !--------------------------------------------------------------------------------------
-!    function Wann_GetHk_dip(w90,Avec,Efield,kpt,reducedA,Peierls_only) result(Hk)
-!       type(wann90_tb_t),intent(in) :: w90
-!       real(dp),intent(in)          :: Avec(3),Efield(3)
-!       real(dp),intent(in)          :: kpt(3)
-!       logical,intent(in),optional  :: reducedA
-!       logical,intent(in),optional  :: Peierls_only
-!       logical :: reducedA_,peierls_
-!       real(dp) :: Ared(3)
-!       complex(dp),dimension(w90%num_wann,w90%num_wann) :: Hk
-!       complex(dp),dimension(w90%num_wann,w90%num_wann,3) :: Dk
+!--------------------------------------------------------------------------------------
+   function Wann_GetHk_dip(w90,Avec,Efield,kpt,reducedA,Peierls_only) result(Hk)
+      type(wann90_tb_t),intent(in) :: w90
+      real(dp),intent(in)          :: Avec(3),Efield(3)
+      real(dp),intent(in)          :: kpt(3)
+      logical,intent(in),optional  :: reducedA
+      logical,intent(in),optional  :: Peierls_only
+      logical :: reducedA_,peierls_
+      real(dp) :: Ared(3)
+      complex(dp),dimension(w90%num_wann,w90%num_wann) :: Hk
+      complex(dp),dimension(w90%num_wann,w90%num_wann,3) :: Dk
 
-!       reducedA_ = .false.
-!       if(present(reducedA)) reducedA_ = reducedA
+      reducedA_ = .false.
+      if(present(reducedA)) reducedA_ = reducedA
 
-!       peierls_ = .false.
-!       if(present(Peierls_only)) peierls_ = Peierls_only
+      peierls_ = .false.
+      if(present(Peierls_only)) peierls_ = Peierls_only
 
-!       if(.not.reducedA) then
-!          Ared = Cart_to_red(w90,Avec)
-!       else
-!          Ared = Avec
-!       end if
+      if(.not.reducedA) then
+         Ared = Cart_to_red(w90,Avec)
+      else
+         Ared = Avec
+      end if
 
-!       Hk = w90%get_ham([kpt(1)-Ared(1),kpt(2)-Ared(2),kpt(3)-Ared(3)]) 
-!       if(peierls_) return
-!       Dk = w90%get_dipole([kpt(1)-Ared(1),kpt(2)-Ared(2),kpt(3)-Ared(3)])
-!       Hk = Hk - qc*(Dk(:,:,1) * EField(1) + Dk(:,:,2) * EField(2) + Dk(:,:,3) * EField(3))
+      Hk = w90%get_ham([kpt(1)-Ared(1),kpt(2)-Ared(2),kpt(3)-Ared(3)]) 
+      if(peierls_) return
+      Dk = w90%get_dipole([kpt(1)-Ared(1),kpt(2)-Ared(2),kpt(3)-Ared(3)])
+      Hk = Hk - qc*(Dk(:,:,1) * EField(1) + Dk(:,:,2) * EField(2) + Dk(:,:,3) * EField(3))
 
-!    end function Wann_GetHk_dip
-! !--------------------------------------------------------------------------------------
-!    function Wann_GetDk_dip(w90,Avec,Efield,kpt,reducedA) result(Dk)
-!       type(wann90_tb_t),intent(in) :: w90
-!       real(dp),intent(in)          :: Avec(3),Efield(3)
-!       real(dp),intent(in)          :: kpt(3)
-!       logical,intent(in),optional  :: reducedA
-!       logical :: reducedA_
-!       real(dp) :: Ared(3)
-!       complex(dp),dimension(w90%num_wann,w90%num_wann,3) :: Dk
+   end function Wann_GetHk_dip
+!--------------------------------------------------------------------------------------
+   function Wann_GetDk_dip(w90,Avec,Efield,kpt,reducedA) result(Dk)
+      type(wann90_tb_t),intent(in) :: w90
+      real(dp),intent(in)          :: Avec(3),Efield(3)
+      real(dp),intent(in)          :: kpt(3)
+      logical,intent(in),optional  :: reducedA
+      logical :: reducedA_
+      real(dp) :: Ared(3)
+      complex(dp),dimension(w90%num_wann,w90%num_wann,3) :: Dk
 
-!       reducedA_ = .false.
-!       if(present(reducedA)) reducedA_ = reducedA
+      reducedA_ = .false.
+      if(present(reducedA)) reducedA_ = reducedA
 
-!       if(.not.reducedA) then
-!          Ared = Cart_to_red(w90,Avec)
-!       else
-!          Ared = Avec
-!       end if
+      if(.not.reducedA) then
+         Ared = Cart_to_red(w90,Avec)
+      else
+         Ared = Avec
+      end if
 
-!       Dk = w90%get_dipole([kpt(1)-Ared(1),kpt(2)-Ared(2),kpt(3)-Ared(3)])
+      Dk = w90%get_dipole([kpt(1)-Ared(1),kpt(2)-Ared(2),kpt(3)-Ared(3)])
 
-!    end function Wann_GetDk_dip
-! !--------------------------------------------------------------------------------------
-!    function Wann_GetGradHk_dip(w90,Avec,Efield,kpt,reducedA) result(grad_hk)
-!       type(wann90_tb_t),intent(in) :: w90
-!       real(dp),intent(in)          :: Avec(3),Efield(3)
-!       real(dp),intent(in)          :: kpt(3)
-!       logical,intent(in),optional  :: reducedA
-!       logical :: reducedA_
-!       real(dp) :: Ared(3)
-!       complex(dp),dimension(w90%num_wann,w90%num_wann,3) :: grad_hk
+   end function Wann_GetDk_dip
+!--------------------------------------------------------------------------------------
+   function Wann_GetGradHk_dip(w90,Avec,Efield,kpt,reducedA) result(grad_hk)
+      type(wann90_tb_t),intent(in) :: w90
+      real(dp),intent(in)          :: Avec(3),Efield(3)
+      real(dp),intent(in)          :: kpt(3)
+      logical,intent(in),optional  :: reducedA
+      logical :: reducedA_
+      real(dp) :: Ared(3)
+      complex(dp),dimension(w90%num_wann,w90%num_wann,3) :: grad_hk
 
-!       reducedA_ = .false.
-!       if(present(reducedA)) reducedA_ = reducedA
+      reducedA_ = .false.
+      if(present(reducedA)) reducedA_ = reducedA
 
-!       if(.not.reducedA) then
-!          Ared = Cart_to_red(w90,Avec)
-!       else
-!          Ared = Avec
-!       end if
+      if(.not.reducedA) then
+         Ared = Cart_to_red(w90,Avec)
+      else
+         Ared = Avec
+      end if
 
-!       grad_hk = w90%get_gradk_ham([kpt(1)-Ared(1),kpt(2)-Ared(2),kpt(3)-Ared(3)])
+      grad_hk = w90%get_gradk_ham([kpt(1)-Ared(1),kpt(2)-Ared(2),kpt(3)-Ared(3)])
 
-!    end function Wann_GetGradHk_dip
-! !--------------------------------------------------------------------------------------
+   end function Wann_GetGradHk_dip
+!--------------------------------------------------------------------------------------
 !    subroutine Wann_Rhok_timestep_dip_field(w90,Nk,kpts,tstp,dt,field,Rhok,Peierls_only)
 !       type(wann90_tb_t),intent(in) :: w90
 !       integer,intent(in)           :: Nk
