@@ -55,8 +55,8 @@ program wann_evol_mpi
 !! * `Beta`: inverse temperature (a.u.)
 !! * `file_ham`: File with the Wannier Hamiltonian. This is the `_tb.dat` file obtained from Wannier90,
 !!               or an hdf5 file procuded by [[wann_prune]] or [[wann_soc]].
-!! * `gauge`: Velocity gauge (`gauge=0`), dipole gauge (`gauge=1`), empirical velocity gauge (`gauge=3`), 
-!!    Peierls substitution (`gauge=4`)
+!! * `gauge`: Velocity gauge (`gauge=0`), dipole gauge (`gauge=1`), empirical velocity gauge (`gauge=2`), 
+!!    Peierls substitution (`gauge=3`)
 !!
 !! #### TIMEPARAMS ####
 !! * `Nt`: The number of time steps.
@@ -244,7 +244,7 @@ program wann_evol_mpi
       case default
          write(error_unit,fmt900) "unrecognized gauge"
       end select
-      write(output_unit,fmt_info) "spin currents will be computed"
+      if(spin_current) write(output_unit,fmt_info) "spin currents will be computed"
    end if
 !--------------------------------------------------------------------------------------
 !                         ++  Time propagation ++

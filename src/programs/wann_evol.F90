@@ -53,8 +53,8 @@ program wann_evol
 !! * `Beta`: inverse temperature (a.u.)
 !! * `file_ham`: File with the Wannier Hamiltonian. This is the `_tb.dat` file obtained from Wannier90,
 !!               or an hdf5 file procuded by [[wann_prune]] or [[wann_soc]].
-!! * `lm_gauge`: Velocity gauge (`lm_gauge=0`), dipole gauge (`lm_gauge=1`), empirical velocity gauge (`lm_gauge=3`), 
-!!    Peierls substitution (`lm_gauge=4`)
+!! * `lm_gauge`: Velocity gauge (`lm_gauge=0`), dipole gauge (`lm_gauge=1`), empirical velocity gauge (`lm_gauge=2`), 
+!!    Peierls substitution (`lm_gauge=3`)
 
 !!
 !! #### TIMEPARAMS ####
@@ -223,7 +223,7 @@ program wann_evol
    case default
       write(error_unit,fmt900) "unrecognized gauge"
    end select
-   write(output_unit,fmt_info) "spin currents will be computed"
+   if(spin_current) write(output_unit,fmt_info) "spin currents will be computed"
 !--------------------------------------------------------------------------------------
 !                         ++  Time propagation ++
 !--------------------------------------------------------------------------------------
