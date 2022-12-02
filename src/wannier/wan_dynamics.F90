@@ -37,14 +37,14 @@ module wan_dynamics
    real(dp),parameter :: c1=0.5_dp-sqrt(3.0_dp)/6.0_dp
    real(dp),parameter :: c2=0.5_dp+sqrt(3.0_dp)/6.0_dp
 
-   abstract interface
-      subroutine vecpot_efield_func(t,A,E)
-         import :: dp
-         implicit none
-         real(dp),intent(in) :: t
-         real(dp),intent(out) :: A(3),E(3)
-      end subroutine vecpot_efield_func
-   end interface
+   ! abstract interface
+   !    subroutine vecpot_efield_func(t,A,E)
+   !       import :: dp
+   !       implicit none
+   !       real(dp),intent(in) :: t
+   !       real(dp),intent(out) :: A(3),E(3)
+   !    end subroutine vecpot_efield_func
+   ! end interface
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
