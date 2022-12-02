@@ -115,42 +115,42 @@ contains
 
    end subroutine Wann_GenDipk
 !--------------------------------------------------------------------------------------
-!    subroutine Wann_GenRhok_eq(w90,Nk,kpts,Mu,Beta,Rhok,band_basis)
-!    !! Generates the equilibrium density matrix \(\rho_\mathrm{eq}(\mathbf{k})\) for given k-points,
-!    !! either in band or in Wannier basis. The occupations are determined by the Fermi-Dirac distribution.
-!       type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian containing the recip. lattice vectors
-!       integer,intent(in)           :: Nk !! The number of k-points / supercells
-!       real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
-!       real(dp),intent(in)          :: Mu !! The chemical potential
-!       real(dp),intent(in)          :: Beta !! The inverse temperature
-!       complex(dp),intent(inout)    :: Rhok(:,:,:) !! density matrix \(\rho_\mathrm{eq}(\mathbf{k})\)
-!       logical,intent(in),optional  :: band_basis !! if `.true.`, the band basis is assumed, otherwise
-!                                                  !! the density matrix is constructed in Wannier basis
-!       logical :: bands_=.false.
-!       logical :: large_size
-!       integer :: ik,j
-!       real(dp),dimension(w90%num_wann) :: En
-!       complex(dp),dimension(w90%num_wann,w90%num_wann) :: Hk,Rhod,Qk
+   subroutine Wann_GenRhok_eq(w90,Nk,kpts,Mu,Beta,Rhok,band_basis)
+   !! Generates the equilibrium density matrix \(\rho_\mathrm{eq}(\mathbf{k})\) for given k-points,
+   !! either in band or in Wannier basis. The occupations are determined by the Fermi-Dirac distribution.
+      type(wann90_tb_t),intent(in) :: w90 !! Wannier Hamiltonian containing the recip. lattice vectors
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
+      real(dp),intent(in)          :: Mu !! The chemical potential
+      real(dp),intent(in)          :: Beta !! The inverse temperature
+      complex(dp),intent(inout)    :: Rhok(:,:,:) !! density matrix \(\rho_\mathrm{eq}(\mathbf{k})\)
+      logical,intent(in),optional  :: band_basis !! if `.true.`, the band basis is assumed, otherwise
+                                                 !! the density matrix is constructed in Wannier basis
+      logical :: bands_=.false.
+      logical :: large_size
+      integer :: ik,j
+      real(dp),dimension(w90%num_wann) :: En
+      complex(dp),dimension(w90%num_wann,w90%num_wann) :: Hk,Rhod,Qk
 
-!       large_size = get_large_size(w90%num_wann)
+      large_size = get_large_size(w90%num_wann)
 
-!       if(present(band_basis)) bands_ = band_basis
-!       do ik=1,Nk
-!          rhod = zero
-!          Hk = w90%get_ham([kpts(ik,1),kpts(ik,2),kpts(ik,3)])
-!          call eigh(Hk,En,Qk)
-!          do j=1,w90%num_wann
-!             rhod(j,j) = nfermi(Beta,En(j)-Mu)
-!          end do   
-!          if(bands_) then
-!             Rhok(:,:,ik) = RhoD
-!          else
-!             Rhok(:,:,ik) =  util_rotate_cc(w90%num_wann,Qk,RhoD,large_size=large_size)
-!          end if
-!       end do
+      if(present(band_basis)) bands_ = band_basis
+      do ik=1,Nk
+         rhod = zero
+         Hk = w90%get_ham([kpts(ik,1),kpts(ik,2),kpts(ik,3)])
+         call eigh(Hk,En,Qk)
+         do j=1,w90%num_wann
+            rhod(j,j) = nfermi(Beta,En(j)-Mu)
+         end do   
+         if(bands_) then
+            Rhok(:,:,ik) = RhoD
+         else
+            Rhok(:,:,ik) =  util_rotate_cc(w90%num_wann,Qk,RhoD,large_size=large_size)
+         end if
+      end do
 
-!    end subroutine Wann_GenRhok_eq
-! !--------------------------------------------------------------------------------------
+   end subroutine Wann_GenRhok_eq
+!--------------------------------------------------------------------------------------
 !    subroutine Wann_GenRhok_eq_calc(nbnd,Nk,Hk,Mu,Beta,Rhok,band_basis)
 !    !! Generates the equilibrium density matrix \(\rho_\mathrm{eq}(\mathbf{k})\)
 !    !! either in band or in Wannier basis. The occupations are determined by the Fermi-Dirac distribution.
