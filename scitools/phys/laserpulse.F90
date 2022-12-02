@@ -5,6 +5,7 @@ module scitools_laserpulse
   use scitools_bsplines,only: spline1d_t
   use scitools_rungekutta,only: ODE_step_RK5
   use scitools_utils,only: loadtxt
+  implicit none
 !--------------------------------------------------------------------------------------
   private
   public &
@@ -54,16 +55,21 @@ module scitools_laserpulse
 
   type LaserPulse_3D_t
   !! Laser pulse class describing electric field \(E(t)\) and vector potential \(A(t)\) in 3D
+    logical,private                           :: E_set=.false.,A_set=.false.
+    integer,private                           :: ncomp=0
+    integer,private                           :: Npts
     real(dp),public                           :: Tmin=0.0_dp
     real(dp),public                           :: Tmax=-huge(1.0_dp)
-    type(LaserPulse_spline_t) :: pulse_x, pulse_y, pulse_z
+    real(dp),allocatable,dimension(:),public  :: tpts
+    type(spline1d_t),allocatable,private      :: Aspl(:)
+    type(spline1d_t),allocatable,private      :: Espl(:)
   contains
+     procedure, public  :: Init => Pulse3D_Init
      procedure, public  :: Load_vectorpotential => Pulse3D_Load_vectorpotential
      procedure, public  :: Load_electricfield => Pulse3D_Load_electricfield
      procedure, public  :: Efield => Pulse3D_Efield
      procedure, public  :: Afield => Pulse3D_Afield
      procedure, public  :: GetField => Pulse3D_GetField
-     procedure, public  :: Energy => Pulse3D_Energy
   end type LaserPulse_3D_t
 
 !--------------------------------------------------------------------------------------
@@ -146,7 +152,7 @@ contains
     
     self%Tmin=Tmin
     self%Tmax=Tmax
-    do i=1,Npts
+    do it=1,Npts
       self%tpts(it)=Tmin+(Tmax-Tmin)*(it-1)/dble(Npts-1)
     end do
 
@@ -318,6 +324,26 @@ contains
   !===================================  
   end subroutine Load_ElectricField
 !--------------------------------------------------------------------------------------
+  subroutine Pulse3D_Init(self,Npts,Tmin,Tmax)
+  !! Initializes the laser pulse class and allocates internal storage.
+    class(LaserPulse_3D_t) :: self
+    integer,intent(in)::Npts
+    real(dp),intent(in)::Tmin,Tmax
+    integer::it
+
+    self%Npts=Npts
+    if(allocated(self%tpts)) deallocate(self%tpts)
+    allocate(self%tpts(self%Npts))
+    
+    self%Tmin=Tmin
+    self%Tmax=Tmax
+
+    do it=1,Npts
+      self%tpts(it)=Tmin+(Tmax-Tmin)*(it-1)/dble(Npts-1)
+    end do
+
+  end subroutine Pulse3D_Init
+!--------------------------------------------------------------------------------------
   subroutine Pulse3D_Load_electricfield(me,fname,usecols,CalcAfield)
     class(LaserPulse_3D_t) :: me
     character(len=*),intent(in) :: fname
@@ -325,7 +351,10 @@ contains
     logical,intent(in),optional :: CalcAfield
     logical :: calcafield_
     integer,allocatable :: usecols_(:)
-    integer :: ncol,icol
+    integer :: ncol
+    integer :: it,icol,col,iflag,inbvx
+    real(dp) :: dt
+    real(dp),allocatable,dimension(:,:) :: Adata,Edata
 
     ncol = 3
     if(present(usecols)) then
@@ -340,24 +369,57 @@ contains
     calcafield_ = .true.
     if(present(CalcAfield)) calcafield_ = CalcAfield
 
-    if(ncol >= 1) then
-      call me%pulse_x%Load_ElectricField(fname,usecol=usecols_(1),CalcAfield=calcafield_)
-      me%Tmin = me%pulse_x%Tmin
-      me%Tmax = me%pulse_x%Tmax
-    end if
+    call loadtxt(fname,Edata)
+    call me%Init(size(Edata,1),minval(Edata(:,1)),maxval(Edata(:,1)))
 
-    if(ncol >= 2) then
-      call me%pulse_y%Load_ElectricField(fname,usecol=usecols_(2),CalcAfield=calcafield_)
-      me%Tmin = min(me%Tmin, me%pulse_y%Tmin)
-      me%Tmax = max(me%Tmax, me%pulse_y%Tmax)
-    end if
+    allocate(me%Espl(ncol))
 
-    if(ncol >= 3) then
-      call me%pulse_z%Load_ElectricField(fname,usecol=usecols_(3),CalcAfield=calcafield_)
-      me%Tmin = min(me%Tmin, me%pulse_z%Tmin)
-      me%Tmax = max(me%Tmax, me%pulse_z%Tmax)
-    end if
+    do icol=1,ncol
+      iflag = 0
+      col = usecols_(icol)
+      call me%Espl(icol)%Init(me%tpts,Edata(:,col),kx,iflag)
+    end do
+    me%E_set = .true.
+    deallocate(Edata)
 
+    me%ncomp = ncol
+
+    if(.not.me%A_set) then
+       allocate(Adata(me%Npts,ncol)); Adata = 0.0_dp
+    
+       if(calcafield_) then
+          dt = me%tpts(2)-me%tpts(1)
+          do it=1,me%Npts-1
+             Adata(it+1,:) = ODE_step_RK5(ncol,it-1,dt,deriv_func,Adata(it,:))
+          end do          
+       end if
+       
+       allocate(me%Aspl(ncol))
+       do icol=1,ncol
+         iflag = 0
+         call me%Aspl(icol)%Init(me%tpts,Adata(:,icol),kx,iflag)
+       end do
+       me%A_set = .true.
+       deallocate(Adata)
+    end if
+  !===================================
+  contains
+  !===================================  
+    function deriv_func(n,t,y) result(dydt)
+      integer,intent(in)  :: n
+      real(dp),intent(in) :: t
+      real(dp),intent(in) :: y(:)
+      real(dp) :: dydt(n)
+      integer :: iflag,inbvx
+      integer :: i
+
+      do i=1,n
+        inbvx = 1
+        dydt(i) = -me%Espl(i)%Eval(t+me%Tmin,0,iflag,inbvx)
+      end do
+      
+    end function deriv_func
+  !=================================== 
   end subroutine Pulse3D_Load_electricfield
 !--------------------------------------------------------------------------------------
   subroutine Pulse3D_Load_vectorpotential(me,fname,usecols,CalcEfield)
@@ -367,7 +429,10 @@ contains
     logical,intent(in),optional :: CalcEfield
     logical :: calcEfield_
     integer,allocatable :: usecols_(:)
-    integer :: ncol,icol
+    integer :: ncol
+    integer :: it,icol,col,iflag,inbvx
+    real(dp) :: dt
+    real(dp),allocatable,dimension(:,:) :: Adata,Edata
 
     ncol = 3
     if(present(usecols)) then
@@ -382,22 +447,40 @@ contains
     calcEfield_ = .true.
     if(present(CalcEfield)) calcEfield_ = CalcEfield
 
-    if(ncol >= 1) then
-      call me%pulse_x%Load_VectorPotential(fname,usecol=usecols_(1),CalcEfield=calcEfield_)
-      me%Tmin = me%pulse_x%Tmin
-      me%Tmax = me%pulse_x%Tmax
-    end if
+    call loadtxt(fname,Adata)
+    call me%Init(size(Adata,1),minval(Adata(:,1)),maxval(Adata(:,1)))
 
-    if(ncol >= 2) then
-      call me%pulse_y%Load_VectorPotential(fname,usecol=usecols_(2),CalcEfield=calcEfield_)
-      me%Tmin = min(me%Tmin, me%pulse_y%Tmin)
-      me%Tmax = max(me%Tmax, me%pulse_y%Tmax)
-    end if
+    allocate(me%Aspl(ncol))
 
-    if(ncol >= 3) then
-      call me%pulse_z%Load_VectorPotential(fname,usecol=usecols_(3),CalcEfield=calcEfield_)
-      me%Tmin = min(me%Tmin, me%pulse_z%Tmin)
-      me%Tmax = max(me%Tmax, me%pulse_z%Tmax)
+    do icol=1,ncol
+      iflag = 0
+      col = usecols_(icol)
+      call me%Aspl(icol)%Init(me%tpts,Adata(:,col),kx,iflag)
+    end do
+    me%A_set = .true.
+    deallocate(Adata)
+
+    me%ncomp = ncol
+
+    if(.not.me%E_set) then
+      allocate(Edata(me%Npts,ncol)); Edata = 0.0_dp
+    
+      if(calcEfield_) then
+        do icol=1,ncol
+          inbvx = 1
+          do it=1,me%Npts
+            Edata(it,icol) = -me%Aspl(icol)%Eval(me%tpts(it),1,iflag,inbvx)
+          end do
+        end do
+      end if
+
+      allocate(me%Espl(ncol))
+      do icol=1,ncol
+        iflag = 0
+        call me%Espl(icol)%Init(me%tpts,Edata(:,icol),kx,iflag)
+      end do 
+      me%E_set = .true.
+      deallocate(Edata)
     end if
 
   end subroutine Pulse3D_Load_vectorpotential
@@ -406,11 +489,16 @@ contains
     class(LaserPulse_3D_t) :: me
     real(dp),intent(in) :: t
     real(dp) :: AF(3)
-
+    integer :: i
+    integer :: iflag,inbvx
+    
     AF = 0.0_dp
-    if(me%pulse_x%A_set) AF(1) = me%pulse_x%Afield(t)
-    if(me%pulse_y%A_set) AF(2) = me%pulse_y%Afield(t)
-    if(me%pulse_z%A_set) AF(3) = me%pulse_z%Afield(t)
+    if((t>me%Tmin).and.(t<me%Tmax)) then 
+      do i=1,me%ncomp
+        inbvx=1
+        AF(i) = me%Aspl(i)%eval(t,0,iflag,inbvx) 
+      end do
+    end if
 
   end function Pulse3D_Afield
 !--------------------------------------------------------------------------------------
@@ -418,11 +506,16 @@ contains
     class(LaserPulse_3D_t) :: me
     real(dp),intent(in) :: t
     real(dp) :: EF(3)
-
+    integer :: i
+    integer :: iflag,inbvx
+    
     EF = 0.0_dp
-    if(me%pulse_x%E_set) EF(1) = me%pulse_x%Efield(t)
-    if(me%pulse_y%E_set) EF(2) = me%pulse_y%Efield(t)
-    if(me%pulse_z%E_set) EF(3) = me%pulse_z%Efield(t)
+    if((t>me%Tmin).and.(t<me%Tmax)) then 
+      do i=1,me%ncomp
+        inbvx=1
+        EF(i) = me%Espl(i)%eval(t,0,iflag,inbvx) 
+      end do
+    end if
 
   end function Pulse3D_Efield
 !--------------------------------------------------------------------------------------
@@ -436,17 +529,6 @@ contains
     EF = me%Efield(t)
 
   end subroutine Pulse3D_GetField
-!--------------------------------------------------------------------------------------
-  function Pulse3D_Energy(me) result(En)
-    class(LaserPulse_3D_t) :: me
-    real(dp) :: En
-
-    En = 0.0_dp
-    if(me%pulse_x%E_set) En = En + me%pulse_x%Energy()
-    if(me%pulse_y%E_set) En = En + me%pulse_y%Energy()
-    if(me%pulse_z%E_set) En = En + me%pulse_z%Energy()
-
-  end function Pulse3D_Energy
 !--------------------------------------------------------------------------------------
 
 !======================================================================================    
