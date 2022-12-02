@@ -93,7 +93,7 @@ program wann_evol
    use scitools_time,only: Timer_Act, Timer_Tic, Timer_Toc
    use scitools_utils,only: print_title, print_header, get_file_ext, check_file_ext,&
       stop_error
-   use scitools_laserpulse,only: LaserPulse_spline_t
+   use scitools_laserpulse,only: Laserpulse_3D_t
    use wan_hamiltonian,only: wann90_tb_t
    use wan_latt_kpts,only: Read_Kpoints
    use io_params,only: HamiltonianParams_t, TimeParams_t
@@ -125,7 +125,7 @@ program wann_evol
    real(dp),allocatable,dimension(:,:)   :: kpts,BandOcc,Jcurr,Dip
    real(dp),allocatable,dimension(:,:)   :: Jpara,Jdia,JHk,Jpol,Jintra
    real(dp),allocatable,dimension(:,:,:) :: Occk,Jspin
-   type(LaserPulse_spline_t) :: pulse_x,pulse_y,pulse_z
+   type(Laserpulse_3D_t)     :: pulse
    type(wann90_tb_t)         :: Ham
    type(wann_evol_t)         :: lattsys
    ! -- parallelization --
@@ -184,9 +184,7 @@ program wann_evol
          call stop_error('Input file does not exist: '//trim(par_time%file_field))
       end if
       write(output_unit,fmt_input) 'External field from file: '//trim(par_time%file_field)
-      call pulse_x%Load_ElectricField(par_time%file_field,usecol=2,CalcAfield=.true.)
-      call pulse_y%Load_ElectricField(par_time%file_field,usecol=3,CalcAfield=.true.)
-      call pulse_z%Load_ElectricField(par_time%file_field,usecol=4,CalcAfield=.true.)
+      call pulse%Load_ElectricField(par_time%file_field)
    end if
 
    write(output_unit,*)
@@ -266,8 +264,8 @@ program wann_evol
       call lattsys%GetOccupationKPTS(Occk(:,:,0))
    end if
 
-   pulse_tmin = min(pulse_x%Tmin,pulse_y%Tmin,pulse_z%Tmin)
-   pulse_tmax = max(pulse_x%Tmax,pulse_y%Tmax,pulse_z%Tmax)
+   pulse_tmin = pulse%Tmin
+   pulse_tmax = pulse%Tmax
    if(.not. ApplyField) pulse_tmax = 0.0_dp
 
    step = 0
@@ -334,15 +332,7 @@ contains
       real(dp),intent(out) :: AF(3),EF(3)
 
       AF = 0.0_dp; EF = 0.0_dp
-
-      if(ApplyField) then
-         AF(1) = pulse_x%Afield(t)
-         AF(2) = pulse_y%Afield(t)
-         AF(3) = pulse_z%Afield(t)
-         EF(1) = pulse_x%Efield(t)
-         EF(2) = pulse_y%Efield(t)
-         EF(3) = pulse_z%Efield(t)
-      end if
+      if(ApplyField) call pulse%GetField(t,AF,EF)
 
    end subroutine external_field
 !--------------------------------------------------------------------------------------

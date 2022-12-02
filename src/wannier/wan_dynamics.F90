@@ -267,7 +267,13 @@ contains
       real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
       integer,intent(in)           :: tstp !! the time step where the density matrix is known
       real(dp),intent(in)          :: dt !! time step size 
-      procedure(vecpot_efield_func),pointer :: field !! External field: vector potential + electric field
+      interface
+         subroutine field(t,AF,EF)
+            use scitools_def,only: dp
+            real(dp),intent(in) :: t
+            real(dp),intent(out) :: AF(3),EF(3)
+         end subroutine field
+      end interface
       real(dp),intent(in)          :: T1 !! The time constant for relaxation to equilibrium
       real(dp),intent(in)          :: T2 !! Time time constant for dephasing of off-diagonal components
       real(dp),intent(in)          :: Beta !! effective temperature for equilibrium state
@@ -362,7 +368,13 @@ contains
                                                   !! dimension [nbnd,nbnd,Nk,3]
       integer,intent(in)           :: tstp !! the time step where the density matrix is known
       real(dp),intent(in)          :: dt !! time step size 
-      procedure(vecpot_efield_func),pointer :: field !! External field: vector potential + electric field
+      interface
+         subroutine field(t,AF,EF)
+            use scitools_def,only: dp
+            real(dp),intent(in) :: t
+            real(dp),intent(out) :: AF(3),EF(3)
+         end subroutine field
+      end interface
       real(dp),intent(in)          :: T1 !! The time constant for relaxation to equilibrium
       real(dp),intent(in)          :: T2 !! Time time constant for dephasing of off-diagonal components
       real(dp),intent(in)          :: Beta !! effective temperature for equilibrium state
@@ -448,7 +460,13 @@ contains
       real(dp),intent(in)          :: kpts(:,:)
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
-      procedure(vecpot_efield_func),pointer :: field
+      interface
+         subroutine field(t,AF,EF)
+            use scitools_def,only: dp
+            real(dp),intent(in) :: t
+            real(dp),intent(out) :: AF(3),EF(3)
+         end subroutine field
+      end interface
       complex(dp),intent(inout)    :: Rhok(:,:,:)
       logical :: large_size
       integer :: ik
@@ -482,7 +500,13 @@ contains
       complex(dp),intent(in)       :: vk(:,:,:,:)
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
-      procedure(vecpot_efield_func),pointer :: field
+      interface
+         subroutine field(t,AF,EF)
+            use scitools_def,only: dp
+            real(dp),intent(in) :: t
+            real(dp),intent(out) :: AF(3),EF(3)
+         end subroutine field
+      end interface
       complex(dp),intent(inout)    :: Rhok(:,:,:)
       logical :: large_size
       integer :: ik
@@ -586,7 +610,13 @@ contains
       real(dp),intent(in)          :: kpts(:,:)
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
-      procedure(vecpot_efield_func),pointer :: field
+      interface
+         subroutine field(t,AF,EF)
+            use scitools_def,only: dp
+            real(dp),intent(in) :: t
+            real(dp),intent(out) :: AF(3),EF(3)
+         end subroutine field
+      end interface
       complex(dp),intent(inout)    :: Rhok(:,:,:)
       logical,intent(in),optional  :: Peierls_only
       logical :: peierls_
