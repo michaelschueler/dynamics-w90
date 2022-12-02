@@ -350,7 +350,7 @@ contains
       !....................................................
    end subroutine Wann_timestep_RelaxTime_dip
 !--------------------------------------------------------------------------------------
-   subroutine Wann_timestep_RelaxTime_velo_calc(nbnd,Nk,Hk,vk,tstp,dt,field,T1,T2,Beta,Mu,Rhok)
+   ! subroutine Wann_timestep_RelaxTime_velo_calc(nbnd,Nk,Hk,vk,tstp,dt,field,T1,T2,Beta,Mu,Rhok)
 !    !! Performs the time step \(\rho(\mathbf{k},t) \rightarrow \rho(\mathbf{k},t + \Delta t) \)
 !    !! assuming phenomenological dissipative dynamics. The Hamiltonian and density matrix 
 !    !! are treated in the velocity gauge with precomputed Hamiltonian \(H_0(\mathbf{k})\) and velocity matrix
