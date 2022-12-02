@@ -584,64 +584,64 @@ contains
 
    end function Wann_GetGradHk_dip
 !--------------------------------------------------------------------------------------
-!    subroutine Wann_Rhok_timestep_dip_field(w90,Nk,kpts,tstp,dt,field,Rhok,Peierls_only)
-!       type(wann90_tb_t),intent(in) :: w90
-!       integer,intent(in)           :: Nk
-!       real(dp),intent(in)          :: kpts(:,:)
-!       integer,intent(in)           :: tstp
-!       real(dp),intent(in)          :: dt
-!       procedure(vecpot_efield_func),pointer :: field
-!       complex(dp),intent(inout)    :: Rhok(:,:,:)
-!       logical,intent(in),optional  :: Peierls_only
-!       logical :: peierls_
-!       logical :: large_size
-!       integer :: ik
-!       real(dp) :: EF_1(3),AF_1(3),EF_2(3),AF_2(3)
-!       complex(dp),dimension(w90%num_wann,w90%num_wann) :: H1,H2,Rho_old,Udt
+   subroutine Wann_Rhok_timestep_dip_field(w90,Nk,kpts,tstp,dt,field,Rhok,Peierls_only)
+      type(wann90_tb_t),intent(in) :: w90
+      integer,intent(in)           :: Nk
+      real(dp),intent(in)          :: kpts(:,:)
+      integer,intent(in)           :: tstp
+      real(dp),intent(in)          :: dt
+      procedure(vecpot_efield_func),pointer :: field
+      complex(dp),intent(inout)    :: Rhok(:,:,:)
+      logical,intent(in),optional  :: Peierls_only
+      logical :: peierls_
+      logical :: large_size
+      integer :: ik
+      real(dp) :: EF_1(3),AF_1(3),EF_2(3),AF_2(3)
+      complex(dp),dimension(w90%num_wann,w90%num_wann) :: H1,H2,Rho_old,Udt
       
-!       large_size = get_large_size(w90%num_wann)
+      large_size = get_large_size(w90%num_wann)
 
-!       peierls_ = .false.
-!       if(present(Peierls_only)) peierls_ = Peierls_only
+      peierls_ = .false.
+      if(present(Peierls_only)) peierls_ = Peierls_only
 
-!       AF_1 = 0.0_dp; AF_2 = 0.0_dp
-!       EF_1 = 0.0_dp; EF_2 = 0.0_dp
-!       call field((tstp + c1)*dt,AF_1,EF_1)
-!       call field((tstp + c2)*dt,AF_2,EF_2)
+      AF_1 = 0.0_dp; AF_2 = 0.0_dp
+      EF_1 = 0.0_dp; EF_2 = 0.0_dp
+      call field((tstp + c1)*dt,AF_1,EF_1)
+      call field((tstp + c2)*dt,AF_2,EF_2)
 
-!       do ik=1,Nk
-!          Rho_old = Rhok(:,:,ik)
-!          H1 = Wann_GetHk_dip(w90,AF_1,EF_1,kpts(ik,:),reducedA=.false.,Peierls_only=peierls_)
-!          H2 = Wann_GetHk_dip(w90,AF_2,EF_2,kpts(ik,:),reducedA=.false.,Peierls_only=peierls_)
-!          call GenU_CF4(dt,H1,H2,Udt)
-!          call UnitaryStepFBW(w90%num_wann,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
-!       end do
+      do ik=1,Nk
+         Rho_old = Rhok(:,:,ik)
+         H1 = Wann_GetHk_dip(w90,AF_1,EF_1,kpts(ik,:),reducedA=.false.,Peierls_only=peierls_)
+         H2 = Wann_GetHk_dip(w90,AF_2,EF_2,kpts(ik,:),reducedA=.false.,Peierls_only=peierls_)
+         call GenU_CF4(dt,H1,H2,Udt)
+         call UnitaryStepFBW(w90%num_wann,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
+      end do
 
-!    end subroutine Wann_Rhok_timestep_dip_field
-! !--------------------------------------------------------------------------------------
-!    subroutine Wann_Rhok_timestep_dip_free(w90,Nk,kpts,tstp,dt,AF,Rhok)
-!       type(wann90_tb_t),intent(in) :: w90
-!       integer,intent(in)           :: Nk
-!       real(dp),intent(in)          :: kpts(:,:)
-!       integer,intent(in)           :: tstp
-!       real(dp),intent(in)          :: dt
-!       real(dp),intent(in)          :: AF(3)
-!       complex(dp),intent(inout)    :: Rhok(:,:,:)
-!       logical :: large_size
-!       integer :: ik
-!       complex(dp),dimension(w90%num_wann,w90%num_wann) :: H1,Rho_old,Udt
+   end subroutine Wann_Rhok_timestep_dip_field
+!--------------------------------------------------------------------------------------
+   subroutine Wann_Rhok_timestep_dip_free(w90,Nk,kpts,tstp,dt,AF,Rhok)
+      type(wann90_tb_t),intent(in) :: w90
+      integer,intent(in)           :: Nk
+      real(dp),intent(in)          :: kpts(:,:)
+      integer,intent(in)           :: tstp
+      real(dp),intent(in)          :: dt
+      real(dp),intent(in)          :: AF(3)
+      complex(dp),intent(inout)    :: Rhok(:,:,:)
+      logical :: large_size
+      integer :: ik
+      complex(dp),dimension(w90%num_wann,w90%num_wann) :: H1,Rho_old,Udt
       
-!       large_size = get_large_size(w90%num_wann)
+      large_size = get_large_size(w90%num_wann)
 
-!       do ik=1,Nk
-!          Rho_old = Rhok(:,:,ik)
-!          H1 = Wann_GetHk_dip(w90,AF,[0.0_dp,0.0_dp,0.0_dp],kpts(ik,:),reducedA=.false.)
-!          call GenU_CF2(dt,H1,Udt)
-!          call UnitaryStepFBW(w90%num_wann,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
-!       end do
+      do ik=1,Nk
+         Rho_old = Rhok(:,:,ik)
+         H1 = Wann_GetHk_dip(w90,AF,[0.0_dp,0.0_dp,0.0_dp],kpts(ik,:),reducedA=.false.)
+         call GenU_CF2(dt,H1,Udt)
+         call UnitaryStepFBW(w90%num_wann,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
+      end do
 
-!    end subroutine Wann_Rhok_timestep_dip_free
-! !--------------------------------------------------------------------------------------
+   end subroutine Wann_Rhok_timestep_dip_free
+!--------------------------------------------------------------------------------------
 !    function Wann_Current_para_velo(w90,Nk,kpts,Rhok) result(Jpara)
 !       type(wann90_tb_t),intent(in) :: w90
 !       integer,intent(in)           :: Nk
