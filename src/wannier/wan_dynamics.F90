@@ -350,98 +350,98 @@ contains
       !....................................................
    end subroutine Wann_timestep_RelaxTime_dip
 !--------------------------------------------------------------------------------------
-   ! subroutine Wann_timestep_RelaxTime_velo_calc(nbnd,Nk,Hk,vk,tstp,dt,field,T1,T2,Beta,Mu,Rhok)
-!    !! Performs the time step \(\rho(\mathbf{k},t) \rightarrow \rho(\mathbf{k},t + \Delta t) \)
-!    !! assuming phenomenological dissipative dynamics. The Hamiltonian and density matrix 
-!    !! are treated in the velocity gauge with precomputed Hamiltonian \(H_0(\mathbf{k})\) and velocity matrix
-!    !! elements `\(v^\mu(\mathbf{k}) \ , \ \mu=x,y,z\)`.
-!       integer,intent(in)           :: nbnd !! number of bands/orbitals
-!       integer,intent(in)           :: Nk !! The number of k-points / supercells
-!       complex(dp),intent(in)       :: Hk(:,:,:) !! Hamiltonian \(H_0(\mathbf{k})\),dimension [nbnd,nbnd,Nk]
-!       complex(dp),intent(in)       :: vk(:,:,:,:) !! velocity matrix elements \(v^\mu(\mathbf{k})\), 
-!                                                   !! dimension [nbnd,nbnd,Nk,3]
-!       integer,intent(in)           :: tstp !! the time step where the density matrix is known
-!       real(dp),intent(in)          :: dt !! time step size 
-!       procedure(vecpot_efield_func),pointer :: field !! External field: vector potential + electric field
-!       real(dp),intent(in)          :: T1 !! The time constant for relaxation to equilibrium
-!       real(dp),intent(in)          :: T2 !! Time time constant for dephasing of off-diagonal components
-!       real(dp),intent(in)          :: Beta !! effective temperature for equilibrium state
-!       real(dp),intent(in)          :: Mu !! effective chemical potential for equilibrium state
-!       complex(dp),intent(inout)    :: Rhok(:,:,:) !! On input: density matrix at `tstp`; on output:
-!                                                   !! density matrix at `tstp+1`
-!       logical :: large_size
-!       integer :: ik,k_index
-!       real(dp) :: gm1,gm2,gm12
-!       complex(dp),allocatable :: Rhok_old(:,:)
+   subroutine Wann_timestep_RelaxTime_velo_calc(nbnd,Nk,Hk,vk,tstp,dt,field,T1,T2,Beta,Mu,Rhok)
+   !! Performs the time step \(\rho(\mathbf{k},t) \rightarrow \rho(\mathbf{k},t + \Delta t) \)
+   !! assuming phenomenological dissipative dynamics. The Hamiltonian and density matrix 
+   !! are treated in the velocity gauge with precomputed Hamiltonian \(H_0(\mathbf{k})\) and velocity matrix
+   !! elements `\(v^\mu(\mathbf{k}) \ , \ \mu=x,y,z\)`.
+      integer,intent(in)           :: nbnd !! number of bands/orbitals
+      integer,intent(in)           :: Nk !! The number of k-points / supercells
+      complex(dp),intent(in)       :: Hk(:,:,:) !! Hamiltonian \(H_0(\mathbf{k})\),dimension [nbnd,nbnd,Nk]
+      complex(dp),intent(in)       :: vk(:,:,:,:) !! velocity matrix elements \(v^\mu(\mathbf{k})\), 
+                                                  !! dimension [nbnd,nbnd,Nk,3]
+      integer,intent(in)           :: tstp !! the time step where the density matrix is known
+      real(dp),intent(in)          :: dt !! time step size 
+      procedure(vecpot_efield_func),pointer :: field !! External field: vector potential + electric field
+      real(dp),intent(in)          :: T1 !! The time constant for relaxation to equilibrium
+      real(dp),intent(in)          :: T2 !! Time time constant for dephasing of off-diagonal components
+      real(dp),intent(in)          :: Beta !! effective temperature for equilibrium state
+      real(dp),intent(in)          :: Mu !! effective chemical potential for equilibrium state
+      complex(dp),intent(inout)    :: Rhok(:,:,:) !! On input: density matrix at `tstp`; on output:
+                                                  !! density matrix at `tstp+1`
+      logical :: large_size
+      integer :: ik,k_index
+      real(dp) :: gm1,gm2,gm12
+      complex(dp),allocatable :: Rhok_old(:,:)
 
-!       gm1 = 1.0_dp / T1
-!       gm2 = 1.0_dp / T2
-!       gm12 = gm1 - gm2
+      gm1 = 1.0_dp / T1
+      gm2 = 1.0_dp / T2
+      gm12 = gm1 - gm2
 
-!       call assert_shape(Hk,[nbnd,nbnd,Nk],"Wann_timestep_RelaxTime_velo_calc","Hk")
-!       call assert_shape(vk,[nbnd,nbnd,Nk,3],"Wann_timestep_RelaxTime_velo_calc","vk")
-!       call assert_shape(Rhok,[nbnd,nbnd,Nk],"Wann_timestep_RelaxTime_velo_calc","Rhok")
+      call assert_shape(Hk,[nbnd,nbnd,Nk],"Wann_timestep_RelaxTime_velo_calc","Hk")
+      call assert_shape(vk,[nbnd,nbnd,Nk,3],"Wann_timestep_RelaxTime_velo_calc","vk")
+      call assert_shape(Rhok,[nbnd,nbnd,Nk],"Wann_timestep_RelaxTime_velo_calc","Rhok")
 
-!       large_size = get_large_size(nbnd)
+      large_size = get_large_size(nbnd)
 
-!       allocate(Rhok_old(nbnd,nbnd))
+      allocate(Rhok_old(nbnd,nbnd))
 
-!       do ik=1,Nk
-!          k_index = ik
-!          Rhok_old = Rhok(:,:,ik)
-!          Rhok(:,:,ik) = ODE_step_RK5(nbnd,tstp,dt,deriv_velocity_gauge,Rhok_old)
-!       end do
+      do ik=1,Nk
+         k_index = ik
+         Rhok_old = Rhok(:,:,ik)
+         Rhok(:,:,ik) = ODE_step_RK5(nbnd,tstp,dt,deriv_velocity_gauge,Rhok_old)
+      end do
 
-!       deallocate(Rhok_old)
-!       !......................................................
-!       contains
-!       !......................................................
-!       function deriv_velocity_gauge(nst,t,yt) result(dydt)
-!          integer,intent(in) :: nst
-!          real(dp),intent(in) :: t 
-!          complex(dp),intent(in) :: yt(:,:)
-!          complex(dp) :: dydt(nst,nst)
-!          integer :: i,j
-!          real(dp),dimension(nst) :: epsk,occk
-!          complex(dp),dimension(nst,nst) :: ht,ht_yt,yt_ht,Uk
-!          complex(dp),dimension(nst,nst) :: rho_off,rhod,rho_eq,rho12
-!          real(dp) :: AF(3),EF(3)
-!          integer :: idir
+      deallocate(Rhok_old)
+      !......................................................
+      contains
+      !......................................................
+      function deriv_velocity_gauge(nst,t,yt) result(dydt)
+         integer,intent(in) :: nst
+         real(dp),intent(in) :: t 
+         complex(dp),intent(in) :: yt(:,:)
+         complex(dp) :: dydt(nst,nst)
+         integer :: i,j
+         real(dp),dimension(nst) :: epsk,occk
+         complex(dp),dimension(nst,nst) :: ht,ht_yt,yt_ht,Uk
+         complex(dp),dimension(nst,nst) :: rho_off,rhod,rho_eq,rho12
+         real(dp) :: AF(3),EF(3)
+         integer :: idir
 
-!          AF = 0.0_dp; EF = 0.0_dp
-!          if(associated(field)) call field(t,AF,EF)
+         AF = 0.0_dp; EF = 0.0_dp
+         if(associated(field)) call field(t,AF,EF)
 
-!          ht = Hk(:,:,k_index)
-!          do idir=1,3
-!             ht = ht - qc * AF(idir) * vk(:,:,k_index,idir)
-!          end do
-!          call EigH(ht,epsk,Uk)
+         ht = Hk(:,:,k_index)
+         do idir=1,3
+            ht = ht - qc * AF(idir) * vk(:,:,k_index,idir)
+         end do
+         call EigH(ht,epsk,Uk)
 
-!          occk = nfermi(Beta,epsk - Mu)
+         occk = nfermi(Beta,epsk - Mu)
 
-!          RhoD = zero
-!          do i=1,nst
-!             RhoD(i,i) = occk(i)
-!          end do
-!          rho_eq = util_rotate_cc(nst,Uk,RhoD,large_size=large_size)
+         RhoD = zero
+         do i=1,nst
+            RhoD(i,i) = occk(i)
+         end do
+         rho_eq = util_rotate_cc(nst,Uk,RhoD,large_size=large_size)
 
-!          rho_off = util_rotate(nst,Uk,yt,large_size=large_size)
-!          do i=1,nst
-!             rho_off(i,i) = zero
-!          end do
-!          rho12 = util_rotate_cc(nst,Uk,rho_off,large_size=large_size)
+         rho_off = util_rotate(nst,Uk,yt,large_size=large_size)
+         do i=1,nst
+            rho_off(i,i) = zero
+         end do
+         rho12 = util_rotate_cc(nst,Uk,rho_off,large_size=large_size)
 
-!          call util_matmul(ht,yt,ht_yt,large_size=large_size)
-!          call util_matmul(yt,ht,yt_ht,large_size=large_size)
-!          dydt = -iu * (ht_yt - yt_ht)
-!          dydt = dydt - gm1 * (yt - Rho_eq)
-!          dydt = dydt + gm12 * rho12
+         call util_matmul(ht,yt,ht_yt,large_size=large_size)
+         call util_matmul(yt,ht,yt_ht,large_size=large_size)
+         dydt = -iu * (ht_yt - yt_ht)
+         dydt = dydt - gm1 * (yt - Rho_eq)
+         dydt = dydt + gm12 * rho12
 
-!       end function deriv_velocity_gauge
-!       !....................................................
+      end function deriv_velocity_gauge
+      !....................................................
 
-!    end subroutine Wann_timestep_RelaxTime_velo_calc
-! !--------------------------------------------------------------------------------------
+   end subroutine Wann_timestep_RelaxTime_velo_calc
+!--------------------------------------------------------------------------------------
 !    subroutine Wann_Rhok_timestep_velo(w90,Nk,kpts,tstp,dt,field,Rhok)
 !       type(wann90_tb_t),intent(in) :: w90
 !       integer,intent(in)           :: Nk
