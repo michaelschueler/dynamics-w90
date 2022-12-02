@@ -25,13 +25,13 @@ module wan_dynamics
    ! public :: Wann_SpinCurrent_para_velo, Wann_SpinCurrent_dia_velo
    ! public :: Wann_SpinCurrent_dip, Wann_SpinCurrent_dip_calc
 !--------------------------------------------------------------------------------------
-   interface Wann_Rhok_timestep_dip
-      module procedure :: Wann_Rhok_timestep_dip_field, Wann_Rhok_timestep_dip_free
-   end interface Wann_Rhok_timestep_dip
+   ! interface Wann_Rhok_timestep_dip
+   !    module procedure :: Wann_Rhok_timestep_dip_field, Wann_Rhok_timestep_dip_free
+   ! end interface Wann_Rhok_timestep_dip
 
-   interface Wann_timestep_RelaxTime
-      module procedure :: Wann_timestep_RelaxTime_dip, Wann_timestep_RelaxTime_velo_calc
-   end interface Wann_timestep_RelaxTime
+   ! interface Wann_timestep_RelaxTime
+   !    module procedure :: Wann_timestep_RelaxTime_dip, Wann_timestep_RelaxTime_velo_calc
+   ! end interface Wann_timestep_RelaxTime
 !--------------------------------------------------------------------------------------
    integer,parameter :: qc = 1
    real(dp),parameter :: c1=0.5_dp-sqrt(3.0_dp)/6.0_dp
