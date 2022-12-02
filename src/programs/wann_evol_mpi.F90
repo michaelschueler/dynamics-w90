@@ -95,7 +95,7 @@ program wann_evol_mpi
    use scitools_time,only: Timer_Act, Timer_Tic, Timer_Toc
    use scitools_utils,only: print_title, print_header, get_file_ext, check_file_ext,&
       stop_error
-   use scitools_laserpulse,only: LaserPulse_3D_t
+   use scitools_laserpulse,only: Laserpulse_3D_t
    use wan_hamiltonian,only: wann90_tb_t
    use wan_latt_kpts,only: Read_Kpoints
    use io_params,only: HamiltonianParams_t, TimeParams_t
@@ -127,7 +127,7 @@ program wann_evol_mpi
    real(dp),allocatable,dimension(:,:)   :: kpts,BandOcc,Jcurr,Dip
    real(dp),allocatable,dimension(:,:)   :: Jpara,Jdia,JHk,Jpol,Jintra
    real(dp),allocatable,dimension(:,:,:) :: Occk,Jspin
-   type(LaserPulse_3D_t)     :: pulse
+   type(Laserpulse_3D_t)     :: pulse
    type(wann90_tb_t)         :: Ham
    type(wann_evol_t)         :: lattsys
    ! -- parallelization --

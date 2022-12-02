@@ -22,7 +22,7 @@ class WannierEvolution():
             'MuChem': MuChem,
             'Beta': Beta,
             'file_ham': file_ham,
-            'gauge': gauge,
+            'lm_gauge': gauge,
             'FixMuChem': FixMuChem,
             'Filling': Filling
         }
