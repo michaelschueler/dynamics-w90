@@ -296,7 +296,7 @@ contains
       real(dp) :: AF(3),EF(3)
 
       AF = 0.0_dp; EF = 0.0_dp
-      if(associated(field)) call field(tstp*dt,AF,EF)
+      call field(tstp*dt,AF,EF)
 
       Ekin = Wann_KineticEn_calc(me%nbnd,me%Nk,me%Hk,me%Rhok)
       Etot = Wann_TotalEn_velo_calc(me%nbnd,me%Nk,me%Hk,me%velok,AF,me%Rhok)
@@ -327,7 +327,7 @@ contains
       real(dp) :: Jpara(3,3),Jdia(3,3)
 
       AF = 0.0_dp; EF = 0.0_dp
-      if(associated(field)) call field(tstp*dt,AF,EF)
+      call field(tstp*dt,AF,EF)
 
       Jpara = Wann_SpinCurrent_para_velo(me%nbnd,me%Nk,me%velok,me%wan_rot,me%Rhok)
       Jdia = Wann_SpinCurrent_dia_velo(me%nbnd,me%Nk,AF,me%wan_rot,me%Rhok)
@@ -351,7 +351,7 @@ contains
       complex(dp),dimension(me%nbnd,me%nbnd) :: rhok_bnd
 
       AF = 0.0_dp; EF = 0.0_dp
-      if(associated(field)) call field(tstp*dt,AF,EF)
+      call field(tstp*dt,AF,EF)
 
       if(me%free_evol) then
          Etot = Wann_DTRAB_kpts(me%nbnd,me%Nk,me%Hk,me%Rhok)
@@ -408,7 +408,7 @@ contains
       real(dp) :: AF(3),EF(3)
 
       AF = 0.0_dp; EF = 0.0_dp
-      if(associated(field)) call field(tstp*dt,AF,EF)
+      call field(tstp*dt,AF,EF)
 
       if(me%free_evol) then
          Jspin = Wann_SpinCurrent_dip_calc(me%nbnd,me%Nk,me%Hk,me%grad_Hk,me%Dk,me%Rhok,&

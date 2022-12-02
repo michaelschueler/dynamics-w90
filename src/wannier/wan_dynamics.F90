@@ -320,7 +320,7 @@ contains
          real(dp) :: AF(3),EF(3)
 
          AF = 0.0_dp; EF = 0.0_dp
-         if(associated(field)) call field(t,AF,EF)
+         call field(t,AF,EF)
 
          ht = Wann_GetHk_dip(w90,AF,EF,kpt,reducedA=.false.,&
             Peierls_only=empirical_)
@@ -409,7 +409,7 @@ contains
          integer :: idir
 
          AF = 0.0_dp; EF = 0.0_dp
-         if(associated(field)) call field(t,AF,EF)
+         call field(t,AF,EF)
 
          ht = Hk(:,:,k_index)
          do idir=1,3
@@ -460,10 +460,8 @@ contains
 
       AF_1 = 0.0_dp; AF_2 = 0.0_dp
       EF_1 = 0.0_dp; EF_2 = 0.0_dp
-      if(associated(field)) then
-         call field((tstp + c1)*dt,AF_1,EF_1)
-         call field((tstp + c2)*dt,AF_2,EF_2)
-      end if
+      call field((tstp + c1)*dt,AF_1,EF_1)
+      call field((tstp + c2)*dt,AF_2,EF_2)
 
       do ik=1,Nk
          Rho_old = Rhok(:,:,ik)
@@ -495,10 +493,8 @@ contains
 
       AF_1 = 0.0_dp; AF_2 = 0.0_dp
       EF_1 = 0.0_dp; EF_2 = 0.0_dp
-      if(associated(field)) then
-         call field((tstp + c1)*dt,AF_1,EF_1)
-         call field((tstp + c2)*dt,AF_2,EF_2)
-      end if
+      call field((tstp + c1)*dt,AF_1,EF_1)
+      call field((tstp + c2)*dt,AF_2,EF_2)
 
       do ik=1,Nk
          Rho_old = Rhok(:,:,ik)
@@ -1437,18 +1433,9 @@ contains
       large_size = get_large_size(n)
 
       norb = nint(n / 2.0_dp)
-      allocate(sgm(n,n,3)); sgm = zero
+      allocate(sgm(n,n,3))
 
-      do i=1,norb
-         do j=1,norb
-            sgm(2*i-1, 2*j, 1) = one
-            sgm(2*i, 2*j-1, 1) = one
-            sgm(2*i-1, 2*j, 2) = -iu
-            sgm(2*i, 2*j-1, 2) = iu
-            sgm(2*i-1, 2*j-1, 3) = one
-            sgm(2*i, 2*j, 3) = -one
-         end do
-      end do
+      call GetSigma(norb,sgm)
 
       allocate(Bsp(n,n))
       allocate(sgmk(n,n))
@@ -1502,18 +1489,9 @@ contains
       large_size = get_large_size(nbnd)
 
       norb = nint(nbnd / 2.0_dp)
-      allocate(sgm(nbnd,nbnd,3)); sgm = zero
+      allocate(sgm(nbnd,nbnd,3))
 
-      do i=1,norb
-         do j=1,norb
-            sgm(2*i-1, 2*j, 1) = one
-            sgm(2*i, 2*j-1, 1) = one
-            sgm(2*i-1, 2*j, 2) = -iu
-            sgm(2*i, 2*j-1, 2) = iu
-            sgm(2*i-1, 2*j-1, 3) = one
-            sgm(2*i, 2*j, 3) = -one
-         end do
-      end do
+      call GetSigma(norb,sgm)
 
       val = 0.0_dp
 
@@ -1560,6 +1538,27 @@ contains
       kred = matmul(w90%recip_reduced(1:3,1:3), kvec)
 
    end function Cart_to_red
+!--------------------------------------------------------------------------------------
+   subroutine GetSigma(norb,sgm)
+      integer,intent(in) :: norb
+      complex(dp),intent(inout) :: sgm(:,:,:)
+      integer :: i,j
+
+      sgm = zero
+
+      do i=1,norb
+         do j=1,norb
+            sgm(2*i-1, 2*j, 1) = one
+            sgm(2*i, 2*j-1, 1) = one
+            sgm(2*i-1, 2*j, 2) = -iu
+            sgm(2*i, 2*j-1, 2) = iu
+            sgm(2*i-1, 2*j-1, 3) = one
+            sgm(2*i, 2*j, 3) = -one
+         end do
+      end do
+
+
+   end subroutine GetSigma
 !--------------------------------------------------------------------------------------
 
 !======================================================================================

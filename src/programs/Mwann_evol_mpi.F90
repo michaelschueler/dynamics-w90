@@ -328,7 +328,7 @@ contains
       complex(dp),dimension(me%nbnd,me%nbnd) :: rhok_bnd,rot_cc
 
       AF = 0.0_dp; EF = 0.0_dp
-      if(associated(field)) call field(tstp*dt,AF,EF)
+      call field(tstp*dt,AF,EF)
 
       ck = me%Nk_loc / dble(me%Nk)
       Occ = 0.0_dp
@@ -371,7 +371,7 @@ contains
       real(dp),dimension(3,3) :: Jpara_loc,Jdia_loc,Jspin_loc
 
       AF = 0.0_dp; EF = 0.0_dp
-      if(associated(field)) call field(tstp*dt,AF,EF)
+      call field(tstp*dt,AF,EF)
 
       ck = me%Nk_loc / dble(me%Nk)
 
@@ -402,7 +402,7 @@ contains
       complex(dp),dimension(me%nbnd,me%nbnd) :: rhok_bnd
 
       AF = 0.0_dp; EF = 0.0_dp
-      if(associated(field)) call field(tstp*dt,AF,EF)
+      call field(tstp*dt,AF,EF)
 
       ck = me%Nk_loc / dble(me%Nk)
       Occ = 0.0_dp
@@ -470,7 +470,7 @@ contains
       real(dp),dimension(3,3) :: Jspin_loc
 
       AF = 0.0_dp; EF = 0.0_dp
-      if(associated(field)) call field(tstp*dt,AF,EF)
+      call field(tstp*dt,AF,EF)
 
       if(me%free_evol) then
          Jspin_loc = Wann_SpinCurrent_dip_calc(me%nbnd,me%Nk_loc,me%Hk,me%grad_Hk,me%Dk,me%Rhok,&
