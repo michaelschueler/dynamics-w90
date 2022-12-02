@@ -642,87 +642,87 @@ contains
 
    end subroutine Wann_Rhok_timestep_dip_free
 !--------------------------------------------------------------------------------------
-!    function Wann_Current_para_velo(w90,Nk,kpts,Rhok) result(Jpara)
-!       type(wann90_tb_t),intent(in) :: w90
-!       integer,intent(in)           :: Nk
-!       real(dp),intent(in)          :: kpts(:,:)
-!       complex(dp),intent(in)       :: Rhok(:,:,:)
-!       real(dp)                     :: Jpara(3)
-!       integer :: ik
-!       real(dp) :: Jk(3)
-!       complex(dp),dimension(w90%num_wann,w90%num_wann,3) :: vk
+   function Wann_Current_para_velo(w90,Nk,kpts,Rhok) result(Jpara)
+      type(wann90_tb_t),intent(in) :: w90
+      integer,intent(in)           :: Nk
+      real(dp),intent(in)          :: kpts(:,:)
+      complex(dp),intent(in)       :: Rhok(:,:,:)
+      real(dp)                     :: Jpara(3)
+      integer :: ik
+      real(dp) :: Jk(3)
+      complex(dp),dimension(w90%num_wann,w90%num_wann,3) :: vk
 
-!       Jpara = 0.0_dp
-!       do ik=1,Nk
-!          vk = w90%get_velocity([kpts(ik,1),kpts(ik,2),kpts(ik,3)])
-!          Jk(1) = qc * DTRAB(w90%num_wann,vk(:,:,1),Rhok(:,:,ik))/Nk
-!          Jk(2) = qc * DTRAB(w90%num_wann,vk(:,:,2),Rhok(:,:,ik))/Nk
-!          Jk(3) = qc * DTRAB(w90%num_wann,vk(:,:,3),Rhok(:,:,ik))/Nk
-!          Jpara = Jpara + Jk
-!       end do
+      Jpara = 0.0_dp
+      do ik=1,Nk
+         vk = w90%get_velocity([kpts(ik,1),kpts(ik,2),kpts(ik,3)])
+         Jk(1) = qc * DTRAB(w90%num_wann,vk(:,:,1),Rhok(:,:,ik))/Nk
+         Jk(2) = qc * DTRAB(w90%num_wann,vk(:,:,2),Rhok(:,:,ik))/Nk
+         Jk(3) = qc * DTRAB(w90%num_wann,vk(:,:,3),Rhok(:,:,ik))/Nk
+         Jpara = Jpara + Jk
+      end do
 
-!    end function Wann_Current_para_velo
-! !--------------------------------------------------------------------------------------
-!    function Wann_Current_para_velo_calc(nbnd,Nk,vk,Rhok) result(Jpara)
-!       integer,intent(in)           :: nbnd,Nk
-!       complex(dp),intent(in)       :: vk(:,:,:,:)
-!       complex(dp),intent(in)       :: Rhok(:,:,:)
-!       real(dp)                     :: Jpara(3)
-!       integer :: ik
-!       real(dp) :: Jk(3)
+   end function Wann_Current_para_velo
+!--------------------------------------------------------------------------------------
+   function Wann_Current_para_velo_calc(nbnd,Nk,vk,Rhok) result(Jpara)
+      integer,intent(in)           :: nbnd,Nk
+      complex(dp),intent(in)       :: vk(:,:,:,:)
+      complex(dp),intent(in)       :: Rhok(:,:,:)
+      real(dp)                     :: Jpara(3)
+      integer :: ik
+      real(dp) :: Jk(3)
 
-!       Jpara = 0.0_dp
+      Jpara = 0.0_dp
 
-!       do ik=1,Nk
-!          Jk(1) = qc * DTRAB(nbnd,vk(:,:,ik,1),Rhok(:,:,ik))/Nk
-!          Jk(2) = qc * DTRAB(nbnd,vk(:,:,ik,2),Rhok(:,:,ik))/Nk
-!          Jk(3) = qc * DTRAB(nbnd,vk(:,:,ik,3),Rhok(:,:,ik))/Nk
-!          Jpara = Jpara + Jk
-!       end do
+      do ik=1,Nk
+         Jk(1) = qc * DTRAB(nbnd,vk(:,:,ik,1),Rhok(:,:,ik))/Nk
+         Jk(2) = qc * DTRAB(nbnd,vk(:,:,ik,2),Rhok(:,:,ik))/Nk
+         Jk(3) = qc * DTRAB(nbnd,vk(:,:,ik,3),Rhok(:,:,ik))/Nk
+         Jpara = Jpara + Jk
+      end do
 
-!    end function Wann_Current_para_velo_calc
-! !--------------------------------------------------------------------------------------
-!    function Wann_SpinCurrent_para_velo(nbnd,Nk,vk,vectk,Rhok) result(Jpara)
-!       character(len=*),parameter :: proc_name="Wann_SpinCurrent_para_velo"
-!       integer,intent(in)           :: nbnd
-!       integer,intent(in)           :: Nk
-!       complex(dp),intent(in)       :: vk(:,:,:,:)
-!       complex(dp),intent(in)       :: vectk(:,:,:)
-!       complex(dp),intent(in)       :: Rhok(:,:,:)
-!       real(dp)                     :: Jpara(3,3)
-!       integer :: idir
+   end function Wann_Current_para_velo_calc
+!--------------------------------------------------------------------------------------
+   function Wann_SpinCurrent_para_velo(nbnd,Nk,vk,vectk,Rhok) result(Jpara)
+      character(len=*),parameter :: proc_name="Wann_SpinCurrent_para_velo"
+      integer,intent(in)           :: nbnd
+      integer,intent(in)           :: Nk
+      complex(dp),intent(in)       :: vk(:,:,:,:)
+      complex(dp),intent(in)       :: vectk(:,:,:)
+      complex(dp),intent(in)       :: Rhok(:,:,:)
+      real(dp)                     :: Jpara(3,3)
+      integer :: idir
 
-!       call assert_shape(vk, [nbnd, nbnd, Nk, 3], proc_name, "vk")
-!       call assert_shape(vectk, [nbnd, nbnd, Nk], proc_name, "vectk")
-!       call assert_shape(Rhok, [nbnd, nbnd, Nk], proc_name, "Rhok")
+      call assert_shape(vk, [nbnd, nbnd, Nk, 3], proc_name, "vk")
+      call assert_shape(vectk, [nbnd, nbnd, Nk], proc_name, "vectk")
+      call assert_shape(Rhok, [nbnd, nbnd, Nk], proc_name, "Rhok")
 
-!       do idir=1,3
-!          Jpara(:,idir) = Wann_DTRAB_kpts_spin(nbnd,Nk,Rhok,vk(:,:,:,idir),rot_mat=vectk)
-!       end do
+      do idir=1,3
+         Jpara(:,idir) = Wann_DTRAB_kpts_spin(nbnd,Nk,Rhok,vk(:,:,:,idir),rot_mat=vectk)
+      end do
 
-!    end function Wann_SpinCurrent_para_velo
-! !--------------------------------------------------------------------------------------
-!    function Wann_Current_dia_velo(Nk,Avec,Rhok) result(current)
-!       use scitools_linalg,only: trace
-!       character(len=*),parameter :: proc_name="Wann_Current_dia_velo"
-!       integer,intent(in)           :: Nk
-!       real(dp),intent(in)          :: Avec(3)
-!       complex(dp),intent(in)       :: Rhok(:,:,:)
-!       real(dp)                     :: current(3)
-!       integer :: nbnd,ik
-!       real(dp) :: Jk(3),npart
+   end function Wann_SpinCurrent_para_velo
+!--------------------------------------------------------------------------------------
+   function Wann_Current_dia_velo(Nk,Avec,Rhok) result(current)
+      use scitools_linalg,only: trace
+      character(len=*),parameter :: proc_name="Wann_Current_dia_velo"
+      integer,intent(in)           :: Nk
+      real(dp),intent(in)          :: Avec(3)
+      complex(dp),intent(in)       :: Rhok(:,:,:)
+      real(dp)                     :: current(3)
+      integer :: nbnd,ik
+      real(dp) :: Jk(3),npart
  
-!       nbnd = size(Rhok, dim=1)
-!       call assert_shape(Rhok, [nbnd, nbnd, Nk], proc_name, "Rhok")
+      nbnd = size(Rhok, dim=1)
+      call assert_shape(Rhok, [nbnd, nbnd, Nk], proc_name, "Rhok")
 
-!       npart = 0.0_dp
-!       do ik=1,Nk
-!          npart = npart + dble(trace(Rhok(:,:,ik)))/Nk
-!       end do
+      npart = 0.0_dp
+      do ik=1,Nk
+         npart = npart + dble(trace(Rhok(:,:,ik)))/Nk
+      end do
 
-!       current = -qc**2 * npart * Avec
+      current = -qc**2 * npart * Avec
 
-!    end function Wann_Current_dia_velo
+   end function Wann_Current_dia_velo
 ! !--------------------------------------------------------------------------------------
 !    function Wann_SpinCurrent_dia_velo(nbnd,Nk,Avec,vectk,Rhok) result(Jpara)
 !       character(len=*),parameter :: proc_name="Wann_SpinCurrent_dia_velo"
