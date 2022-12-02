@@ -8,30 +8,30 @@ module wan_dynamics
    use wan_hamiltonian,only: wann90_tb_t
    implicit none
 !--------------------------------------------------------------------------------------
-   ! private
-   ! public :: Wann_GenHk, Wann_GenGradkHk, Wann_GenVelok, Wann_GenDipk, Wann_GetHk_dip
-   ! public :: Wann_GenRhok_eq, Wann_GenRhok_eq_calc
-   ! public :: Wann_Rhok_timestep_velo, Wann_Rhok_timestep_dip
-   ! public :: Wann_Current_para_velo, Wann_Current_dia_velo, Wann_Current_Intra_velo 
-   ! public :: Wann_Pol_velo, Wann_Pol_dip, Wann_Current_dip
-   ! public :: Wann_KineticEn, Wann_TotalEn_velo, Wann_TotalEn_dip
-   ! public :: Wann_Current_para_velo_calc,Wann_KineticEn_calc,Wann_TotalEn_velo_calc
-   ! public :: Wann_Rhok_timestep_velo_calc, Wann_Current_Intra_velo_calc
-   ! public :: Wann_Current_dip_kpt, Wann_Current_velo_kpt
-   ! public :: Wann_Pol_dip_calc, Wann_Current_dip_calc
-   ! public :: Wann_GetDk_dip, Wann_GetGradHk_dip
-   ! public :: Wann_DTRAB_kpts
-   ! public :: Wann_timestep_RelaxTime
-   ! public :: Wann_SpinCurrent_para_velo, Wann_SpinCurrent_dia_velo
-   ! public :: Wann_SpinCurrent_dip, Wann_SpinCurrent_dip_calc
+   private
+   public :: Wann_GenHk, Wann_GenGradkHk, Wann_GenVelok, Wann_GenDipk, Wann_GetHk_dip
+   public :: Wann_GenRhok_eq, Wann_GenRhok_eq_calc
+   public :: Wann_Rhok_timestep_velo, Wann_Rhok_timestep_dip
+   public :: Wann_Current_para_velo, Wann_Current_dia_velo, Wann_Current_Intra_velo 
+   public :: Wann_Pol_velo, Wann_Pol_dip, Wann_Current_dip
+   public :: Wann_KineticEn, Wann_TotalEn_velo, Wann_TotalEn_dip
+   public :: Wann_Current_para_velo_calc,Wann_KineticEn_calc,Wann_TotalEn_velo_calc
+   public :: Wann_Rhok_timestep_velo_calc, Wann_Current_Intra_velo_calc
+   public :: Wann_Current_dip_kpt, Wann_Current_velo_kpt
+   public :: Wann_Pol_dip_calc, Wann_Current_dip_calc
+   public :: Wann_GetDk_dip, Wann_GetGradHk_dip
+   public :: Wann_DTRAB_kpts
+   public :: Wann_timestep_RelaxTime
+   public :: Wann_SpinCurrent_para_velo, Wann_SpinCurrent_dia_velo
+   public :: Wann_SpinCurrent_dip, Wann_SpinCurrent_dip_calc
 !--------------------------------------------------------------------------------------
-   ! interface Wann_Rhok_timestep_dip
-   !    module procedure :: Wann_Rhok_timestep_dip_field, Wann_Rhok_timestep_dip_free
-   ! end interface Wann_Rhok_timestep_dip
+   interface Wann_Rhok_timestep_dip
+      module procedure :: Wann_Rhok_timestep_dip_field, Wann_Rhok_timestep_dip_free
+   end interface Wann_Rhok_timestep_dip
 
-   ! interface Wann_timestep_RelaxTime
-   !    module procedure :: Wann_timestep_RelaxTime_dip, Wann_timestep_RelaxTime_velo_calc
-   ! end interface Wann_timestep_RelaxTime
+   interface Wann_timestep_RelaxTime
+      module procedure :: Wann_timestep_RelaxTime_dip, Wann_timestep_RelaxTime_velo_calc
+   end interface Wann_timestep_RelaxTime
 !--------------------------------------------------------------------------------------
    integer,parameter :: qc = 1
    real(dp),parameter :: c1=0.5_dp-sqrt(3.0_dp)/6.0_dp
