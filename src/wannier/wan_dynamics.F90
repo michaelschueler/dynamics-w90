@@ -477,38 +477,38 @@ contains
       end do
 
    end subroutine Wann_Rhok_timestep_velo
-! !--------------------------------------------------------------------------------------
-!    subroutine Wann_Rhok_timestep_velo_calc(nbnd,Nk,Hk,vk,tstp,dt,field,Rhok)
-!       integer,intent(in)           :: nbnd,Nk
-!       complex(dp),intent(in)       :: Hk(:,:,:)
-!       complex(dp),intent(in)       :: vk(:,:,:,:)
-!       integer,intent(in)           :: tstp
-!       real(dp),intent(in)          :: dt
-!       procedure(vecpot_efield_func),pointer :: field
-!       complex(dp),intent(inout)    :: Rhok(:,:,:)
-!       logical :: large_size
-!       integer :: ik
-!       real(dp) :: EF_1(3),AF_1(3),EF_2(3),AF_2(3)
-!       complex(dp),dimension(nbnd,nbnd) :: H1,H2,Rho_old,Udt
+!--------------------------------------------------------------------------------------
+   subroutine Wann_Rhok_timestep_velo_calc(nbnd,Nk,Hk,vk,tstp,dt,field,Rhok)
+      integer,intent(in)           :: nbnd,Nk
+      complex(dp),intent(in)       :: Hk(:,:,:)
+      complex(dp),intent(in)       :: vk(:,:,:,:)
+      integer,intent(in)           :: tstp
+      real(dp),intent(in)          :: dt
+      procedure(vecpot_efield_func),pointer :: field
+      complex(dp),intent(inout)    :: Rhok(:,:,:)
+      logical :: large_size
+      integer :: ik
+      real(dp) :: EF_1(3),AF_1(3),EF_2(3),AF_2(3)
+      complex(dp),dimension(nbnd,nbnd) :: H1,H2,Rho_old,Udt
  
-!       large_size = get_large_size(nbnd)
+      large_size = get_large_size(nbnd)
 
-!       AF_1 = 0.0_dp; AF_2 = 0.0_dp
-!       EF_1 = 0.0_dp; EF_2 = 0.0_dp
-!       if(associated(field)) then
-!          call field((tstp + c1)*dt,AF_1,EF_1)
-!          call field((tstp + c2)*dt,AF_2,EF_2)
-!       end if
+      AF_1 = 0.0_dp; AF_2 = 0.0_dp
+      EF_1 = 0.0_dp; EF_2 = 0.0_dp
+      if(associated(field)) then
+         call field((tstp + c1)*dt,AF_1,EF_1)
+         call field((tstp + c2)*dt,AF_2,EF_2)
+      end if
 
-!       do ik=1,Nk
-!          Rho_old = Rhok(:,:,ik)
-!          H1 = Hk(:,:,ik) - qc*(AF_1(1)*vk(:,:,ik,1) + AF_1(2)*vk(:,:,ik,2) + AF_1(3)*vk(:,:,ik,3))
-!          H2 = Hk(:,:,ik) - qc*(AF_2(1)*vk(:,:,ik,1) + AF_2(2)*vk(:,:,ik,2) + AF_1(3)*vk(:,:,ik,3))
-!          call GenU_CF4(dt,H1,H2,Udt)
-!          call UnitaryStepFBW(nbnd,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
-!       end do
+      do ik=1,Nk
+         Rho_old = Rhok(:,:,ik)
+         H1 = Hk(:,:,ik) - qc*(AF_1(1)*vk(:,:,ik,1) + AF_1(2)*vk(:,:,ik,2) + AF_1(3)*vk(:,:,ik,3))
+         H2 = Hk(:,:,ik) - qc*(AF_2(1)*vk(:,:,ik,1) + AF_2(2)*vk(:,:,ik,2) + AF_1(3)*vk(:,:,ik,3))
+         call GenU_CF4(dt,H1,H2,Udt)
+         call UnitaryStepFBW(nbnd,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
+      end do
 
-!    end subroutine Wann_Rhok_timestep_velo_calc
+   end subroutine Wann_Rhok_timestep_velo_calc
 !--------------------------------------------------------------------------------------
    function Wann_GetHk_dip(w90,Avec,Efield,kpt,reducedA,Peierls_only) result(Hk)
       type(wann90_tb_t),intent(in) :: w90
