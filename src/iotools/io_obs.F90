@@ -19,15 +19,17 @@ module io_obs
       logical            :: calc_metric=.false.
       logical            :: calc_evecs=.false.
       logical            :: write_kpts=.false. 
-      real(dp),pointer,dimension(:,:)      :: epsk => null()    
-      real(dp),pointer,dimension(:,:)      :: kpts => null() 
-      real(dp),pointer,dimension(:,:,:)    :: orb_weight => null()
-      real(dp),pointer,dimension(:,:,:)    :: spin => null()
-      real(dp),pointer,dimension(:,:,:)    :: berry => null()
-      real(dp),pointer,dimension(:,:,:)    :: oam => null()
-      real(dp),pointer,dimension(:,:,:,:)  :: metric => null()
-      real(dp),pointer,dimension(:,:,:,:)  :: spin_berry => null()
-      complex(dp),pointer,dimension(:,:,:) :: evecs => null()
+      logical            :: write_velo=.false. 
+      real(dp),pointer,dimension(:,:)        :: epsk => null()    
+      real(dp),pointer,dimension(:,:)        :: kpts => null() 
+      real(dp),pointer,dimension(:,:,:)      :: orb_weight => null()
+      real(dp),pointer,dimension(:,:,:)      :: spin => null()
+      real(dp),pointer,dimension(:,:,:)      :: berry => null()
+      real(dp),pointer,dimension(:,:,:)      :: oam => null()
+      real(dp),pointer,dimension(:,:,:,:)    :: metric => null()
+      real(dp),pointer,dimension(:,:,:,:)    :: spin_berry => null()
+      complex(dp),pointer,dimension(:,:,:)   :: evecs => null()
+      complex(dp),pointer,dimension(:,:,:,:) :: velok => null()
    contains
       procedure, public  :: AddEpsk => wann_calc_AddEpsk
       procedure, public  :: AddKpts => wann_calc_AddKpts
@@ -38,6 +40,7 @@ module io_obs
       procedure, public  :: AddOAM => wann_calc_AddOAM
       procedure, public  :: AddMetric => wann_calc_AddMetric      
       procedure, public  :: AddEvecs => wann_calc_AddEvecs
+      procedure, public  :: AddVelocity => wann_calc_AddVelocity
       procedure, public  :: SaveToFile => wann_calc_SaveToFile
       procedure, private :: SaveToFile_txt => wann_calc_SaveToFile_txt
 #ifdef WITHHDF5
@@ -137,13 +140,23 @@ contains
 
    end subroutine wann_calc_AddEvecs
 !--------------------------------------------------------------------------------------
+   subroutine wann_calc_AddVelocity(me,velok)
+   !! Adds velocity matrix elements at each k-point to the output
+      class(WannierCalcOutput_t) :: me
+      complex(dp),target,intent(in) :: velok(:,:,:,:) !! eigenvectors, dimension `[nwan,nwan,3,nk]`
+
+      me%velok => velok
+
+   end subroutine wann_calc_AddVelocity
+!--------------------------------------------------------------------------------------
    subroutine wann_calc_SaveToFile_txt(me,prefix)
    !! Stores the output selected by the `wann_calc_AddXXX` routines to plain text file.
       class(WannierCalcOutput_t) :: me
       character(len=*),intent(in) :: prefix !! Prefix of output file name. The output files will
                                             !! be named `prefix_XXX.txt`, where `XXX` denotes the
                                             !! specific output quantity.
-      integer :: nbnd,nwan,nk,i
+      integer :: nbnd,nwan,nk,i,j,ik
+      integer :: unit_out
       real(dp),allocatable :: rdata(:,:)
       character(len=256) :: fout
 
@@ -245,6 +258,23 @@ contains
          deallocate(rdata)
       end if
 
+      if(associated(me%velok)) then
+         nbnd = size(me%velok, dim=1)
+         nk = size(me%velok, dim=4)
+         fout = trim(prefix)//'_velocity.txt' 
+         open(newunit=unit_out,file=trim(fout),status="replace")
+         do ik=1,nk
+            do i=1,nbnd
+               do j=1,nbnd
+                  write(unit_out,'(3(I6,1x),6(F14.7,1x))') ik, i, j, dble(me%velok(i,j,1,ik)), &
+                     aimag(me%velok(i,j,1,ik)), dble(me%velok(i,j,2,ik)), aimag(me%velok(i,j,2,ik)), &
+                     dble(me%velok(i,j,3,ik)), aimag(me%velok(i,j,3,ik))
+               end do
+            end do
+         end do
+         close(unit_out)
+      end if
+
    end subroutine wann_calc_SaveToFile_txt
 !--------------------------------------------------------------------------------------
 #ifdef WITHHDF5
@@ -301,6 +331,13 @@ contains
          call hdf_write_dataset(file_id,'evecs-imag',rdata)
          deallocate(rdata)
       end if
+
+      if(associated(me%velok)) then
+         nbnd = size(me%velok, dim=1)
+         nk = size(me%velok, dim=4)
+         call hdf_write_dataset(file_id,'velok-real',dble(me%velok))
+         call hdf_write_dataset(file_id,'velok-imag',aimag(me%velok))
+      end if      
 
       call hdf_close_file(file_id)
 

@@ -23,7 +23,8 @@ module io_params
       logical :: calc_oam=.false. !! triggers outout of orbital angular momentum (OAM)
       logical :: calc_metric=.false. !! triggers output of the quantum metric
       logical :: calc_evecs=.false. !! triggers output of eigenvectors 
-      logical :: berry_valence=.false. !! if .true. we compute Berry-phase properties only for 
+      logical :: write_velocity=.false. !! if `.true.` the velocity matrix elements are written to file
+      logical :: berry_valence=.false. !! if `.true.` we compute Berry-phase properties only for 
                                        !! the occupiend states, while sums over intermediate
                                        !! states are performed over unoccupied states only
       logical :: write_kpts=.false. !! triggers output of the k-points used in the calculation
@@ -131,10 +132,11 @@ contains
       logical :: calc_metric=.false. 
       logical :: calc_evecs=.false.
       logical :: berry_valence=.false.
+      logical :: write_velocity=.false.
       logical :: write_kpts=.false.
       integer :: gauge=0
       namelist/CALCOPT/calc_orbweight,calc_spin,calc_berry,calc_spin_berry,&
-         calc_oam,calc_metric,calc_evecs,berry_valence,write_kpts,gauge
+         calc_oam,calc_metric,calc_evecs,berry_valence,write_kpts,write_velocity,gauge
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
       read(unit_inp,nml=CALCOPT)
@@ -149,6 +151,7 @@ contains
       me%calc_evecs = calc_evecs
       me%berry_valence = berry_valence
       me%write_kpts = write_kpts  
+      me%write_velocity = write_velocity
 
 
    end subroutine wannier_calc_ReadFromFile

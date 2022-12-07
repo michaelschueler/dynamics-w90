@@ -33,6 +33,7 @@ module Mwannier_calc
       procedure,public  :: GetSpinBerryCurvature
       procedure,public  :: GetOAM
       procedure,public  :: GetMetric
+      procedure,public  :: GetVelocity
    end type wannier_calc_t
 !--------------------------------------------------------------------------------------
    integer,parameter :: velocity_gauge=0,dipole_gauge=1
@@ -322,6 +323,18 @@ contains
       end if
 
    end subroutine GetMetric
+!--------------------------------------------------------------------------------------
+   subroutine GetVelocity(me,velok)
+      class(wannier_calc_t) :: me
+      real(dp),allocatable,intent(out) :: velok(:,:,:,:)
+      integer :: ik      
+
+      allocate(velok(me%nbnd,me%nbnd,3,me%Nk))
+      do ik=1,me%Nk
+         velok(:,:,:,ik) = me%Ham%get_velocity(me%kpts(ik,:))
+      end do
+
+   end subroutine GetVelocity
 !--------------------------------------------------------------------------------------
 
 !======================================================================================    

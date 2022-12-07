@@ -68,8 +68,8 @@ program wann_evol
 !! * `file_field`: Data file with three-dimensional electric field. The following format is expected: 
 !!    time (1st column), Ex (2nd column), Ey (3rd column), Ez (4th column). 
 !!    The time and field strength is expected in atomic units.
-!! 
-!! #### OUTPUT ####
+!!
+!! !! #### OUTPUT ####
 !! * `spin_current`: Triggers the calculation of spin currents for systems with SOC. The Hamiltonian
 !!                   supports \(n_b = 2 n_\mathrm{orb}\) bands, where \(n_\mathrm{orb}\) is the
 !!                   number of Wannier functions without spin. 
