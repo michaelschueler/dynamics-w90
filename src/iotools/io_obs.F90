@@ -333,8 +333,6 @@ contains
       end if
 
       if(associated(me%velok)) then
-         nbnd = size(me%velok, dim=1)
-         nk = size(me%velok, dim=4)
          call hdf_write_dataset(file_id,'velok-real',dble(me%velok))
          call hdf_write_dataset(file_id,'velok-imag',aimag(me%velok))
       end if      
