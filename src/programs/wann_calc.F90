@@ -22,13 +22,14 @@ program wann_calc
    integer :: Narg,unit_inp
    character(len=255) :: FlIn,FlOutPref
    ! -- internal variables --
-   real(dp),allocatable,dimension(:,:)     :: kpts
-   real(dp),allocatable,dimension(:,:,:)   :: orb_weight,spin,berry,oam
-   real(dp),allocatable,dimension(:,:,:,:) :: metric,spin_berry
-   type(wannier_calc_t)                    :: wann
-   type(HamiltonianParams_t)               :: par_ham
-   type(WannierCalcParams_t)               :: par_calc
-   type(WannierCalcOutput_t)               :: output
+   real(dp),allocatable,dimension(:,:)        :: kpts
+   real(dp),allocatable,dimension(:,:,:)      :: orb_weight,spin,berry,oam
+   real(dp),allocatable,dimension(:,:,:,:)    :: metric,spin_berry
+   complex(dp),allocatable,dimension(:,:,:,:) :: velok
+   type(wannier_calc_t)                       :: wann
+   type(HamiltonianParams_t)                  :: par_ham
+   type(WannierCalcParams_t)                  :: par_calc
+   type(WannierCalcOutput_t)                  :: output
 !--------------------------------------------------------------------------------------
    call Timer_Act()
    call Timer_Tic('total',1)
@@ -108,6 +109,13 @@ program wann_calc
       call output%AddMetric(metric)
       call Timer_Toc(N=2)
    end if   
+
+   if(par_calc%write_velocity) then
+      call Timer_Tic('velocity matrix elements', 2)
+      call wann%GetVelocity(velok)
+      call output%AddVelocity(velok)
+      call Timer_Toc(N=2)
+   end if     
 
    if(PrintToFile) call output%SaveToFile(FlOutPref)
 !--------------------------------------------------------------------------------------

@@ -326,7 +326,7 @@ contains
 !--------------------------------------------------------------------------------------
    subroutine GetVelocity(me,velok)
       class(wannier_calc_t) :: me
-      real(dp),allocatable,intent(out) :: velok(:,:,:,:)
+      complex(dp),allocatable,intent(out) :: velok(:,:,:,:)
       integer :: ik      
 
       allocate(velok(me%nbnd,me%nbnd,3,me%Nk))
