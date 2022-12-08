@@ -285,7 +285,7 @@ contains
                                             !! written to `prefix_wann_calc.h5`.
       integer :: nbnd,nwan,nk,i
       integer(HID_t) :: file_id
-      real(dp),allocatable :: rdata(:,:,:)
+      real(dp),allocatable :: rdata(:,:,:),rdata4(:,:,:,:)
 
       call hdf_open_file(file_id, trim(prefix)//'_wann_calc.h5', STATUS='NEW')
 
@@ -333,8 +333,14 @@ contains
       end if
 
       if(associated(me%velok)) then
-         call hdf_write_dataset(file_id,'velok-real',dble(me%velok))
-         call hdf_write_dataset(file_id,'velok-imag',aimag(me%velok))
+         nbnd = size(me%velok, dim=1)
+         nk = size(me%velok, dim=3)
+         allocate(rdata4(nbnd,nbnd,3,nk))
+         rdata4 = dble(me%velok)
+         call hdf_write_dataset(file_id,'velok-real',rdata4)
+         rdata4 = aimag(me%velok)
+         call hdf_write_dataset(file_id,'velok-imag',rdata4)
+         deallocate(rdata4)
       end if      
 
       call hdf_close_file(file_id)
