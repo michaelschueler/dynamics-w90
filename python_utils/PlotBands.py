@@ -96,7 +96,7 @@ def Plot_bandstructure_spin(epsk,spin,klabel,spin_dir=2,Emin=-100.0,Emax=100.0,f
     nbnd = epsk.shape[1]
     xk = np.linspace(0.0, 1.0, nk)
 
-    Sp = spin[:,:,spin_dir]
+    Sp = spin[:,spin_dir,:]
 
     fig, ax = plt.subplots()
 

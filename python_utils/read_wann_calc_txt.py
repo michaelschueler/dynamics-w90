@@ -28,9 +28,9 @@ def ReadSpin(pref):
     nk = spin_x.shape[0]
     nbnd = spin_x.shape[1]
     spin = np.zeros([nk,nbnd,3])
-    spin[:,:,0] = spin_x
-    spin[:,:,1] = spin_y
-    spin[:,:,2] = spin_z
+    spin[:,0,:] = spin_x
+    spin[:,1,:] = spin_y
+    spin[:,2,:] = spin_z
 
     return spin
 #----------------------------------------------------------------------

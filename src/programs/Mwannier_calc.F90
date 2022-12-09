@@ -169,7 +169,7 @@ contains
       integer :: ibnd,iorb,ik
       complex(dp),allocatable :: vectk_up(:),vectk_dn(:)
 
-      allocate(spin(3,me%nbnd,me%Nk)); spin = 0.0_dp
+      allocate(spin(me%nbnd,3,me%Nk)); spin = 0.0_dp
       if(.not.me%soc_mode) return
 
       allocate(vectk_up(me%nwan),vectk_dn(me%nwan))
