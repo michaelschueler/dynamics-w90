@@ -143,7 +143,7 @@ contains
    subroutine wann_calc_AddVelocity(me,velok)
    !! Adds velocity matrix elements at each k-point to the output
       class(WannierCalcOutput_t) :: me
-      complex(dp),target,intent(in) :: velok(:,:,:,:) !! eigenvectors, dimension `[nwan,nwan,3,nk]`
+      complex(dp),target,intent(in) :: velok(:,:,:,:) !! velocity matrix elements, dimension `[nwan,nwan,3,nk]`
 
       me%velok => velok
 
