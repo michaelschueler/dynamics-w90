@@ -14,11 +14,15 @@ get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
 
 
 SET(CMAKE_Fortran_MODULE_DIRECTORY
-   ${CMAKE_BINARY_DIR}/mod CACHE PATH "Single Directory for all fortran modules."
+   #${CMAKE_BINARY_DIR}/mod CACHE PATH "Single Directory for all fortran modules."
+   ${PROJECT_SOURCE_DIR}/build/mod CACHE PATH "Single Directory for all fortran modules."
 )
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+#set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+#set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/build/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/build/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/exe)
 
 option(wannier_lib "Building Wannier library" OFF)
@@ -64,21 +68,53 @@ endif(scitools_prefix)
 
 # ~~ Add HDF5 ~~
 if (hdf5)
-  message(STATUS "Building with HDF5")
-  find_library(HDF5_LIB hdf5)
-  find_library(HDF5FOR_LIB hdf5_fortran)
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DWITHHDF5")
-  list(APPEND COMMON_LIBS ${HDF5_LIB})
-  list(APPEND COMMON_LIBS ${HDF5FOR_LIB})
+    message(STATUS "Building with HDF5")
+    if(hdf5_prefix)
+        find_library(HDF5_LIB
+            NAMES hdf5
+            HINTS "${hdf5_prefix}/lib"
+        )    
+        find_library(HDF5FOR_LIB
+            NAMES hdf5_fortran
+            HINTS "${hdf5_prefix}/lib"
+        )  
+       include_directories(${hdf5_prefix}/include)
+       link_directories(${hdf5_prefix}/lib)    
+    else(hdf5_prefix)
+      find_library(HDF5_LIB hdf5)
+      find_library(HDF5FOR_LIB hdf5_fortran)
+    endif(hdf5_prefix)
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DWITHHDF5")
+    list(APPEND COMMON_LIBS ${HDF5_LIB})
+    list(APPEND COMMON_LIBS ${HDF5FOR_LIB})
 endif (hdf5)
 
 # ~~ Add BLAS/LAPACK ~~
-if(lapackblas_libraries)
-   list(APPEND COMMON_LIBS ${lapackblas_libraries})
-   message(STATUS LAPACK/BLAS: ${lapackblas_libraries})
-else(lapackblas_libraries)
+if(lapack_path)
+    message(STATUS "LAPACK prefix: ${lapack_path}")
+    find_library(BLAS
+        HINTS "${lapack_path}"
+    )     
+    if(BLAS_FOUND) 
+        message(STATUS "Found LAPACK: ${LAPACK_LIBRARIES}")    
+    else(BLAS_FOUND)
+        message("Warning: LAPACK/BLAS not found!")
+    endif(BLAS_FOUND)
+    link_directories(${lapack_path}/lib)    
+else(lapack_path)
+    find_package(LAPACK)
+    if(LAPACK_FOUND) 
+        message(STATUS "Found LAPACK: ${LAPACK_LIBRARIES}")    
+    endif(LAPACK_FOUND)
+endif(lapack_path)
+message(STATUS "Found LAPACK: ${LAPACK_LIBRARIES}")
+
+if(lapackblas_library)
+   list(APPEND COMMON_LIBS ${lapackblas_library})
+   message(STATUS LAPACK/BLAS: ${lapackblas_library})
+else(lapackblas_library)
    message("Warning: LAPACK/BLAS not specified!")
-endif(lapackblas_libraries)
+endif(lapackblas_library)
 
 # ~~ Add modern quadrature ~~
 if (modernquad)
@@ -102,7 +138,7 @@ link_directories(${CMAKE_LIBRARY_PATH})
 include_directories(${CMAKE_INCLUDE_PATH})
 
 if(scitools_prefix)
-
+    message(STATUS "Attempting to use SciTools as external library.")
 else(scitools_prefix)
     message(STATUS "Path to SciTools not specified. Building internal copy.")
     add_subdirectory(scitools)
