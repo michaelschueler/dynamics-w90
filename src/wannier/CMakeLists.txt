@@ -35,9 +35,9 @@ if(wannier_lib)
     target_link_libraries(hamw90 basic scitools ${COMMON_LIBS})
 
     if(scitools_prefix)
-        add_dependencies(hamw90 basic)
+        add_dependencies(hamw90 basic wannier)
     else(scitools_prefix)
-        add_dependencies(hamw90 basic scitools)
+        add_dependencies(hamw90 basic wannier scitools)
     endif(scitools_prefix)
 
     install(TARGETS hamw90 LIBRARY DESTINATION lib)

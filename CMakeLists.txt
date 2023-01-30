@@ -9,25 +9,33 @@ if (NOT CMAKE_BUILD_TYPE)
       FORCE)
 endif (NOT CMAKE_BUILD_TYPE)
 
+set(CMAKE_Fortran_FLAGS "${Fortran_FLAGS}")
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(STATUS "Building in debug mode")
+endif (CMAKE_BUILD_TYPE STREQUAL "Debug")
+
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    message(STATUS "Building in release mode")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O3 -DNDEBUG")
+endif (CMAKE_BUILD_TYPE STREQUAL "Release")
+
 # FFLAGS depend on the compiler
 get_filename_component (Fortran_COMPILER_NAME ${CMAKE_Fortran_COMPILER} NAME)
 
 
 SET(CMAKE_Fortran_MODULE_DIRECTORY
-   #${CMAKE_BINARY_DIR}/mod CACHE PATH "Single Directory for all fortran modules."
-   ${PROJECT_SOURCE_DIR}/build/mod CACHE PATH "Single Directory for all fortran modules."
+   ${CMAKE_BINARY_DIR}/mod CACHE PATH "Single Directory for all fortran modules."
 )
 
-#set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-#set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/build/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/build/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/exe)
 
 option(wannier_lib "Building Wannier library" OFF)
 if(wannier_lib)
     message(STATUS "Building Wannier library")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fPIC")
 endif(wannier_lib)
 
 
@@ -64,6 +72,9 @@ if(scitools_prefix)
    include_directories(${scitools_prefix}/include/scitools/)
    link_directories(${scitools_prefix}/lib)
    message(STATUS "SciTools library: ${SCITOOLS_LIB}")
+else(scitools_prefix)
+    message(STATUS "Path to SciTools not specified. Building internal copy.")
+    add_subdirectory(scitools)
 endif(scitools_prefix)
 
 # ~~ Add HDF5 ~~
@@ -91,7 +102,7 @@ endif (hdf5)
 
 # ~~ Add BLAS/LAPACK ~~
 if(lapack_path)
-    message(STATUS "LAPACK prefix: ${lapack_path}")
+    message(STATUS "LAPACK path: ${lapack_path}")
     find_library(BLAS
         HINTS "${lapack_path}"
     )     
@@ -100,14 +111,13 @@ if(lapack_path)
     else(BLAS_FOUND)
         message("Warning: LAPACK/BLAS not found!")
     endif(BLAS_FOUND)
-    link_directories(${lapack_path}/lib)    
+    link_directories(${lapack_path})    
 else(lapack_path)
     find_package(LAPACK)
     if(LAPACK_FOUND) 
         message(STATUS "Found LAPACK: ${LAPACK_LIBRARIES}")    
     endif(LAPACK_FOUND)
 endif(lapack_path)
-message(STATUS "Found LAPACK: ${LAPACK_LIBRARIES}")
 
 if(lapackblas_library)
    list(APPEND COMMON_LIBS ${lapackblas_library})
@@ -115,12 +125,6 @@ if(lapackblas_library)
 else(lapackblas_library)
    message("Warning: LAPACK/BLAS not specified!")
 endif(lapackblas_library)
-
-# ~~ Add modern quadrature ~~
-if (modernquad)
-  message(STATUS "Building with modern quadrature")
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DMODERNQUAD")
-endif (modernquad)
 
 # ~~ Test programs ~~
 option(compile_test "Compiling test programs" OFF)
@@ -136,13 +140,6 @@ link_directories(${CMAKE_LIBRARY_PATH})
 
 # ~~ Paths and Subdirs ~~
 include_directories(${CMAKE_INCLUDE_PATH})
-
-if(scitools_prefix)
-    message(STATUS "Attempting to use SciTools as external library.")
-else(scitools_prefix)
-    message(STATUS "Path to SciTools not specified. Building internal copy.")
-    add_subdirectory(scitools)
-endif(scitools_prefix)
 
 add_subdirectory(src)
 
