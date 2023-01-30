@@ -11,6 +11,8 @@ endif (NOT CMAKE_BUILD_TYPE)
 
 set(CMAKE_Fortran_FLAGS "${Fortran_FLAGS}")
 
+set(CMAKE_BUILD_TYPE "${build_type}")
+
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "Building in debug mode")
 endif (CMAKE_BUILD_TYPE STREQUAL "Debug")

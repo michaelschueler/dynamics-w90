@@ -1,3 +1,6 @@
+# Build type
+set(build_type "Release" CACHE STRING "Build type: Release or Debug")
+
 # Support features
 set(omp true CACHE BOOL "OpenMP support")
 set(hdf5 true CACHE BOOL "HDF5 support")
