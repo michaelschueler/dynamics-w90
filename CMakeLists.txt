@@ -65,19 +65,6 @@ if(mpi)
    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DMPI")
 endif(mpi)
 
-# ~~ Add SciTools ~~
-if(scitools_prefix)
-    find_library(SCITOOLS_LIB
-        NAMES scitools
-        HINTS "${scitools_prefix}/lib"
-    )
-   include_directories(${scitools_prefix}/include/scitools/)
-   link_directories(${scitools_prefix}/lib)
-   message(STATUS "SciTools library: ${SCITOOLS_LIB}")
-else(scitools_prefix)
-    message(STATUS "Path to SciTools not specified. Building internal copy.")
-    add_subdirectory(scitools)
-endif(scitools_prefix)
 
 # ~~ Add HDF5 ~~
 if (hdf5)
@@ -96,6 +83,8 @@ if (hdf5)
     else(hdf5_prefix)
       find_library(HDF5_LIB hdf5)
       find_library(HDF5FOR_LIB hdf5_fortran)
+      find_path (HDF5_INCLUDES hdf5.mod)
+      include_directories(${HDF5_INCLUDES})
     endif(hdf5_prefix)
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DWITHHDF5")
     list(APPEND COMMON_LIBS ${HDF5_LIB})
@@ -142,6 +131,21 @@ link_directories(${CMAKE_LIBRARY_PATH})
 
 # ~~ Paths and Subdirs ~~
 include_directories(${CMAKE_INCLUDE_PATH})
+
+
+# ~~ Add SciTools ~~
+if(scitools_prefix)
+    find_library(SCITOOLS_LIB
+        NAMES scitools
+        HINTS "${scitools_prefix}/lib"
+    )
+   include_directories(${scitools_prefix}/include/scitools/)
+   link_directories(${scitools_prefix}/lib)
+   message(STATUS "SciTools library: ${SCITOOLS_LIB}")
+else(scitools_prefix)
+    message(STATUS "Path to SciTools not specified. Building internal copy.")
+    add_subdirectory(scitools)
+endif(scitools_prefix)
 
 add_subdirectory(src)
 
