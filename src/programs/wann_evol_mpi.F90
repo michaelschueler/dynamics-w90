@@ -184,7 +184,7 @@ program wann_evol_mpi
       call stop_error('Input file does not exist: '//trim(par_ham%file_ham),&
          root_flag=on_root)
    end if
-   write(output_unit,fmt_input) 'Hamiltionian from file: '//trim(par_ham%file_ham)
+   if(on_root) write(output_unit,fmt_input) 'Hamiltionian from file: '//trim(par_ham%file_ham)
    call ReadHamiltonian(par_ham%file_ham,Ham)
 
    call Read_Kpoints(FlIn,kpts,print_info=.true.,root_tag=on_root)
