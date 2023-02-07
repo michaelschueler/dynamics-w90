@@ -637,7 +637,7 @@ contains
       integer  :: tstp
       real(dp),allocatable :: ts(:)
 
-      Flname = trim(prefix)//'_occupation.h5'
+      Flname = trim(prefix)//'_jspin.h5'
       call hdf_open_file(file_id, trim(Flname), STATUS='NEW')
 
       allocate(ts(0:Nt))
@@ -661,7 +661,7 @@ contains
       integer :: i,j
       character(len=256) :: file_out
 
-      file_out = trim(prefix)//'_jspin.h5'
+      file_out = trim(prefix)//'_jspin.txt'
       open(newunit=unit_out,file=trim(file_out),STATUS='REPLACE')
       do tstp=0,Nt
          write(unit_out,'(9(F14.7,1x))') ((Jspin(i,j,tstp),i=1,3),j=1,3)
