@@ -35,7 +35,6 @@ contains
    subroutine ReadFromTXT(me,fname)
       class(wannier_orbs_t) :: me
       character(len=*),intent(in) :: fname
-      integer(HID_t) :: file_id
       integer :: real_flag
       integer :: unit_inp
       integer :: ir

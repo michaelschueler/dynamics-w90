@@ -1050,9 +1050,11 @@ contains
    !! in dipole gauge \(\rho^\mathrm{DG}(\mathbf{k}),t\). The current is given by the sum of
    !! two contributions \(\mathbf{J}(t) = \mathbf{J}^{(1)}(t) + \mathbf{J}^{(2)}(t)\).
    !! We split the two contributions as follows:
+   !!
    !! $$\mathbf{J}^{(1)}(t) = \frac{q}{N} \sum_{\mathbf{k}} 
    !! \left(\mathrm{Tr}[\nabla_{\mathbf{k}} H_0(\mathbf{k}-q\mathbf{A}(t)) 
    !! \rho^\mathrm{DG}(\mathbf{k}),t)], $$
+   !!
    !! $$ \mathbf{J}^{(2)}(t) = \frac{q}{N} \sum_{\mathbf{k}} \left(\mathrm{Tr}[ 
    !! \mathbf{D}(\mathbf{k}-q\mathbf{A}(t)) \frac{d}{dt} \rho^\mathrm{DG}(\mathbf{k}),t) \right] .$$
    !! Here the field-field Hamiltonian \(H_0(\mathbf{k})\) and the dipole matrix elements
