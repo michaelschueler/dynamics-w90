@@ -1029,7 +1029,7 @@ contains
             kAred = kpts(ik,:) - Ared
             grad_Hk = w90%get_gradk_ham(kAred) 
             do idir=1,3
-               Jk(idir) = qc * DTRAB(w90%num_wann,grad_Hk(:,:,1),Rhok(:,:,ik))/Nk
+               Jk(idir) = qc * DTRAB(w90%num_wann,grad_Hk(:,:,idir),Rhok(:,:,ik))/Nk
             end do
             Jcurr = Jcurr + Jk
             if(dip_curr) then
