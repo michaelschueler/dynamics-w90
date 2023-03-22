@@ -8,6 +8,7 @@ module Mwann_evol_mpi
    use scitools_linalg,only: get_large_size,util_matmul,util_rotate,util_rotate_cc
    use scitools_array1d_dist,only: dist_array1d_t,GetDisplSize1D
    use wan_hamiltonian,only: wann90_tb_t
+   use wan_equilibrium,only: GetChemicalPotential_mpi, Wann_GenRhok_eq
    use wan_dynamics
    implicit none
    include '../formats.h'
@@ -127,7 +128,7 @@ contains
       real(dp),intent(in),optional  :: filling
       logical :: calc_mu=.false.
       integer :: ik,j
-      real(dp) :: npart,npart_target,Emin_loc,Emax_loc,Emin,Emax
+      real(dp) :: nel_loc
       real(dp) :: kpt(3)
       real(dp),allocatable :: Ek(:,:)
       complex(dp),allocatable :: Hk(:,:,:)
@@ -145,11 +146,7 @@ contains
       end do
 
       if(calc_mu) then
-         npart_target = filling
-         Emin_loc = minval(Ek); Emax_loc = maxval(Ek)
-         call MPI_ALLREDUCE(Emin_loc,Emin,1,MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD, ierr)
-         call MPI_ALLREDUCE(Emax_loc,Emax,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD, ierr)
-         me%MuChem = brent(part_func,Emin,Emax,mu_tol)
+         me%MuChem = GetChemicalPotential_mpi(me%Nk,Ek,me%Beta,filling)
       end if
 
       allocate(me%Hk(me%nbnd,me%nbnd,me%Nk_loc))
@@ -181,30 +178,11 @@ contains
 
       me%Rhok_eq = me%Rhok
 
-      me%nelec = num_part(me%MuChem)
+      nel_loc = sum(nfermi(me%Beta, Ek - me%MuChem)) / me%Nk
+      call MPI_ALLREDUCE(nel_loc,me%nelec,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
 
       deallocate(Ek,Hk)
-   !.............................................
-   contains
-   !............................................
-      real(dp) function num_part(mu)
-         real(dp),intent(in) :: mu
-         integer :: ik,al
-         real(dp) :: np_loc
 
-         np_loc = sum(nfermi(me%Beta,Ek - mu))/me%Nk
-         call MPI_ALLREDUCE(np_loc,num_part,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-
-      end function num_part
-   !............................................
-      real(dp) function part_func(mu)
-         real(dp),intent(in) :: mu
-         real(dp) :: npart_mu
-
-         part_func = num_part(mu) - npart_target
-
-      end function part_func
-   !............................................
    end subroutine SolveEquilibrium
 !--------------------------------------------------------------------------------------
    subroutine Timestep_RelaxTime(me,T1,T2,tstp,dt)

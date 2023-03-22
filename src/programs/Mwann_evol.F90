@@ -6,6 +6,7 @@ module Mwann_evol
    use scitools_utils,only: stop_error
    use scitools_linalg,only: get_large_size,util_matmul,util_rotate,util_rotate_cc
    use wan_hamiltonian,only: wann90_tb_t
+   use wan_equilibrium,only: GetChemicalPotential, Wann_GenRhok_eq
    use wan_dynamics
    implicit none
    include '../formats.h'
@@ -105,7 +106,6 @@ contains
       real(dp),intent(in),optional  :: filling
       logical :: calc_mu=.false.
       integer :: ik,j
-      real(dp) :: npart,npart_target,Emin,Emax
       real(dp) :: kpt(3)
       real(dp),allocatable :: Ek(:,:)
       complex(dp),allocatable :: Hk(:,:,:)
@@ -123,9 +123,7 @@ contains
       end do
 
       if(calc_mu) then
-         npart_target = filling
-         Emin = minval(Ek); Emax = maxval(Ek)
-         me%MuChem = brent(part_func,Emin,Emax,mu_tol)
+         me%MuChem = GetChemicalPotential(me%Nk,Ek,me%Beta,filling)
       end if
 
       allocate(me%Hk(me%nbnd,me%nbnd,me%Nk))
@@ -157,29 +155,10 @@ contains
       end select
 
       me%Rhok_eq = me%Rhok
-      me%nelec = num_part(me%MuChem)
+      me%nelec = sum(nfermi(me%Beta,Ek - me%MuChem)) / me%Nk
 
       deallocate(Ek,Hk)
-   !.............................................
-   contains
-   !............................................
-      real(dp) function num_part(mu)
-         real(dp),intent(in) :: mu
-         integer :: ik,al
-         real(dp) :: np_loc
 
-         num_part = sum(nfermi(me%Beta,Ek - mu))/me%Nk
-
-      end function num_part
-   !............................................
-      real(dp) function part_func(mu)
-         real(dp),intent(in) :: mu
-         real(dp) :: npart_mu
-
-         part_func = num_part(mu) - npart_target
-
-      end function part_func
-   !............................................
    end subroutine SolveEquilibrium
 !--------------------------------------------------------------------------------------
    subroutine Timestep_RelaxTime(me,T1,T2,tstp,dt)
