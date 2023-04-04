@@ -263,20 +263,19 @@ contains
 
       if(band_basis_) then
          Hk = me%get_ham(kpt)
-         ! call EigHE(Hk,Ek,Qk)
          call utility_diagonalize(Hk, me%num_wann, Ek, Qk)
          do idir=1,3
             Dk(:,:,idir) = util_rotate(me%num_wann,Qk,Dk(:,:,idir),large_size=large_size)
-            ! Dk(:,:,idir) = matmul(conjg(transpose(Qk)), matmul(Dk(:,:,idir), Qk))
          end do
       end if
 
    end function get_dipole
 !--------------------------------------------------------------------------------------
-   function get_emp_velocity(me,kpt) result(vk)
+   function get_emp_velocity(me,kpt,orbs_excl) result(vk)
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
       complex(dp)         :: vk(me%num_wann,me%num_wann,3)
+      integer,intent(in),optional :: orbs_excl(:)
       logical :: large_size
       integer :: idir
       real(dp)    :: Ek(me%num_wann)
@@ -286,18 +285,22 @@ contains
 
       vk = me%get_gradk_ham(kpt)
       Hk = me%get_ham(kpt)
-      ! call EigHE(Hk,Ek,Qk)
       call utility_diagonalize(Hk, me%num_wann, Ek, Qk)
+
+      if(present(orbs_excl)) then
+         call RemoveOrbitals(orbs_excl, Qk)
+      end if
+
       do idir=1,3
          vk(:,:,idir) = util_rotate(me%num_wann,Qk,vk(:,:,idir),large_size=large_size)
-         ! vk(:,:,idir) = matmul(conjg(transpose(Qk)), matmul(vk(:,:,idir), Qk))
       end do
 
    end function get_emp_velocity
 !--------------------------------------------------------------------------------------
-   function get_velocity(me,kpt) result(Vk)
+   function get_velocity(me,kpt,orbs_excl) result(Vk)
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
+      integer,intent(in),optional :: orbs_excl(:)
       integer :: idir
       complex(dp)         :: vk(me%num_wann,me%num_wann,3)
 
@@ -321,6 +324,10 @@ contains
 
       call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
          use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+
+      if(present(orbs_excl)) then
+         call RemoveOrbitals(orbs_excl, UU)
+      end if
 
       call wham_get_D_h(me%num_wann, delHH, UU, eig, D_h, &
          degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
@@ -354,9 +361,10 @@ contains
 
    end function get_velocity
 !--------------------------------------------------------------------------------------
-   function get_spin_velocity(me,kpt) result(Vk)
+   function get_spin_velocity(me,kpt,orbs_excl) result(Vk)
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
+      integer,intent(in),optional :: orbs_excl(:)
       complex(dp)         :: vk(me%num_wann,me%num_wann,3,3)
 
       logical :: large_size
@@ -387,6 +395,10 @@ contains
 
       call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
          use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+
+      if(present(orbs_excl)) then
+         call RemoveOrbitals(orbs_excl, UU)
+      end if
 
       call wham_get_D_h_spin(me%num_wann, delHH, UU, eig, Dh_spin, &
          degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
@@ -429,9 +441,10 @@ contains
 
    end function get_spin_velocity
 !--------------------------------------------------------------------------------------
-   function get_berry_connection(me,kpt) result(AA)
+   function get_berry_connection(me,kpt,orbs_excl) result(AA)
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
+      integer,intent(in),optional :: orbs_excl(:)
       complex(dp)         :: AA(me%num_wann,me%num_wann,3)
       logical :: large_size
       integer :: i,j,idir
@@ -452,6 +465,10 @@ contains
       call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
          use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
 
+      if(present(orbs_excl)) then
+         call RemoveOrbitals(orbs_excl, UU)
+      end if
+
       call wham_get_D_h(me%num_wann, delHH, UU, eig, D_h, &
          degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
 
@@ -465,10 +482,11 @@ contains
 
    end function get_berry_connection
 !--------------------------------------------------------------------------------------
-   function get_berrycurv(me, kpt, muchem) result(Wk)
+   function get_berrycurv(me, kpt, muchem, orbs_excl) result(Wk)
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
       real(dp),intent(in),optional :: muchem
+      integer,intent(in),optional :: orbs_excl(:)
       real(dp)            :: Wk(me%num_wann,3)
       logical :: kubo_
       logical :: large_size
@@ -476,13 +494,17 @@ contains
       real(dp),dimension(me%num_wann) :: epsk
       complex(dp),allocatable :: AA(:,:,:)
 
-
       kubo_ = present(muchem)
 
       large_size = get_large_size(me%num_wann)
 
       allocate(AA(me%num_wann, me%num_wann, 3))
-      AA = me%get_berry_connection(kpt)
+
+      if(present(orbs_excl)) then
+         AA = me%get_berry_connection(kpt, orbs_excl=orbs_excl)
+      else
+         AA = me%get_berry_connection(kpt)
+      end if
 
       Wk = 0.0_dp
 
@@ -512,10 +534,11 @@ contains
 
    end function get_berrycurv
 !--------------------------------------------------------------------------------------
-   function get_spin_berrycurv(me, kpt, muchem) result(Wk)
+   function get_spin_berrycurv(me, kpt, muchem, orbs_excl) result(Wk)
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
       real(dp),intent(in),optional :: muchem
+      integer,intent(in),optional :: orbs_excl(:)
       real(dp)            :: Wk(me%num_wann,3,3)
       logical :: kubo_
       logical :: large_size
@@ -548,6 +571,10 @@ contains
 
       call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
          use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+
+      if(present(orbs_excl)) then
+         call RemoveOrbitals(orbs_excl, UU)
+      end if
 
       call wham_get_D_h(me%num_wann, delHH, UU, eig, Dh, &
          degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
@@ -601,12 +628,13 @@ contains
 
    end function get_spin_berrycurv
 !--------------------------------------------------------------------------------------
-   subroutine get_berrycurv_dip(me, kpt, Bhk, Bdip, muchem) 
+   subroutine get_berrycurv_dip(me, kpt, Bhk, Bdip, muchem, orbs_excl) 
       class(wann90_tb_t)   :: me
       real(dp),intent(in)  :: kpt(3)
       real(dp),intent(out) :: Bhk(me%num_wann,3)
       real(dp),intent(out) :: Bdip(me%num_wann,3)
       real(dp),intent(in),optional :: muchem
+      integer,intent(in),optional :: orbs_excl(:)
       logical :: kubo_
       logical :: large_size
       integer :: i,j,idir
@@ -623,6 +651,10 @@ contains
       Dk = me%get_dipole(kpt)
 
       call utility_diagonalize(Hk, me%num_wann, eig, UU)
+
+      if(present(orbs_excl)) then
+         call RemoveOrbitals(orbs_excl, UU)
+      end if
 
       do idir=1,3
          grad_Hk(:, :, idir) = util_rotate(me%num_wann, UU, grad_Hk(:, :, idir), large_size=large_size)
@@ -684,12 +716,13 @@ contains
 
    end subroutine get_berrycurv_dip
 !--------------------------------------------------------------------------------------
-   subroutine get_spin_berrycurv_dip(me, kpt, Bhk, Bdip, muchem) 
+   subroutine get_spin_berrycurv_dip(me, kpt, Bhk, Bdip, muchem, orbs_excl) 
       class(wann90_tb_t)   :: me
       real(dp),intent(in)  :: kpt(3)
       real(dp),intent(out) :: Bhk(me%num_wann,3,3)
       real(dp),intent(out) :: Bdip(me%num_wann,3,3)
       real(dp),intent(in),optional :: muchem
+      integer,intent(in),optional :: orbs_excl(:)
       logical :: kubo_
       logical :: large_size
       integer :: i,j,idir,isig
@@ -712,6 +745,10 @@ contains
       Dk = me%get_dipole(kpt)
 
       call utility_diagonalize(Hk, me%num_wann, eig, UU)
+
+      if(present(orbs_excl)) then
+         call RemoveOrbitals(orbs_excl, UU)
+      end if
 
       allocate(gHk_spin(me%num_wann,me%num_wann,3,3),Dk_spin(me%num_wann,me%num_wann,3,3))
 
@@ -795,9 +832,10 @@ contains
 
    end subroutine get_spin_berrycurv_dip
 !--------------------------------------------------------------------------------------
-   function get_oam(me, kpt) result(Lk)
+   function get_oam(me, kpt, orbs_excl) result(Lk)
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
+      integer,intent(in),optional :: orbs_excl(:)
       real(dp)            :: Lk(me%num_wann,3)
 
       logical :: large_size
@@ -821,6 +859,10 @@ contains
       call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
          use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
 
+      if(present(orbs_excl)) then
+         call RemoveOrbitals(orbs_excl, UU)
+      end if
+
       call wham_get_D_h(me%num_wann, delHH, UU, eig, D_h, &
          degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
 
@@ -843,9 +885,10 @@ contains
 
    end function get_oam
 !--------------------------------------------------------------------------------------
-   function get_oam_dip(me, kpt) result(Lk)
+   function get_oam_dip(me, kpt, orbs_excl) result(Lk)
       class(wann90_tb_t)   :: me
       real(dp),intent(in)  :: kpt(3)
+      integer,intent(in),optional :: orbs_excl(:)
       real(dp)             :: Lk(me%num_wann,3)
 
       logical :: large_size
@@ -863,6 +906,10 @@ contains
       Dk = me%get_dipole(kpt)
 
       call utility_diagonalize(Hk, me%num_wann, eig, UU)
+
+      if(present(orbs_excl)) then
+         call RemoveOrbitals(orbs_excl, UU)
+      end if
 
       do idir=1,3
          grad_Hk(:, :, idir) = util_rotate(me%num_wann, UU, grad_Hk(:, :, idir), large_size=large_size)
@@ -897,11 +944,12 @@ contains
 
    end function get_oam_dip
 !--------------------------------------------------------------------------------------
-   function get_metric(me,kpt,muchem) result(gmet)
+   function get_metric(me,kpt,muchem,orbs_excl) result(gmet)
       !! computes the quantum metric \(g^\alpha_{\mu\nu}(k)\) from the Berry connections
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3) !! k-point (reduced coordinates)
       real(dp),intent(in),optional :: muchem !! chemical potential
+      integer,intent(in),optional :: orbs_excl(:)
       real(dp) :: gmet(me%num_wann,3,3)
       logical :: kubo_
       logical :: large_size
@@ -925,6 +973,10 @@ contains
 
       call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
          use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+
+      if(present(orbs_excl)) then
+         call RemoveOrbitals(orbs_excl, UU)
+      end if
 
       call wham_get_D_h(me%num_wann, delHH, UU, eig, D_h, &
          degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
@@ -1789,6 +1841,22 @@ contains
       end do
 
    end subroutine GetSpinElements
+!--------------------------------------------------------------------------------------
+   subroutine RemoveOrbitals(orbs,UU)
+      integer,intent(in) :: orbs(:)
+      complex(dp),intent(inout) :: UU(:,:)
+      integer :: nexc,i
+
+      nexc = size(orbs, dim=1)
+      if(nexc <= 0) return
+
+      if(nexc == 1 .and. orbs(1) == 0) return
+
+      do i=1,nexc
+         UU(orbs(i),:) = zero
+      end do
+
+   end subroutine RemoveOrbitals
 !--------------------------------------------------------------------------------------
 
 !======================================================================================

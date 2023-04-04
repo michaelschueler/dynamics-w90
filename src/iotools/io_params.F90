@@ -61,6 +61,10 @@ module io_params
                                                 !! a non-periodic direction (e.g. out of plane)
       logical            :: slab_mode=.false. !! Option to construct a slab in z direction from
                                               !! a bulk Wannier Hamiltonian
+      logical            :: exclude_orbitals=.false. !! if `.true.`, selected orbitals can be excluded
+                                                     !! from the calculation
+      integer,allocatable,dimension(:) :: orbs_excl !! indices or excluded orbitals
+      integer            :: norb_exc=0 !! number of included orbitals
       integer            :: field_mode=field_mode_positions !! How to include the effects of the   
                                                             !! static electric field
       real(dp)           :: Beta=1000.0_dp !! inverse temperature
@@ -76,7 +80,7 @@ module io_params
                                                    !! properties
       logical            :: force_herm=.true. !! [Expert] if .true. only the hermitian part of the
                                               !! velocity and dipole matrix is computed
-      logical            :: force_antiherm=.true. !! [Export] if .true., only the anti-hermitian
+      logical            :: force_antiherm=.true. !! [Expert] if .true., only the anti-hermitian
                                                   !! part of the Berry connection is computed
       real(dp)           :: degen_thresh=1.0e-5_dp  !! threshold for considering to bands degenerate
       ! .. light-matter coupling ..
@@ -195,6 +199,7 @@ contains
       logical            :: w90_with_soc=.false.
       logical            :: apply_field=.false.
       logical            :: slab_mode=.false.
+      integer            :: norb_exc=0 
       integer            :: field_mode=field_mode_positions
       real(dp)           :: Beta=1000.0_dp 
       real(dp)           :: filling=1.0_dp 
@@ -207,11 +212,13 @@ contains
       logical            :: force_antiherm=.true.
       real(dp)           :: degen_thresh=1.0e-5_dp  
       integer            :: lm_gauge=0
+      character(len=256) :: exclude_orbitals=""
       namelist/HAMILTONIAN/file_ham,file_xyz,file_lam,file_soc,file_elpot,slab_mode,w90_with_soc,&
          energy_thresh,use_degen_pert,force_herm,force_antiherm,degen_thresh,apply_field,&
-         field_mode,Efield,Beta,Filling,MuChem,FixMuChem,lm_gauge
+         field_mode,Efield,Beta,Filling,MuChem,FixMuChem,lm_gauge,exclude_orbitals
       integer :: slab_nlayer=0
       namelist/SLAB/slab_nlayer
+      integer :: nexc,iexc,iost,i
 
       integer :: unit_inp
 
@@ -239,6 +246,17 @@ contains
       me%force_antiherm = force_antiherm
       me%degen_thresh = degen_thresh
       me%lm_gauge = lm_gauge
+
+      if(len_trim(exclude_orbitals) > 0) then
+         nexc = count(transfer(exclude_orbitals, 'a', len(exclude_orbitals)) == ",") + 1
+         allocate(me%orbs_excl(nexc)); me%orbs_excl = 0
+         read(exclude_orbitals, *, iostat=iost) me%orbs_excl
+         if(iost .ne. 0) then
+            write(output_unit,fmt700) "exclude_orbitals: invalid input"
+            me%orbs_excl = 0
+         end if
+         me%exclude_orbitals = all(me%orbs_excl .ne. 0)
+      end if
 
       if(me%slab_mode) then
          open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')

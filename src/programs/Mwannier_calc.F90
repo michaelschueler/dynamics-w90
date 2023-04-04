@@ -21,10 +21,10 @@ module Mwannier_calc
       logical :: soc_mode=.false., berry_valence=.false., static_potential=.false.
       integer :: nbnd,nwan,Nk
       real(dp) :: muchem
+      integer,allocatable,dimension(:) :: orbs_excl
       real(dp),allocatable,dimension(:,:) :: kpts,epsk
       complex(dp),allocatable,dimension(:,:,:) :: vectk
       type(wann90_tb_t) :: ham
-      type(scalarfunc_spline_t) :: elpot
    contains
       procedure,public  :: Init
       procedure,public  :: GetOrbitalWeight
@@ -39,6 +39,8 @@ module Mwannier_calc
    integer,parameter :: velocity_gauge=0,dipole_gauge=1
    character(len=*),parameter :: fmt_info='(" Info: ",a)'
    integer,parameter :: field_mode_positions=0,field_mode_dipole=1,field_mode_berry=2
+
+   type(scalarfunc_spline_t) :: elpot
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
@@ -48,7 +50,7 @@ contains
       type(WannierCalcParams_t),intent(in) :: par_calc !! Wannier calculation input parameters
       real(dp),intent(in)                  :: kpts(:,:)
       !......................................
-      integer :: ik
+      integer :: ik,norbs_excl
       real(dp) :: comp_rate
       complex(dp),allocatable :: Hk(:,:)
       type(wann90_tb_t) :: ham_tmp
@@ -66,13 +68,21 @@ contains
       me%static_potential = (len_trim(par_ham%file_elpot) > 0)
 
       if(me%static_potential) then
-         call me%elpot%Load_function(par_ham%file_elpot)
+         call elpot%Load_function(par_ham%file_elpot)
          write(output_unit,fmt_info) "including electrostatic potential in Hamiltonian"
       end if
 
       me%soc_mode = par_ham%w90_with_soc
       me%berry_valence = par_calc%berry_valence
       me%muchem = par_ham%MuChem
+
+      if(par_ham%exclude_orbitals) then
+         norbs_excl = size(par_ham%orbs_excl, dim=1)
+         allocate(me%orbs_excl(norbs_excl))
+         me%orbs_excl = par_ham%orbs_excl
+      else
+         allocate(me%orbs_excl(1)); me%orbs_excl(1) = 0
+      end if
 
       if(par_ham%slab_mode .and. par_ham%slab_nlayer > 0) then
          write(output_unit,fmt_info) "building slab with "//str(par_ham%slab_nlayer)//" layers"
@@ -132,19 +142,15 @@ contains
       end if
       deallocate(Hk)
 
-   !.......................................................
-   contains
-   !.......................................................
-      function elpot_func(z) result(v)
-         real(dp),intent(in) :: z
-         real(dp) :: v
-
-         v = me%elpot%fval(z)
-
-      end function elpot_func
-   !.......................................................
-
    end subroutine Init
+!--------------------------------------------------------------------------------------
+   function elpot_func(z) result(v)
+      real(dp),intent(in) :: z
+      real(dp) :: v
+
+      v = elpot%fval(z)
+
+   end function elpot_func
 !--------------------------------------------------------------------------------------
    subroutine GetOrbitalWeight(me,orb_weight)
       class(wannier_calc_t) :: me
@@ -204,23 +210,27 @@ contains
       case(velocity_gauge)
          if(me%berry_valence) then
             do ik=1,me%Nk
-               berry(:,:,ik) = me%Ham%get_berrycurv(me%kpts(ik,:),muchem=me%muchem)
+               berry(:,:,ik) = me%Ham%get_berrycurv(me%kpts(ik,:),muchem=me%muchem,&
+                  orbs_excl=me%orbs_excl)
             end do
          else 
             do ik=1,me%Nk
-               berry(:,:,ik) = me%Ham%get_berrycurv(me%kpts(ik,:))
+               berry(:,:,ik) = me%Ham%get_berrycurv(me%kpts(ik,:),&
+                  orbs_excl=me%orbs_excl)
             end do
          end if
       case(dipole_gauge)
          allocate(berry_disp(me%nbnd,3),berry_dip(me%nbnd,3))
          if(me%berry_valence) then
             do ik=1,me%Nk
-               call me%Ham%get_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip,muchem=me%muchem)
+               call me%Ham%get_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip,&
+                  muchem=me%muchem,orbs_excl=me%orbs_excl)
                berry(:,:,ik) = berry_disp + berry_dip
             end do
          else
             do ik=1,me%Nk
-               call me%Ham%get_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip)
+               call me%Ham%get_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip,&
+                  orbs_excl=me%orbs_excl)
                berry(:,:,ik) = berry_disp + berry_dip
             end do
          end if
@@ -249,11 +259,13 @@ contains
       case(velocity_gauge) 
          if(me%berry_valence) then
             do ik=1,me%Nk
-               spin_berry(:,:,:,ik) = me%Ham%get_spin_berrycurv(me%kpts(ik,:),muchem=me%muchem)
+               spin_berry(:,:,:,ik) = me%Ham%get_spin_berrycurv(me%kpts(ik,:),muchem=me%muchem,&
+                  orbs_excl=me%orbs_excl)
             end do
          else
             do ik=1,me%Nk
-               spin_berry(:,:,:,ik) = me%Ham%get_spin_berrycurv(me%kpts(ik,:))
+               spin_berry(:,:,:,ik) = me%Ham%get_spin_berrycurv(me%kpts(ik,:),&
+                  orbs_excl=me%orbs_excl)
             end do
          end if
       case(dipole_gauge)
@@ -261,12 +273,13 @@ contains
          if(me%berry_valence) then
             do ik=1,me%Nk
                call me%Ham%get_spin_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip,&
-                  muchem=me%muchem)
+                  muchem=me%muchem,orbs_excl=me%orbs_excl)
                spin_berry(:,:,:,ik) = berry_disp + berry_dip
             end do
          else
             do ik=1,me%Nk
-               call me%Ham%get_spin_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip)
+               call me%Ham%get_spin_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip,&
+                  orbs_excl=me%orbs_excl)
                spin_berry(:,:,:,ik) = berry_disp + berry_dip
             end do
          end if
@@ -293,11 +306,13 @@ contains
       select case(gauge_)
       case(velocity_gauge) 
          do ik=1,me%Nk
-            oam(:,:,ik) = me%Ham%get_oam(me%kpts(ik,:))
+            oam(:,:,ik) = me%Ham%get_oam(me%kpts(ik,:),&
+                  orbs_excl=me%orbs_excl)
          end do
       case(dipole_gauge)
          do ik=1,me%Nk
-            oam(:,:,ik) = me%Ham%get_oam_dip(me%kpts(ik,:))
+            oam(:,:,ik) = me%Ham%get_oam_dip(me%kpts(ik,:),&
+                  orbs_excl=me%orbs_excl)
          end do
       case default
          write(error_unit,fmt900) "GetOAM: unrecognized gauge!"
@@ -314,11 +329,13 @@ contains
       allocate(metric(me%nbnd,3,3,me%Nk))
       if(me%berry_valence) then
          do ik=1,me%Nk
-            metric(:,:,:,ik) = me%Ham%get_metric(me%kpts(ik,:),muchem=me%muchem)
+            metric(:,:,:,ik) = me%Ham%get_metric(me%kpts(ik,:),muchem=me%muchem,&
+                  orbs_excl=me%orbs_excl)
          end do
       else
          do ik=1,me%Nk
-            metric(:,:,:,ik) = me%Ham%get_metric(me%kpts(ik,:))
+            metric(:,:,:,ik) = me%Ham%get_metric(me%kpts(ik,:),&
+                  orbs_excl=me%orbs_excl)
          end do
       end if
 
@@ -331,7 +348,8 @@ contains
 
       allocate(velok(me%nbnd,me%nbnd,3,me%Nk))
       do ik=1,me%Nk
-         velok(:,:,:,ik) = me%Ham%get_velocity(me%kpts(ik,:))
+         velok(:,:,:,ik) = me%Ham%get_velocity(me%kpts(ik,:),&
+                  orbs_excl=me%orbs_excl)
       end do
 
    end subroutine GetVelocity
