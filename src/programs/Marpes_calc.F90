@@ -121,6 +121,12 @@ contains
       me%lmax = par_pes%expansion_lmax
       me%lambda_mode = par_pes%lambda_orbital_term
 
+      if(par_ham%exclude_orbitals) then
+         do iorb=1,size(par_ham%orbs_excl, dim=1)
+            me%orbs%weight(par_ham%orbs_excl(iorb)) = 0.0_dp
+         end do
+      end if
+
       me%norb = me%orbs%norb
 
       allocate(me%Epe(me%Nepe))
