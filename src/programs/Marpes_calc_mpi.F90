@@ -6,8 +6,7 @@ module Marpes_calc_mpi
    use scitools_def,only: dp,iu,zero
    use scitools_utils,only: str, linspace, savetxt
    use scitools_vector_bsplines,only: cplx_matrix_spline_t
-   use scitools_array1d_dist,only: dist_array1d_t,GetDisplSize1D
-   use wan_latt_utils,only: utility_Cart2Red_2D                   
+   use scitools_array1d_dist,only: dist_array1d_t,GetDisplSize1D                 
    use wan_hamiltonian,only: wann90_tb_t
    use wan_compress,only: PruneHoppings
    use wan_slab,only: Wannier_BulkToSlab
@@ -27,7 +26,7 @@ module Marpes_calc_mpi
    public :: arpes_calc_t
 !--------------------------------------------------------------------------------------
    type arpes_calc_t
-      logical     :: lambda_mode=.false.,slab_mode=.false.
+      logical     :: lambda_mode=.false.,slab_mode=.false.,dipole_approx=.true.
       integer     :: nbnd,norb
       integer     :: nlayer=0
       integer     :: gauge
@@ -135,7 +134,8 @@ contains
       me%lmax = par_pes%expansion_lmax
       me%lambda_mode = par_pes%lambda_orbital_term
 
-      if(.not. par_pes%dipole_approximation) me%qphot=par_pes%qmom_phot
+      me%dipole_approx = par_pes%dipole_approximation
+      if(.not. me%dipole_approx) me%qphot=par_pes%qmom_phot
 
       if(par_ham%exclude_orbitals) then
          do iorb=1,size(par_ham%orbs_excl, dim=1)
@@ -245,19 +245,26 @@ contains
       use scitools_linalg,only: EigH
       class(arpes_calc_t) :: me
       integer :: ik,iepe
-      real(dp) :: kpar(2),kpt(3)
+      real(dp) :: kpar(2),kqpar(2),kpt(3),kqpt(3)
       real(dp),allocatable :: epsk(:)
       complex(dp),allocatable :: Hk(:,:),vectk(:,:)
 
       allocate(epsk(me%nbnd),Hk(me%nbnd,me%nbnd),vectk(me%nbnd,me%nbnd))
       allocate(me%spect(me%Nepe,me%Nk_loc))
 
-      kpt = 0.0_dp
+      kpt = 0.0_dp; kqpt = 0.0_dp
       do ik=1,me%Nk_loc
          kpar(1:2) = me%kpts_loc(ik,1:2)
-         kpt(1:2) = utility_Cart2Red_2D(me%ham%recip_reduced,kpar)
 
-         Hk = me%ham%get_ham(kpt)
+         if(me%dipole_approx) then
+            kqpar(1:2) = kpar(1:2) - me%qphot(1:2)
+            kqpt(1:2) = me%ham%get_kreduced(kqpar(1:2))
+            Hk = me%ham%get_ham(kqpt)
+         else
+            kpt(1:2) = me%ham%get_kreduced(kpar(1:2))
+            Hk = me%ham%get_ham(kpt)
+         end if
+
          call EigH(Hk,epsk,vectk)
          epsk = epsk + me%Eshift
 

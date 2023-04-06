@@ -735,7 +735,7 @@ contains
 
 !--------------------------------------------------------------------------------------
    function PES_Intensity_comp(orbs,wann,scwfs,kpar,wphot,pol,Epe,epsk,vectk,mu,lam,eta,&
-      gauge,qphot) result(int)
+      gauge,qphot) result(inten)
       type(wannier_orbs_t),intent(in) :: orbs
       type(wann90_tb_t),intent(in)    :: wann
       type(scattwf_t),intent(in)      :: scwfs(:)
@@ -750,7 +750,7 @@ contains
       real(dp),intent(in)             :: eta           
       integer,intent(in),optional     :: gauge
       real(dp),intent(in),optional    :: qphot(3)
-      real(dp)                        :: int
+      real(dp)                        :: inten
       integer :: gauge_    
       integer :: idir,nbnd,ibnd
       real(dp) :: Ez,kvec(3)
@@ -765,7 +765,7 @@ contains
 
       Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2)
       if(Ez < 1.0e-5_dp) then
-         int = 0.0_dp
+         inten = 0.0_dp
          return
       end if
 
@@ -774,10 +774,13 @@ contains
       if(present(qphot)) then
          kvec = kvec - qphot
       end if
-
+      if(kvec(3) < 1.0e-5_dp) then
+         inten = 0.0_dp
+         return
+      end if     
 
       if(all(abs(epsk + wphot - Epe) > 6 * eta)) then
-         int = 0.0_dp
+         inten = 0.0_dp
          return
       end if
 
@@ -790,10 +793,10 @@ contains
          matel_pol(:) = matel_pol(:) + pol(idir) * matel(:,idir)
       end do
 
-      int = 0.0_dp
+      inten = 0.0_dp
       do ibnd=1,nbnd
          if(epsk(ibnd) > mu) cycle
-         int = int + abs(matel_pol(ibnd))**2 * gauss(eta, epsk(ibnd) + wphot - Epe)   
+         inten = inten + abs(matel_pol(ibnd))**2 * gauss(eta, epsk(ibnd) + wphot - Epe)   
       end do
 
       deallocate(matel,matel_pol)
@@ -844,6 +847,10 @@ contains
       if(present(qphot)) then
          kvec = kvec - qphot
       end if
+      if(kvec(3) < 1.0e-5_dp) then
+         inten = 0.0_dp
+         return
+      end if     
 
       if(all(abs(epsk + wphot - Epe) > 6 * eta)) then
          inten = 0.0_dp
@@ -914,7 +921,10 @@ contains
       kvec(1:2) = kpar
       kvec(3) = sqrt(2.0_dp * Ez)
       if(present(qphot)) kvec = kvec - qphot
-
+      if(kvec(3) < 1.0e-5_dp) then
+         inten = 0.0_dp
+         return
+      end if     
 
       if(all(abs(epsk + wphot - Epe) > 6 * eta)) then
          inten = 0.0_dp
@@ -974,6 +984,10 @@ contains
       kvec(1:2) = kpar
       kvec(3) = sqrt(2.0_dp * Ez)
       if(present(qphot)) kvec = kvec - qphot
+      if(kvec(3) < 1.0e-5_dp) then
+         inten = 0.0_dp
+         return
+      end if     
 
       if(all(abs(epsk + wphot - Epe) > 6 * eta)) then
          inten = 0.0_dp
@@ -1035,6 +1049,10 @@ contains
       kvec(1:2) = kpar
       kvec(3) = sqrt(2.0_dp * Ez)
       if(present(qphot)) kvec = kvec - qphot
+      if(kvec(3) < 1.0e-5_dp) then
+         inten = 0.0_dp
+         return
+      end if     
 
       if(all(abs(epsk + wphot - Epe) > 6 * eta)) then
          inten = 0.0_dp

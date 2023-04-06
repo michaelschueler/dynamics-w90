@@ -37,6 +37,8 @@ module wan_hamiltonian
       procedure,public  :: SaveToW90
       procedure,public  :: SetExpertParams
       procedure,public  :: Set
+      procedure,public  :: get_kcart
+      procedure,public  :: get_kreduced
       procedure,public  :: get_eig
       procedure,public  :: get_ham_diag
       procedure,public  :: get_ham
@@ -120,6 +122,47 @@ contains
       me%coords_present = w90%coords_present
 
    end subroutine Set
+!--------------------------------------------------------------------------------------
+   function get_kcart(me,kpt) result(kvec)
+      class(wann90_tb_t)  :: me
+      real(dp),intent(in) :: kpt(:)
+      real(dp) :: kvec(size(kpt, dim=1))
+      integer :: ndim
+
+      ndim = size(kpt, dim=1)
+      select case(ndim)
+      case(1)
+         kvec(1) = me%recip_lattice(1,1) * kpt(1)
+      case(2)
+         kvec(1:2) = me%recip_lattice(1,1:2) * kpt(1) + me%recip_lattice(2,1:2) * kpt(2)
+      case(3)
+         kvec(1:3) = me%recip_lattice(1,1:3) * kpt(1) + me%recip_lattice(2,1:3) * kpt(2) &
+            + me%recip_lattice(3,1:3) * kpt(3) 
+      case default
+         kvec = 0.0_dp
+      end select
+
+   end function get_kcart
+!--------------------------------------------------------------------------------------
+   function get_kreduced(me,kvec) result(kpt)
+      class(wann90_tb_t)  :: me
+      real(dp),intent(in) :: kvec(:)
+      real(dp) :: kpt(size(kvec, dim=1))
+      integer :: ndim
+
+      ndim = size(kpt, dim=1)
+      select case(ndim)
+      case(1)
+         kpt(1) = kpt(1) / me%recip_lattice(1,1)
+      case(2)
+         kpt(1:2) = matmul(me%recip_reduced(1:2,1:2), kvec(1:2))
+      case(3)
+         kpt(1:3) = matmul(me%recip_reduced(1:3,1:3), kvec(1:3))
+      case default
+         kpt = 0.0_dp
+      end select
+     
+   end function get_kreduced
 !--------------------------------------------------------------------------------------
    function get_eig(me,kpt) result(Ek)
       use scitools_linalg,only: EigValsHE
