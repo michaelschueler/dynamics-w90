@@ -96,6 +96,8 @@ module io_params
       character(len=256) :: file_orbs="" !! file name for Wannier orbitals
       logical            :: kpts_reduced=.true. !! if .true. we assume the input k-points are in 
                                                 !! reduced coordinates
+      logical            :: dipole_approximation=.true. !! if `.false.`, the finite momentum of the 
+                                                        !! photons is taken into account.
       logical            :: lambda_orbital_term=.false. !! triggers the calculation of atomic matrix
                                                         !! elements with complex wave-vector
       integer            :: gauge=gauge_len !! Gauge for dipole operator \(\hat{\Delta}\).
@@ -117,6 +119,7 @@ module io_params
       real(dp)           :: lambda_esc=0.0_dp  !! Escape depth. For `lambda_orbital_term=.true.` this also determines
                                                !! the imaginary part of the wave-vector
       real(dp)           :: eta_smear=1.0e-3_dp !! Gaussian smearing of the energy conservation in Fermis Golden rule.
+      real(dp)           :: qmom_phot(3)=[0.0_dp,0.0_dp,0.0_dp] !! photon momentum
       complex(dp)        :: polvec(3) !! Polarization vector of the photons.
    contains
       procedure, public :: ReadFromFile => PES_ReadFromFile  
@@ -273,6 +276,7 @@ contains
       character(len=*),intent(in)  :: fname
       character(len=256) :: file_orbs=""
       logical            :: kpts_reduced=.true.
+      logical            :: dipole_approximation=.true.
       logical            :: lambda_orbital_term=.false.
       integer            :: gauge=gauge_len
       integer            :: scatt_type=wf_pw
@@ -286,9 +290,11 @@ contains
       real(dp)           :: lambda_esc=0.0_dp      
       real(dp)           :: eta_smear=1.0e-3_dp
       real(dp)           :: polvec_real(3),polvec_imag(3)
+      real(dp)           :: qmom_phot(3)=[0.0_dp,0.0_dp,0.0_dp] 
       namelist/PESPARAMS/file_orbs,gauge,Nepe,wphot,Eshift,Epe_min,Epe_max,lambda_esc,&
          eta_smear,polvec_real,polvec_imag,kpts_reduced,scatt_type,radint_numpoints_k,&
-         radint_numpoints_r,lambda_orbital_term,expansion_lmax
+         radint_numpoints_r,lambda_orbital_term,expansion_lmax,dipole_approximation,&
+         qmom_phot
       integer :: unit_inp
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
@@ -311,6 +317,9 @@ contains
       me%lambda_esc = lambda_esc
       me%eta_smear = eta_smear
       me%polvec = polvec_real + iu * polvec_imag
+
+      me%dipole_approximation = dipole_approximation
+      me%qmom_phot = qmom_phot
 
    end subroutine PES_ReadFromFile
 !--------------------------------------------------------------------------------------

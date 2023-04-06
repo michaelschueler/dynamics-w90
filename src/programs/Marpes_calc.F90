@@ -13,7 +13,6 @@ module Marpes_calc
    use pes_radialwf,only: radialwf_t
    use pes_scattwf,only: scattwf_t
    use pes_radialintegral,only: radialinteg_t
-   use pes_matrix_elements,only: 
    use pes_main,only: PES_Intensity, PES_Slab_Intensity, &
       PES_AtomicIntegrals_lambda
    use io_params,only: HamiltonianParams_t, PESParams_t
@@ -33,6 +32,7 @@ module Marpes_calc
       integer     :: Nepe
       integer     :: lmax,radint_nk,radint_nr
       real(dp)    :: wphot,MuChem,Eshift,lambda_esc,eta_smear
+      real(dp)    :: qphot(3)=[0.0_dp,0.0_dp,0.0_dp]
       complex(dp) :: polvec(3)
       integer     :: Nk
       real(dp),allocatable,dimension(:)   :: Epe
@@ -120,6 +120,8 @@ contains
       me%radint_nr = par_pes%radint_numpoints_r
       me%lmax = par_pes%expansion_lmax
       me%lambda_mode = par_pes%lambda_orbital_term
+
+      if(.not. par_pes%dipole_approximation) me%qphot=par_pes%qmom_phot
 
       if(par_ham%exclude_orbitals) then
          do iorb=1,size(par_ham%orbs_excl, dim=1)
@@ -239,7 +241,7 @@ contains
                !$OMP DO
                do iepe=1,me%Nepe
                   me%spect(iepe,ik) = PES_Slab_Intensity(me%ham,me%nlayer,me%chis,me%lmax,me%bessel_integ,kpar,me%wphot,&
-                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear)
+                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,qphot=me%qphot)
                end do
                !$OMP END DO
                !$OMP END PARALLEL
@@ -250,7 +252,7 @@ contains
                   ! me%spect(iepe,ik) = PES_Intensity(me%orbs,me%ham,me%chi,kpar,me%wphot,&
                   !    me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge)
                   me%spect(iepe,ik) = PES_Slab_Intensity(me%orbs,me%ham,me%nlayer,me%chis,me%radints,kpar,me%wphot,&
-                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge)
+                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge,qphot=me%qphot)
                end do
                !$OMP END DO
                !$OMP END PARALLEL
@@ -261,7 +263,7 @@ contains
                !$OMP DO
                do iepe=1,me%Nepe
                   me%spect(iepe,ik) = PES_Intensity(me%ham,me%chis,me%lmax,me%bessel_integ,kpar,me%wphot,&
-                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear)
+                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,qphot=me%qphot)
                end do
                !$OMP END DO
                !$OMP END PARALLEL
@@ -272,7 +274,7 @@ contains
                   ! me%spect(iepe,ik) = PES_Intensity(me%orbs,me%ham,me%chi,kpar,me%wphot,&
                   !    me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge)
                   me%spect(iepe,ik) = PES_Intensity(me%orbs,me%ham,me%chis,me%radints,kpar,me%wphot,&
-                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge)
+                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge,qphot=me%qphot)
                end do
                !$OMP END DO
                !$OMP END PARALLEL

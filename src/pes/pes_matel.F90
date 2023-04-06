@@ -1,4 +1,4 @@
-module pes_matrix_elements
+module pes_matel
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
@@ -850,4 +850,4 @@ contains
 
 
 !======================================================================================
-end module pes_matrix_elements
+end module pes_matel

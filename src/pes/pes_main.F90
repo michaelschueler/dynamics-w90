@@ -11,7 +11,7 @@ module pes_main
    use pes_radialwf,only: radialwf_t
    use pes_scattwf,only: scattwf_t
    use pes_radialintegral,only: radialinteg_t
-   use pes_matrix_elements,only: ScattMatrixElement_Momentum, ScattMatrixElement_Length, &
+   use pes_matel,only: ScattMatrixElement_Momentum, ScattMatrixElement_Length, &
       ApplyDipoleOp, Dipole_lambda_projection, ScattMatrixElement_Lambda, &
       dipole_lambda_BesselTransform
    use wan_orbitals,only: wannier_orbs_t
@@ -239,7 +239,7 @@ contains
    subroutine PES_AtomicIntegrals_lambda_mpi(orbs,scwfs,lam,lmax,kmin,kmax,bessel_integ,gauge,Nr,Nk)
       use mpi
       use scitools_array1d_dist,only: dist_array1d_t,GetDisplSize1D 
-      use pes_matrix_elements,only: dipole_lambda_BesselTransform_mpi
+      use pes_matel,only: dipole_lambda_BesselTransform_mpi
       type(wannier_orbs_t),intent(in) :: orbs
       type(scattwf_t),intent(in)      :: scwfs(:)
       real(dp),intent(in)             :: lam
@@ -734,7 +734,8 @@ contains
 
 
 !--------------------------------------------------------------------------------------
-   function PES_Intensity_comp(orbs,wann,scwfs,kpar,wphot,pol,Epe,epsk,vectk,mu,lam,eta,gauge) result(int)
+   function PES_Intensity_comp(orbs,wann,scwfs,kpar,wphot,pol,Epe,epsk,vectk,mu,lam,eta,&
+      gauge,qphot) result(int)
       type(wannier_orbs_t),intent(in) :: orbs
       type(wann90_tb_t),intent(in)    :: wann
       type(scattwf_t),intent(in)      :: scwfs(:)
@@ -748,6 +749,7 @@ contains
       real(dp),intent(in)             :: lam       
       real(dp),intent(in)             :: eta           
       integer,intent(in),optional     :: gauge
+      real(dp),intent(in),optional    :: qphot(3)
       real(dp)                        :: int
       integer :: gauge_    
       integer :: idir,nbnd,ibnd
@@ -769,6 +771,9 @@ contains
 
       kvec(1:2) = kpar
       kvec(3) = sqrt(2.0_dp * Ez)
+      if(present(qphot)) then
+         kvec = kvec - qphot
+      end if
 
 
       if(all(abs(epsk + wphot - Epe) > 6 * eta)) then
@@ -798,7 +803,8 @@ contains
 !--------------------------------------------------------------------------------------
 
 !--------------------------------------------------------------------------------------
-   function PES_Intensity_precomp(orbs,wann,scwfs,radints,kpar,wphot,pol,Epe,epsk,vectk,mu,lam,eta,gauge) result(inten)
+   function PES_Intensity_precomp(orbs,wann,scwfs,radints,kpar,wphot,pol,Epe,epsk,vectk,&
+      mu,lam,eta,gauge,qphot) result(inten)
       type(wannier_orbs_t),intent(in)   :: orbs
       type(wann90_tb_t),intent(in)      :: wann
       type(scattwf_t),intent(in)        :: scwfs(:)
@@ -813,6 +819,7 @@ contains
       real(dp),intent(in)               :: lam       
       real(dp),intent(in)               :: eta           
       integer,intent(in),optional       :: gauge
+      real(dp),intent(in),optional      :: qphot(3)
       real(dp)                          :: inten
       integer :: gauge_    
       integer :: idir,nbnd,ibnd
@@ -834,7 +841,9 @@ contains
 
       kvec(1:2) = kpar
       kvec(3) = sqrt(2.0_dp * Ez)
-
+      if(present(qphot)) then
+         kvec = kvec - qphot
+      end if
 
       if(all(abs(epsk + wphot - Epe) > 6 * eta)) then
          inten = 0.0_dp
@@ -862,7 +871,7 @@ contains
    end function PES_Intensity_precomp
 !--------------------------------------------------------------------------------------
    function PES_Slab_Intensity_precomp(orbs,wann,nlayer,scwfs,radints,kpar,wphot,pol,Epe,&
-      epsk,vectk,mu,lam,eta,gauge) result(inten)
+      epsk,vectk,mu,lam,eta,gauge,qphot) result(inten)
       type(wannier_orbs_t),intent(in)   :: orbs
       type(wann90_tb_t),intent(in)      :: wann
       integer,intent(in)                :: nlayer
@@ -878,6 +887,7 @@ contains
       real(dp),intent(in)               :: lam       
       real(dp),intent(in)               :: eta           
       integer,intent(in),optional       :: gauge
+      real(dp),intent(in),optional      :: qphot(3)
       real(dp)                          :: inten
       integer :: gauge_    
       integer :: idir,norb,nbnd,ibnd
@@ -903,6 +913,7 @@ contains
 
       kvec(1:2) = kpar
       kvec(3) = sqrt(2.0_dp * Ez)
+      if(present(qphot)) kvec = kvec - qphot
 
 
       if(all(abs(epsk + wphot - Epe) > 6 * eta)) then
@@ -931,7 +942,7 @@ contains
    end function PES_Slab_Intensity_precomp
 !--------------------------------------------------------------------------------------
    function PES_Intensity_besselinteg(wann,scwfs,lmax,bessel_integ,kpar,wphot,pol,Epe,epsk,&
-      vectk,mu,lam,eta) result(inten)
+      vectk,mu,lam,eta,qphot) result(inten)
       type(wann90_tb_t),intent(in)           :: wann
       type(scattwf_t),intent(in)             :: scwfs(:)
       integer,intent(in)                     :: lmax
@@ -944,7 +955,8 @@ contains
       complex(dp),intent(in)                 :: vectk(:,:)        
       real(dp),intent(in)                    :: mu      
       real(dp),intent(in)                    :: lam       
-      real(dp),intent(in)                    :: eta           
+      real(dp),intent(in)                    :: eta  
+      real(dp),intent(in),optional           :: qphot(3)         
       real(dp)                               :: inten
       integer :: idir,nbnd,ibnd
       real(dp) :: Ez,kvec(3)
@@ -961,6 +973,7 @@ contains
 
       kvec(1:2) = kpar
       kvec(3) = sqrt(2.0_dp * Ez)
+      if(present(qphot)) kvec = kvec - qphot
 
       if(all(abs(epsk + wphot - Epe) > 6 * eta)) then
          inten = 0.0_dp
@@ -988,7 +1001,7 @@ contains
    end function PES_Intensity_besselinteg
 !--------------------------------------------------------------------------------------
    function PES_Slab_Intensity_besselinteg(wann,nlayer,scwfs,lmax,bessel_integ,kpar,wphot,pol,Epe,epsk,&
-      vectk,mu,lam,eta) result(inten)
+      vectk,mu,lam,eta,qphot) result(inten)
       type(wann90_tb_t),intent(in)           :: wann
       integer,intent(in)                     :: nlayer
       type(scattwf_t),intent(in)             :: scwfs(:)
@@ -1002,7 +1015,8 @@ contains
       complex(dp),intent(in)                 :: vectk(:,:)        
       real(dp),intent(in)                    :: mu      
       real(dp),intent(in)                    :: lam       
-      real(dp),intent(in)                    :: eta           
+      real(dp),intent(in)                    :: eta      
+      real(dp),intent(in),optional           :: qphot(3)     
       real(dp)                               :: inten
       integer :: idir,nbnd,ibnd,norb
       real(dp) :: Ez,kvec(3)
@@ -1020,6 +1034,7 @@ contains
 
       kvec(1:2) = kpar
       kvec(3) = sqrt(2.0_dp * Ez)
+      if(present(qphot)) kvec = kvec - qphot
 
       if(all(abs(epsk + wphot - Epe) > 6 * eta)) then
          inten = 0.0_dp

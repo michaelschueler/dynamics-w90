@@ -6,7 +6,7 @@ set(OBJECT_FILES
 	COUL90.f
 	pes_angcoeff.F90
 	pes_atomic.F90
-	pes_matrix_elements.F90
+	pes_matel.F90
 	pes_radialwf.F90
 	pes_scattwf.F90
 	pes_wignerd.f90
