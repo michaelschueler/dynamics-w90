@@ -20,6 +20,11 @@ module io_obs
       logical            :: calc_evecs=.false.
       logical            :: write_kpts=.false. 
       logical            :: write_velo=.false. 
+      logical            :: calc_dos=.false.
+      logical            :: calc_pdos=.false.
+      real(dp),pointer,dimension(:)          :: omega => null()    
+      real(dp),pointer,dimension(:)          :: dos => null()    
+      real(dp),pointer,dimension(:,:)        :: pdos => null()   
       real(dp),pointer,dimension(:,:)        :: epsk => null()    
       real(dp),pointer,dimension(:,:)        :: kpts => null() 
       real(dp),pointer,dimension(:,:,:)      :: orb_weight => null()
@@ -41,6 +46,8 @@ module io_obs
       procedure, public  :: AddMetric => wann_calc_AddMetric      
       procedure, public  :: AddEvecs => wann_calc_AddEvecs
       procedure, public  :: AddVelocity => wann_calc_AddVelocity
+      procedure, public  :: AddDOS => wann_calc_AddDOS
+      procedure, public  :: AddPDOS => wann_calc_AddPDOS
       procedure, public  :: SaveToFile => wann_calc_SaveToFile
       procedure, private :: SaveToFile_txt => wann_calc_SaveToFile_txt
 #ifdef WITHHDF5
@@ -149,13 +156,35 @@ contains
 
    end subroutine wann_calc_AddVelocity
 !--------------------------------------------------------------------------------------
+   subroutine wann_calc_AddDOS(me,omega,dos)
+   !! Adds DOS to the output
+      class(WannierCalcOutput_t) :: me
+      real(dp),target,intent(in) :: omega(:) !! frequency points
+      real(dp),target,intent(in) :: dos(:) !! density of states dimension `[nomega]`
+
+      me%omega => omega
+      me%dos => dos
+
+   end subroutine wann_calc_AddDOS
+!--------------------------------------------------------------------------------------
+   subroutine wann_calc_AddPDOS(me,omega,pdos)
+   !! Adds PDOS to the output
+      class(WannierCalcOutput_t) :: me
+      real(dp),target,intent(in) :: omega(:) !! frequency points
+      real(dp),target,intent(in) :: pdos(:,:) !! PDOS, dimension `[nwan,nomega]`
+
+      me%omega => omega
+      me%pdos => pdos
+
+   end subroutine wann_calc_AddPDOS
+!--------------------------------------------------------------------------------------
    subroutine wann_calc_SaveToFile_txt(me,prefix)
    !! Stores the output selected by the `wann_calc_AddXXX` routines to plain text file.
       class(WannierCalcOutput_t) :: me
       character(len=*),intent(in) :: prefix !! Prefix of output file name. The output files will
                                             !! be named `prefix_XXX.txt`, where `XXX` denotes the
                                             !! specific output quantity.
-      integer :: nbnd,nwan,nk,i,j,ik
+      integer :: nbnd,nwan,nomega,nk,i,j,ik
       integer :: unit_out
       real(dp),allocatable :: rdata(:,:)
       character(len=256) :: fout
@@ -275,6 +304,14 @@ contains
          close(unit_out)
       end if
 
+      if(associated(me%dos)) then
+         call save_griddata(trim(prefix)//'_dos.txt', me%omega, me%dos)
+      end if
+
+      if(associated(me%pdos)) then
+         call save_griddata(trim(prefix)//'_pdos.txt', me%omega, me%pdos)
+      end if    
+
    end subroutine wann_calc_SaveToFile_txt
 !--------------------------------------------------------------------------------------
 #ifdef WITHHDF5
@@ -342,6 +379,18 @@ contains
          call hdf_write_dataset(file_id,'velok-imag',rdata4)
          deallocate(rdata4)
       end if      
+
+      if(associated(me%omega)) then
+         call hdf_write_dataset(file_id,'omega',me%omega)
+      end if
+
+      if(associated(me%omega) .and. associated(me%dos)) then
+         call hdf_write_dataset(file_id,'dos',me%dos)
+      end if
+
+      if(associated(me%omega) .and. associated(me%pdos)) then
+         call hdf_write_dataset(file_id,'pdos',me%pdos)
+      end if
 
       call hdf_close_file(file_id)
 

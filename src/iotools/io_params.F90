@@ -16,20 +16,25 @@ module io_params
 !--------------------------------------------------------------------------------------
    type :: WannierCalcParams_t
    !! Options and parameters for the Wannier calculation performed by [[wann_calc]]
-      logical :: calc_orbweight=.false. !! triggers output of orbital weight
-      logical :: calc_spin=.false. !! triggers output of spin texture
-      logical :: calc_berry=.false. !! triggers output of Berry curvature
-      logical :: calc_spin_berry=.false. !! triggers output of spin Berry curvature
-      logical :: calc_oam=.false. !! triggers outout of orbital angular momentum (OAM)
-      logical :: calc_metric=.false. !! triggers output of the quantum metric
-      logical :: calc_evecs=.false. !! triggers output of eigenvectors 
-      logical :: write_velocity=.false. !! if `.true.` the velocity matrix elements are written to file
-      logical :: berry_valence=.false. !! if `.true.` we compute Berry-phase properties only for 
+      logical  :: calc_orbweight=.false. !! triggers output of orbital weight
+      logical  :: calc_spin=.false. !! triggers output of spin texture
+      logical  :: calc_berry=.false. !! triggers output of Berry curvature
+      logical  :: calc_spin_berry=.false. !! triggers output of spin Berry curvature
+      logical  :: calc_oam=.false. !! triggers outout of orbital angular momentum (OAM)
+      logical  :: calc_metric=.false. !! triggers output of the quantum metric
+      logical  :: calc_evecs=.false. !! triggers output of eigenvectors 
+      logical  :: write_velocity=.false. !! if `.true.` the velocity matrix elements are written to file
+      logical  :: berry_valence=.false. !! if `.true.` we compute Berry-phase properties only for 
                                        !! the occupiend states, while sums over intermediate
                                        !! states are performed over unoccupied states only
-      logical :: write_kpts=.false. !! triggers output of the k-points used in the calculation
-      integer :: gauge=0 !! gauge for calculating Berry-phase properties: velocity gauge = 0,
+      logical  :: calc_dos=.false. !! triggers calculation of density of states
+      logical  :: calc_pdos=.false. !! triggers calculation of partial density of states
+      logical  :: write_kpts=.false. !! triggers output of the k-points used in the calculation
+      integer  :: gauge=0 !! gauge for calculating Berry-phase properties: velocity gauge = 0,
                          !! dipole gauge = 1
+      integer  :: Nomega=0 !! number of frequency points for calculation of DOS
+      real(dp) :: omega_min=0.0_dp,omega_max=1.0_dp !! interval of frequency points for calculation of DOS
+      real(dp) :: DeltaE=0.01_dp !! Gaussian broadening for calculation of DOS
    contains
       procedure, public :: ReadFromFile => wannier_calc_ReadFromFile
    end type WannierCalcParams_t
@@ -139,11 +144,17 @@ contains
       logical :: calc_metric=.false. 
       logical :: calc_evecs=.false.
       logical :: berry_valence=.false.
+      logical :: calc_dos=.false.
+      logical :: calc_pdos=.false.
       logical :: write_velocity=.false.
       logical :: write_kpts=.false.
       integer :: gauge=0
+      integer  :: Nomega=0 
+      real(dp) :: omega_min=0.0_dp,omega_max=1.0_dp 
+      real(dp) :: DeltaE=0.01_dp
       namelist/CALCOPT/calc_orbweight,calc_spin,calc_berry,calc_spin_berry,&
-         calc_oam,calc_metric,calc_evecs,berry_valence,write_kpts,write_velocity,gauge
+         calc_oam,calc_metric,calc_evecs,berry_valence,write_kpts,write_velocity,gauge,&
+         calc_dos,calc_pdos,Nomega,omega_min,omega_max,DeltaE
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
       read(unit_inp,nml=CALCOPT)
@@ -156,10 +167,16 @@ contains
       me%calc_oam = calc_oam
       me%calc_metric = calc_metric
       me%calc_evecs = calc_evecs
+      me%calc_dos = calc_dos
+      me%calc_pdos = calc_pdos
       me%berry_valence = berry_valence
       me%write_kpts = write_kpts  
       me%write_velocity = write_velocity
 
+      me%Nomega = Nomega
+      me%omega_min = omega_min
+      me%omega_max = omega_max
+      me%DeltaE = DeltaE
 
    end subroutine wannier_calc_ReadFromFile
 !--------------------------------------------------------------------------------------

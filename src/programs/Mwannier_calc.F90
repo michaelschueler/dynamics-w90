@@ -2,8 +2,8 @@ module Mwannier_calc
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
-   use scitools_def,only: dp,iu,zero
-   use scitools_utils,only: str
+   use scitools_def,only: dp,iu,zero,gauss
+   use scitools_utils,only: str, linspace
    use scitools_linalg,only: EigH
    use scitools_laserpulse,only: scalarfunc_spline_t
    use wan_hamiltonian,only: wann90_tb_t
@@ -19,9 +19,10 @@ module Mwannier_calc
 !--------------------------------------------------------------------------------------
    type wannier_calc_t
       logical :: soc_mode=.false., berry_valence=.false., static_potential=.false.
-      integer :: nbnd,nwan,Nk
-      real(dp) :: muchem
+      integer :: nbnd,nwan,Nk,Nomega=0
+      real(dp) :: muchem,DeltaE
       integer,allocatable,dimension(:) :: orbs_excl
+      real(dp),allocatable,dimension(:) :: omega
       real(dp),allocatable,dimension(:,:) :: kpts,epsk
       complex(dp),allocatable,dimension(:,:,:) :: vectk
       type(wann90_tb_t) :: ham
@@ -34,6 +35,7 @@ module Mwannier_calc
       procedure,public  :: GetOAM
       procedure,public  :: GetMetric
       procedure,public  :: GetVelocity
+      procedure,public  :: GetDOS
    end type wannier_calc_t
 !--------------------------------------------------------------------------------------
    integer,parameter :: velocity_gauge=0,dipole_gauge=1
@@ -141,6 +143,17 @@ contains
          end do
       end if
       deallocate(Hk)
+
+      if(par_calc%calc_dos .or. par_calc%calc_pdos) then
+         if(par_calc%Nomega < 2) then
+            allocate(me%omega(1))
+            me%omega = 0.5_dp * (par_calc%omega_min + par_calc%omega_max)
+         else
+            me%omega = linspace(par_calc%omega_min, par_calc%omega_max, par_calc%Nomega)
+         end if
+         me%DeltaE = par_calc%DeltaE
+         me%Nomega = par_calc%Nomega
+      end if
 
    end subroutine Init
 !--------------------------------------------------------------------------------------
@@ -353,6 +366,47 @@ contains
       end do
 
    end subroutine GetVelocity
+!--------------------------------------------------------------------------------------
+   subroutine GetDOS(me,dos)
+      class(wannier_calc_t) :: me
+      real(dp),allocatable,intent(out) :: dos(:)
+      integer :: iw
+
+      if(me%Nomega < 1) then
+         write(output_unit,fmt700) "More than 1 frequency point required for DOS calculation. Skipping ..."
+         return
+      end if
+
+      allocate(dos(me%Nomega))
+      do iw=1,me%Nomega
+         dos(iw) = sum( gauss(me%DeltaE, me%omega(iw) - me%epsk )  ) / me%Nk
+      end do
+
+   end subroutine GetDOS
+!--------------------------------------------------------------------------------------
+   subroutine GetPDOS(me,pdos)
+      class(wannier_calc_t) :: me
+      real(dp),allocatable,intent(out) :: pdos(:,:)
+      integer :: iw,ik,ibnd
+
+      if(me%Nomega < 1) then
+         write(output_unit,fmt700) "More than 1 frequency point required forPDOS calculation. Skipping ..."
+         return
+      end if     
+
+      allocate(pdos(me%nbnd,me%Nomega)); pdos = 0.0_dp
+      do ik=1,me%Nk
+         do iw=1,me%Nomega
+            do ibnd=1,me%nbnd
+               pdos(:,iw) = pdos(:,iw) + abs(me%vectk(:,ibnd,ik))**2 &
+                  * gauss(me%DeltaE, me%omega(iw) - me%epsk(ibnd,ik)) / me%Nk
+            end do
+         end do
+
+      end do
+
+
+   end subroutine GetPDOS
 !--------------------------------------------------------------------------------------
 
 !======================================================================================    
