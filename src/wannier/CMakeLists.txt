@@ -3,6 +3,7 @@ include_directories(
  )
 
 set(OBJECT_FILES
+    wan_rungekutta.F90
     wan_read_xyz.F90
     wan_hamiltonian.F90
     wan_latt_utils.f90

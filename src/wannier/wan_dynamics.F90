@@ -6,6 +6,8 @@ module wan_dynamics
    use scitools_evol,only: GenU_CF2,GenU_CF4,UnitaryStepFBW
    use scitools_rungekutta,only: ODE_step_rk5
    use wan_hamiltonian,only: wann90_tb_t
+   use wan_rungekutta,only: Init_RungeKutta, Clean_RungeKutta, RK5_TimeStep_Dip_k, &
+      RK5_TimeStep_velo_k
    implicit none
 !--------------------------------------------------------------------------------------
    private
@@ -123,7 +125,7 @@ contains
       real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
       integer,intent(in)           :: tstp !! the time step where the density matrix is known
       real(dp),intent(in)          :: dt !! time step size 
-      procedure(vecpot_efield_func),pointer :: field !! External field: vector potential + electric field
+      procedure(vecpot_efield_func) :: field !! External field: vector potential + electric field
       real(dp),intent(in)          :: T1 !! The time constant for relaxation to equilibrium
       real(dp),intent(in)          :: T2 !! Time time constant for dephasing of off-diagonal components
       real(dp),intent(in)          :: Beta !! effective temperature for equilibrium state
@@ -133,77 +135,22 @@ contains
       logical,intent(in),optional  :: empirical !! if `.true.` the dipole term is ignore (equivalent to
                                                 !! the Peieerls substitution)
       logical :: empirical_
-      logical :: large_size
-      integer :: nbnd,ik,k_index
-      real(dp) :: gm1,gm2,gm12
+      integer :: ik
       real(dp) :: kpt(3)
-      complex(dp),allocatable :: Rhok_old(:,:)
-
+   
       empirical_ = .false.
       if(present(empirical)) empirical_ = empirical
 
-      gm1 = 1.0_dp / T1
-      gm2 = 1.0_dp / T2
-      gm12 = gm1 - gm2
-
-      nbnd = size(Rhok,dim=1)
-      call assert_shape(Rhok,[nbnd,nbnd,Nk],"Wann_timestep_RelaxTime_dip","Rhok")
-
-      large_size = get_large_size(nbnd)
-
-      allocate(Rhok_old(nbnd,nbnd))
+      call Init_RungeKutta(w90%num_wann)
 
       do ik=1,Nk
-         k_index = ik
          kpt = kpts(ik,:)
-         Rhok_old = Rhok(:,:,ik)
-         Rhok(:,:,ik) = ODE_step_RK5(nbnd,tstp,dt,deriv_dipole_gauge,Rhok_old)
+         call RK5_TimeStep_Dip_k(w90,kpt,tstp,dt,field,T1,T2,beta,mu,Rhok(:,:,ik),&
+            empirical=empirical_)
       end do
 
-      deallocate(Rhok_old)
-      !......................................................
-      contains
-      !......................................................
-      function deriv_dipole_gauge(nst,t,yt) result(dydt)
-         integer,intent(in) :: nst
-         real(dp),intent(in) :: t 
-         complex(dp),intent(in) :: yt(:,:)
-         complex(dp) :: dydt(nst,nst)
-         integer :: i
-         real(dp),dimension(nst) :: epsk,occk
-         complex(dp),dimension(nst,nst) :: ht,ht_yt,yt_ht,Uk
-         complex(dp),dimension(nst,nst) :: rho_off,rhod,rho_eq,rho12
-         real(dp) :: AF(3),EF(3)
-
-         AF = 0.0_dp; EF = 0.0_dp
-         if(associated(field)) call field(t,AF,EF)
-
-         ht = Wann_GetHk_dip(w90,AF,EF,kpt,reducedA=.false.,&
-            Peierls_only=empirical_)
-         call EigH(ht,epsk,Uk)
-
-         occk = nfermi(Beta,epsk - Mu)
-
-         RhoD = zero
-         do i=1,nst
-            RhoD(i,i) = occk(i)
-         end do
-         rho_eq = util_rotate_cc(nst,Uk,RhoD,large_size=large_size)
-
-         rho_off = util_rotate(nst,Uk,yt,large_size=large_size)
-         do i=1,nst
-            rho_off(i,i) = zero
-         end do
-         rho12 = util_rotate_cc(nst,Uk,rho_off,large_size=large_size)
-
-         call util_matmul(ht,yt,ht_yt,large_size=large_size)
-         call util_matmul(yt,ht,yt_ht,large_size=large_size)
-         dydt = -iu * (ht_yt - yt_ht)
-         dydt = dydt - gm1 * (yt - Rho_eq)
-         dydt = dydt + gm12 * rho12
-
-      end function deriv_dipole_gauge
-      !....................................................
+      call Clean_RungeKutta()
+   
    end subroutine Wann_timestep_RelaxTime_dip
 !--------------------------------------------------------------------------------------
    subroutine Wann_timestep_RelaxTime_velo_calc(nbnd,Nk,Hk,vk,tstp,dt,field,T1,T2,Beta,Mu,Rhok)
@@ -218,84 +165,27 @@ contains
                                                   !! dimension [nbnd,nbnd,Nk,3]
       integer,intent(in)           :: tstp !! the time step where the density matrix is known
       real(dp),intent(in)          :: dt !! time step size 
-      procedure(vecpot_efield_func),pointer :: field !! External field: vector potential + electric field
+      procedure(vecpot_efield_func) :: field !! External field: vector potential + electric field
       real(dp),intent(in)          :: T1 !! The time constant for relaxation to equilibrium
       real(dp),intent(in)          :: T2 !! Time time constant for dephasing of off-diagonal components
       real(dp),intent(in)          :: Beta !! effective temperature for equilibrium state
       real(dp),intent(in)          :: Mu !! effective chemical potential for equilibrium state
       complex(dp),intent(inout)    :: Rhok(:,:,:) !! On input: density matrix at `tstp`; on output:
                                                   !! density matrix at `tstp+1`
-      logical :: large_size
-      integer :: ik,k_index
-      real(dp) :: gm1,gm2,gm12
-      complex(dp),allocatable :: Rhok_old(:,:)
-
-      gm1 = 1.0_dp / T1
-      gm2 = 1.0_dp / T2
-      gm12 = gm1 - gm2
+      integer :: ik
 
       call assert_shape(Hk,[nbnd,nbnd,Nk],"Wann_timestep_RelaxTime_velo_calc","Hk")
       call assert_shape(vk,[nbnd,nbnd,Nk,3],"Wann_timestep_RelaxTime_velo_calc","vk")
       call assert_shape(Rhok,[nbnd,nbnd,Nk],"Wann_timestep_RelaxTime_velo_calc","Rhok")
 
-      large_size = get_large_size(nbnd)
-
-      allocate(Rhok_old(nbnd,nbnd))
+      call Init_RungeKutta(nbnd)
 
       do ik=1,Nk
-         k_index = ik
-         Rhok_old = Rhok(:,:,ik)
-         Rhok(:,:,ik) = ODE_step_RK5(nbnd,tstp,dt,deriv_velocity_gauge,Rhok_old)
+         call RK5_TimeStep_velo_k(ik,tstp,dt,field,T1,T2,beta,mu,Hk,vk,Rhok(:,:,ik))
       end do
 
-      deallocate(Rhok_old)
-      !......................................................
-      contains
-      !......................................................
-      function deriv_velocity_gauge(nst,t,yt) result(dydt)
-         integer,intent(in) :: nst
-         real(dp),intent(in) :: t 
-         complex(dp),intent(in) :: yt(:,:)
-         complex(dp) :: dydt(nst,nst)
-         integer :: i,j
-         real(dp),dimension(nst) :: epsk,occk
-         complex(dp),dimension(nst,nst) :: ht,ht_yt,yt_ht,Uk
-         complex(dp),dimension(nst,nst) :: rho_off,rhod,rho_eq,rho12
-         real(dp) :: AF(3),EF(3)
-         integer :: idir
-
-         AF = 0.0_dp; EF = 0.0_dp
-         if(associated(field)) call field(t,AF,EF)
-
-         ht = Hk(:,:,k_index)
-         do idir=1,3
-            ht = ht - qc * AF(idir) * vk(:,:,k_index,idir)
-         end do
-         call EigH(ht,epsk,Uk)
-
-         occk = nfermi(Beta,epsk - Mu)
-
-         RhoD = zero
-         do i=1,nst
-            RhoD(i,i) = occk(i)
-         end do
-         rho_eq = util_rotate_cc(nst,Uk,RhoD,large_size=large_size)
-
-         rho_off = util_rotate(nst,Uk,yt,large_size=large_size)
-         do i=1,nst
-            rho_off(i,i) = zero
-         end do
-         rho12 = util_rotate_cc(nst,Uk,rho_off,large_size=large_size)
-
-         call util_matmul(ht,yt,ht_yt,large_size=large_size)
-         call util_matmul(yt,ht,yt_ht,large_size=large_size)
-         dydt = -iu * (ht_yt - yt_ht)
-         dydt = dydt - gm1 * (yt - Rho_eq)
-         dydt = dydt + gm12 * rho12
-
-      end function deriv_velocity_gauge
-      !....................................................
-
+      call Clean_RungeKutta()
+    
    end subroutine Wann_timestep_RelaxTime_velo_calc
 !--------------------------------------------------------------------------------------
    subroutine Wann_Rhok_timestep_velo(w90,Nk,kpts,tstp,dt,field,Rhok)
