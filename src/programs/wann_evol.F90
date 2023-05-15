@@ -107,6 +107,7 @@ program wann_evol
    character(len=*),parameter :: fmt_info='(" Info: ",a)'
    character(len=*),parameter :: fmt_input='(" Input: [",a,"]")'
    integer,parameter :: velocity_gauge=0,dipole_gauge=1,velo_emp_gauge=2,dip_emp_gauge=3
+   integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2
    ! -- for reading i/o --
    logical :: PrintToFile = .false.
    integer :: Narg,unit_inp
@@ -195,7 +196,8 @@ program wann_evol
    call print_header(output_unit,"Equilibrium","*")
    call Timer_Tic('equilibrium', 2)
 
-   call lattsys%Init(par_ham%Beta,par_ham%MuChem,ham,kpts,par_ham%lm_gauge)
+   call lattsys%Init(par_ham%Beta,par_ham%MuChem,ham,kpts,par_ham%lm_gauge,&
+      propagator=par_time%propagator)
    call lattsys%SetLaserPulse(external_field)
 
    if(par_ham%FixMuChem) then
@@ -270,11 +272,12 @@ program wann_evol
 
    step = 0
    do tstp=0,par_time%Nt-1
-      if(par_time%relaxation_dynamics) then
-         call lattsys%Timestep_RelaxTime(par_time%T1_relax,par_time%T2_relax,tstp,dt)
-      else
+      select case(par_time%propagator)
+      case(prop_unitary)
          call lattsys%Timestep(tstp,dt,field_tmax=pulse_tmax)
-      end if
+      case(prop_rk4, prop_rk5)
+         call lattsys%Timestep_RelaxTime(par_time%T1_relax,par_time%T2_relax,tstp,dt)
+      end select
 
       if(mod(tstp+1, par_time%output_step) == 0) then
          step = step + 1

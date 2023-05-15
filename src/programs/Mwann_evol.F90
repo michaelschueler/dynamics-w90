@@ -7,6 +7,7 @@ module Mwann_evol
    use scitools_linalg,only: get_large_size,util_matmul,util_rotate,util_rotate_cc
    use wan_hamiltonian,only: wann90_tb_t
    use wan_equilibrium,only: GetChemicalPotential, Wann_GenRhok_eq
+   use wan_rungekutta,only: Init_RungeKutta
    use wan_dynamics
    implicit none
    include '../formats.h'
@@ -17,6 +18,7 @@ module Mwann_evol
 !--------------------------------------------------------------------------------------
    logical :: large_size
    integer,parameter :: velocity_gauge=0,dipole_gauge=1,velo_emp_gauge=2,dip_emp_gauge=3
+   integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2
 !--------------------------------------------------------------------------------------
    private
    public :: wann_evol_t
@@ -24,6 +26,7 @@ module Mwann_evol
    type wann_evol_t
       logical  :: free_evol=.false., spin_current=.false.
       integer  :: gauge
+      integer  :: propagator=prop_unitary
       integer  :: Nk,nbnd
       real(dp) :: Beta,MuChem,nelec
       complex(dp),allocatable,dimension(:,:,:)  :: Hk,Udt,wan_rot
@@ -58,7 +61,7 @@ module Mwann_evol
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,Beta,MuChem,ham,kpts,gauge,spin_current)
+   subroutine Init(me,Beta,MuChem,ham,kpts,gauge,spin_current,propagator)
       class(wann_evol_t)           :: me
       real(dp),intent(in)          :: Beta
       real(dp),intent(in)          :: MuChem
@@ -66,6 +69,7 @@ contains
       real(dp),target,intent(in)   :: kpts(:,:)
       integer,intent(in)           :: gauge
       logical,intent(in),optional  :: spin_current
+      integer,intent(in),optional  :: propagator
 
       me%gauge = gauge
       me%Nk = size(kpts,dim=1)
@@ -87,6 +91,15 @@ contains
             call stop_error("Number of bands odd. Not compatible with spinor mode.")
          end if
       end if
+
+      if(present(propagator)) me%propagator = propagator
+
+      select case(me%propagator)
+      case(prop_rk4)
+         call Init_RungeKutta(me%nbnd,Nk=me%Nk)
+      case(prop_rk5)
+         call Init_RungeKutta(me%nbnd)
+      end select
 
    end subroutine Init
 !--------------------------------------------------------------------------------------
@@ -172,13 +185,13 @@ contains
          ! call Wann_timestep_RelaxTime(me%ham,me%Nk,me%kcoord,tstp,dt,field,T1,T2,&
             ! me%Rhok_Eq,me%Rhok)
          call Wann_timestep_RelaxTime(me%ham,me%Nk,me%kcoord,tstp,dt,field,T1,T2,&
-            me%Beta,me%MuChem,me%Rhok)
+            me%Beta,me%MuChem,me%Rhok,method=me%propagator)
       case(dip_emp_gauge)
          call Wann_timestep_RelaxTime(me%ham,me%Nk,me%kcoord,tstp,dt,field,T1,T2,&
-            me%Beta,me%MuChem,me%Rhok,empirical=.true.)        
+            me%Beta,me%MuChem,me%Rhok,empirical=.true.,method=me%propagator)        
       case(velocity_gauge,velo_emp_gauge)
          call Wann_timestep_RelaxTime(me%nbnd,me%Nk,me%Hk,me%velok,tstp,dt,field,T1,T2,&
-            me%Beta,me%MuChem,me%Rhok)
+            me%Beta,me%MuChem,me%Rhok,method=me%propagator)
       end select
 
    end subroutine Timestep_RelaxTime

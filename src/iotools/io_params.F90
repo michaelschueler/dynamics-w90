@@ -13,6 +13,7 @@ module io_params
    integer,parameter :: field_mode_positions=0,field_mode_dipole=1,field_mode_berry=2
    integer,parameter :: gauge_len=0, gauge_mom=1
    integer,parameter :: wf_pw=0, wf_coul=1
+   integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2
 !--------------------------------------------------------------------------------------
    type :: WannierCalcParams_t
    !! Options and parameters for the Wannier calculation performed by [[wann_calc]]
@@ -42,8 +43,9 @@ module io_params
    type :: TimeParams_t
    !! Options and parameters for the time evolution by [[wann_evol]]
       character(len=256) :: file_field="" !! file name for external electric field
-      logical  :: relaxation_dynamics !! If set to `.true.`, the equation of motion for the density matrix with
-                                      !! phenomenological damping `T1_relax` and decoherence `T2_relax` will be solved.
+      integer  :: propagator=prop_unitary !! method for time evolution: 0 ... unitary, 1 ... RK4, 2 ... RK5
+                                          !! for propagator=1,2, the equation with
+                                          !! phenomenological damping `T1_relax` and decoherence `T2_relax` will be solved.
       integer  :: Nt=100 !! Number of time steps
       integer  :: output_step=1 !! output will we written to file evert `output_step` time steps
       real(dp) :: Tmax=1.0_dp !! propagation time, defining the time step `dt=Tmax / Nt`
@@ -185,13 +187,13 @@ contains
       character(len=*),intent(in)  :: fname
       integer :: unit_inp
       character(len=256) :: file_field="" 
-      logical  :: relaxation_dynamics 
+      integer  :: propagator 
       integer  :: Nt=100 
       integer  :: output_step=1 
       real(dp) :: Tmax=1.0_dp 
       real(dp) :: T1_relax=1.0e10_dp  
       real(dp) :: T2_relax=1.0e10_dp  
-      namelist/TIMEPARAMS/Nt,Tmax,output_step,relaxation_dynamics,T1_relax,T2_relax,&
+      namelist/TIMEPARAMS/Nt,Tmax,output_step,propagator,T1_relax,T2_relax,&
          file_field
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
@@ -201,7 +203,7 @@ contains
       me%Nt = Nt
       me%Tmax = Tmax
       me%output_step = output_step
-      me%relaxation_dynamics = relaxation_dynamics
+      me%propagator = propagator
       me%T1_relax = T1_relax
       me%T2_relax = T2_relax
       me%file_field = file_field

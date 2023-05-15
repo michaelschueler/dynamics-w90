@@ -7,7 +7,7 @@ module wan_dynamics
    use scitools_rungekutta,only: ODE_step_rk5
    use wan_hamiltonian,only: wann90_tb_t
    use wan_rungekutta,only: Init_RungeKutta, Clean_RungeKutta, RK5_TimeStep_Dip_k, &
-      RK5_TimeStep_velo_k
+      RK5_TimeStep_velo_k, RK4_TimeStep_Dip_k, RK4_TimeStep_velo_k
    implicit none
 !--------------------------------------------------------------------------------------
    private
@@ -116,7 +116,7 @@ contains
 
    end subroutine Wann_GenDipk
 !--------------------------------------------------------------------------------------
-   subroutine Wann_timestep_RelaxTime_dip(w90,Nk,kpts,tstp,dt,field,T1,T2,Beta,Mu,Rhok,empirical)
+   subroutine Wann_timestep_RelaxTime_dip(w90,Nk,kpts,tstp,dt,field,T1,T2,Beta,Mu,Rhok,empirical,method)
    !! Performs the time step \(\rho(\mathbf{k},t) \rightarrow \rho(\mathbf{k},t + \Delta t) \)
    !! assuming phenomenological dissipative dynamics. The Hamiltonian and density matrix 
    !! are treated in the dipole gauge.
@@ -134,26 +134,36 @@ contains
                                                   !! density matrix at `tstp+1`
       logical,intent(in),optional  :: empirical !! if `.true.` the dipole term is ignore (equivalent to
                                                 !! the Peieerls substitution)
+      integer,intent(in),optional  :: method
       logical :: empirical_
+      integer :: method_
       integer :: ik
       real(dp) :: kpt(3)
    
       empirical_ = .false.
       if(present(empirical)) empirical_ = empirical
 
-      call Init_RungeKutta(w90%num_wann)
+      method_ = 2
+      if(present(method)) method_ = method
 
-      do ik=1,Nk
-         kpt = kpts(ik,:)
-         call RK5_TimeStep_Dip_k(w90,kpt,tstp,dt,field,T1,T2,beta,mu,Rhok(:,:,ik),&
-            empirical=empirical_)
-      end do
-
-      call Clean_RungeKutta()
+      select case(method_)
+      case(1)
+         do ik=1,Nk
+            kpt = kpts(ik,:)
+            call RK4_TimeStep_Dip_k(w90,kpt,ik,tstp,dt,field,T1,T2,beta,mu,Rhok(:,:,ik),&
+               empirical=empirical_)
+         end do
+      case(2)
+         do ik=1,Nk
+            kpt = kpts(ik,:)
+            call RK5_TimeStep_Dip_k(w90,kpt,tstp,dt,field,T1,T2,beta,mu,Rhok(:,:,ik),&
+               empirical=empirical_)
+         end do
+      end select
    
    end subroutine Wann_timestep_RelaxTime_dip
 !--------------------------------------------------------------------------------------
-   subroutine Wann_timestep_RelaxTime_velo_calc(nbnd,Nk,Hk,vk,tstp,dt,field,T1,T2,Beta,Mu,Rhok)
+   subroutine Wann_timestep_RelaxTime_velo_calc(nbnd,Nk,Hk,vk,tstp,dt,field,T1,T2,Beta,Mu,Rhok,method)
    !! Performs the time step \(\rho(\mathbf{k},t) \rightarrow \rho(\mathbf{k},t + \Delta t) \)
    !! assuming phenomenological dissipative dynamics. The Hamiltonian and density matrix 
    !! are treated in the velocity gauge with precomputed Hamiltonian \(H_0(\mathbf{k})\) and velocity matrix
@@ -172,20 +182,29 @@ contains
       real(dp),intent(in)          :: Mu !! effective chemical potential for equilibrium state
       complex(dp),intent(inout)    :: Rhok(:,:,:) !! On input: density matrix at `tstp`; on output:
                                                   !! density matrix at `tstp+1`
+      integer,intent(in),optional  :: method
+      logical :: empirical_
+      integer :: method_
       integer :: ik
+
+      method_ = 2
+      if(present(method)) method_ = method
 
       call assert_shape(Hk,[nbnd,nbnd,Nk],"Wann_timestep_RelaxTime_velo_calc","Hk")
       call assert_shape(vk,[nbnd,nbnd,Nk,3],"Wann_timestep_RelaxTime_velo_calc","vk")
       call assert_shape(Rhok,[nbnd,nbnd,Nk],"Wann_timestep_RelaxTime_velo_calc","Rhok")
 
-      call Init_RungeKutta(nbnd)
+      select case(method_)
+      case(1)
+         do ik=1,Nk
+            call RK4_TimeStep_velo_k(ik,tstp,dt,field,T1,T2,beta,mu,Hk,vk,Rhok(:,:,ik))
+         end do
+      case(2)
+         do ik=1,Nk
+            call RK5_TimeStep_velo_k(ik,tstp,dt,field,T1,T2,beta,mu,Hk,vk,Rhok(:,:,ik))
+         end do
+      end select
 
-      do ik=1,Nk
-         call RK5_TimeStep_velo_k(ik,tstp,dt,field,T1,T2,beta,mu,Hk,vk,Rhok(:,:,ik))
-      end do
-
-      call Clean_RungeKutta()
-    
    end subroutine Wann_timestep_RelaxTime_velo_calc
 !--------------------------------------------------------------------------------------
    subroutine Wann_Rhok_timestep_velo(w90,Nk,kpts,tstp,dt,field,Rhok)

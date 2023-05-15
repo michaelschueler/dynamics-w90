@@ -28,16 +28,14 @@ class WannierEvolution():
         }
     #========================================
     def SetTimeParams(self,Nt,Tmax,file_field="",output_step=1,\
-        relaxation_dynamics=None,T1_relax=None,T2_relax=None):
+        propagator=0,T1_relax=None,T2_relax=None):
         self.timeparams = {
             'Nt': Nt,
             'Tmax': Tmax,
             'file_field': file_field,
-            'output_step': output_step
+            'output_step': output_step,
+            'propagator': propagator
         }
-
-        if relaxation_dynamics != None:
-            self.timeparams['relaxation_dynamics'] = relaxation_dynamics
 
         if T1_relax != None:
             self.timeparams['T1_relax'] = T1_relax

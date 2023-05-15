@@ -9,6 +9,7 @@ module Mwann_evol_mpi
    use scitools_array1d_dist,only: dist_array1d_t,GetDisplSize1D
    use wan_hamiltonian,only: wann90_tb_t
    use wan_equilibrium,only: GetChemicalPotential_mpi, Wann_GenRhok_eq
+   use wan_rungekutta,only: Init_RungeKutta
    use wan_dynamics
    implicit none
    include '../formats.h'
@@ -24,6 +25,7 @@ module Mwann_evol_mpi
    type(dist_array1d_t),private :: kdist
 !--------------------------------------------------------------------------------------
    integer,parameter :: velocity_gauge=0,dipole_gauge=1,velo_emp_gauge=2,dip_emp_gauge=3
+   integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2
    logical :: large_size
 !--------------------------------------------------------------------------------------
    private
@@ -32,6 +34,7 @@ module Mwann_evol_mpi
    type wann_evol_t
       logical  :: free_evol=.false., spin_current=.false.
       integer  :: gauge
+      integer  :: propagator=prop_unitary
       integer  :: Nk,Nk_loc,nbnd
       real(dp) :: Beta,MuChem,nelec
       real(dp),allocatable :: kcoord_loc(:,:)
@@ -65,7 +68,7 @@ module Mwann_evol_mpi
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,Beta,MuChem,ham,kpts,gauge,spin_current)
+   subroutine Init(me,Beta,MuChem,ham,kpts,gauge,spin_current,propagator)
       class(wann_evol_t)           :: me
       real(dp),intent(in)          :: Beta
       real(dp),intent(in)          :: MuChem
@@ -73,6 +76,7 @@ contains
       real(dp),intent(in)          :: kpts(:,:)
       integer,intent(in)           :: gauge
       logical,intent(in),optional  :: spin_current
+      integer,intent(in),optional  :: propagator
       integer :: ik,ik_glob
 
       call MPI_COMM_RANK(MPI_COMM_WORLD, taskid, ierr)
@@ -109,6 +113,15 @@ contains
                root_flag=on_root)
          end if
       end if
+
+      if(present(propagator)) me%propagator = propagator
+
+      select case(me%propagator)
+      case(prop_rk4)
+         call Init_RungeKutta(me%nbnd,Nk=me%Nk_loc)
+      case(prop_rk5)
+         call Init_RungeKutta(me%nbnd)
+      end select
 
    end subroutine Init
 !--------------------------------------------------------------------------------------
@@ -194,13 +207,13 @@ contains
       select case(me%gauge)
       case(dipole_gauge)
          call Wann_timestep_RelaxTime(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,field,T1,T2,&
-            me%Beta,me%MuChem,me%Rhok)
+            me%Beta,me%MuChem,me%Rhok,method=me%propagator)
       case(dip_emp_gauge)
          call Wann_timestep_RelaxTime(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,field,T1,T2,&
-            me%Beta,me%MuChem,me%Rhok,empirical=.true.)        
+            me%Beta,me%MuChem,me%Rhok,empirical=.true.,method=me%propagator)        
       case(velocity_gauge,velo_emp_gauge)
          call Wann_timestep_RelaxTime(me%nbnd,me%Nk_loc,me%Hk,me%velok,tstp,dt,field,T1,T2,&
-            me%Beta,me%MuChem,me%Rhok)
+            me%Beta,me%MuChem,me%Rhok,method=me%propagator)
       end select
 
    end subroutine Timestep_RelaxTime
