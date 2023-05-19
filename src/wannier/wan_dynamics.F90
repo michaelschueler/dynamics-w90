@@ -25,6 +25,8 @@ module wan_dynamics
    public :: Wann_timestep_RelaxTime
    public :: Wann_SpinCurrent_para_velo, Wann_SpinCurrent_dia_velo
    public :: Wann_SpinCurrent_dip, Wann_SpinCurrent_dip_calc
+
+   public :: Wann_timestep_RelaxTime_dip, Wann_timestep_RelaxTime_velo_calc 
 !--------------------------------------------------------------------------------------
    interface Wann_Rhok_timestep_dip
       module procedure :: Wann_Rhok_timestep_dip_field, Wann_Rhok_timestep_dip_free
