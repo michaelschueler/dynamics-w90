@@ -184,13 +184,13 @@ contains
       case(dipole_gauge)
          ! call Wann_timestep_RelaxTime(me%ham,me%Nk,me%kcoord,tstp,dt,field,T1,T2,&
             ! me%Rhok_Eq,me%Rhok)
-         call Wann_timestep_RelaxTime(me%ham,me%Nk,me%kcoord,tstp,dt,field,T1,T2,&
+         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk,me%kcoord,tstp,dt,field,T1,T2,&
             me%Beta,me%MuChem,me%Rhok,method=me%propagator)
       case(dip_emp_gauge)
-         call Wann_timestep_RelaxTime(me%ham,me%Nk,me%kcoord,tstp,dt,field,T1,T2,&
+         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk,me%kcoord,tstp,dt,field,T1,T2,&
             me%Beta,me%MuChem,me%Rhok,empirical=.true.,method=me%propagator)        
       case(velocity_gauge,velo_emp_gauge)
-         call Wann_timestep_RelaxTime(me%nbnd,me%Nk,me%Hk,me%velok,tstp,dt,field,T1,T2,&
+         call Wann_timestep_RelaxTime_velo_calc(me%nbnd,me%Nk,me%Hk,me%velok,tstp,dt,field,T1,T2,&
             me%Beta,me%MuChem,me%Rhok,method=me%propagator)
       end select
 
