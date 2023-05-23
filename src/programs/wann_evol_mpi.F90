@@ -124,6 +124,7 @@ program wann_evol_mpi
    logical  :: ApplyField=.false.
    integer  :: Nsteps,tstp,tstp_max,step
    real(dp) :: dt,pulse_tmin,pulse_tmax
+   real(dp) :: EF(3),AF(3)
    real(dp),allocatable,dimension(:)     :: Etot,Ekin
    real(dp),allocatable,dimension(:,:)   :: kpts,BandOcc,Jcurr,Dip
    real(dp),allocatable,dimension(:,:)   :: Jpara,Jdia,JHk,Jpol,Jintra

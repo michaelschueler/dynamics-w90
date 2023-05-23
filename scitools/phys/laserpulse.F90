@@ -14,6 +14,9 @@ module scitools_laserpulse
        LaserPulse_3D_t
 !--------------------------------------------------------------------------------------
   integer,parameter :: kx=4
+
+  real(dp) :: Tmin_
+  type(spline1d_t) :: Espl_
 !--------------------------------------------------------------------------------------
   type scalarfunc_spline_t
   !! scalar time-depndent function \(y(t)\)
@@ -284,13 +287,18 @@ contains
 
     calcafield_ = .true.
     if(present(CalcAfield)) calcafield_ = CalcAfield
-       
+
     call loadtxt(filename,Edata)
     call self%Init(size(Edata,1),minval(Edata(:,1)),maxval(Edata(:,1)))
 
     iflag = 0
     call self%Espl%Init(self%tpts,Edata(:,col),kx,iflag)
     self%E_set = .true.
+
+    iflag = 0
+    call Espl_%Init(self%tpts,Edata(:,col),kx,iflag)
+    Tmin_ = self%Tmin
+
     deallocate(Edata)
 
     if(.not.self%A_set) then
@@ -298,8 +306,9 @@ contains
     
        if(calcafield_) then
           dt = self%tpts(2)-self%tpts(1)
+
           do it=1,self%Npts-1
-             Adata(it+1) = ODE_step_RK5(it-1,dt,deriv_func,Adata(it))
+             Adata(it+1) = ODE_step_RK5(it-1,dt,Avec_deriv_wrapper,Adata(it))
           end do          
        end if
        
@@ -308,21 +317,21 @@ contains
        self%A_set = .true.
        deallocate(Adata)
     end if
-  !===================================
-  contains
-  !===================================  
-    function deriv_func(t,y) result(dydt)
+
+    call Espl_%Clean()
+
+  end subroutine Load_ElectricField
+!--------------------------------------------------------------------------------------
+  function Avec_deriv_wrapper(t,A) result(dAdt)
       real(dp),intent(in) :: t
-      real(dp),intent(in) :: y
-      real(dp) :: dydt
-      integer :: iflag,inbvx
+      real(dp),intent(in) :: A
+      real(dp) :: dAdt
+      integer :: iflag,inbvx    
 
       inbvx = 1
-      dydt = -self%Espl%Eval(t+self%Tmin,0,iflag,inbvx)
-      
-    end function deriv_func
-  !===================================  
-  end subroutine Load_ElectricField
+      dAdt = -Espl_%Eval(t + Tmin_,0,iflag,inbvx)
+
+  end function Avec_deriv_wrapper
 !--------------------------------------------------------------------------------------
   subroutine Pulse3D_Init(self,Npts,Tmin,Tmax)
   !! Initializes the laser pulse class and allocates internal storage.
@@ -352,7 +361,7 @@ contains
     logical :: calcafield_
     integer,allocatable :: usecols_(:)
     integer :: ncol
-    integer :: it,icol,col,iflag,inbvx
+    integer :: it,icol,col,idir,iflag,inbvx
     real(dp) :: dt
     real(dp),allocatable,dimension(:,:) :: Adata,Edata
 
@@ -380,7 +389,6 @@ contains
       call me%Espl(icol)%Init(me%tpts,Edata(:,col),kx,iflag)
     end do
     me%E_set = .true.
-    deallocate(Edata)
 
     me%ncomp = ncol
 
@@ -389,9 +397,22 @@ contains
     
        if(calcafield_) then
           dt = me%tpts(2)-me%tpts(1)
-          do it=1,me%Npts-1
-             Adata(it+1,:) = ODE_step_RK5(ncol,it-1,dt,deriv_func,Adata(it,:))
-          end do          
+
+          Tmin_ = me%Tmin
+
+          do icol=1,me%ncomp
+            iflag = 0
+            col = usecols_(icol)
+
+            iflag = 0
+            call Espl_%Init(me%tpts,Edata(:,col),kx,iflag)
+
+            do it=1,me%Npts-1
+               Adata(it+1,icol) = ODE_step_RK5(it-1,dt,Avec_deriv_wrapper,Adata(it,icol))
+            end do   
+
+            call Espl_%Clean()       
+          end do
        end if
        
        allocate(me%Aspl(ncol))
@@ -402,24 +423,9 @@ contains
        me%A_set = .true.
        deallocate(Adata)
     end if
-  !===================================
-  contains
-  !===================================  
-    function deriv_func(n,t,y) result(dydt)
-      integer,intent(in)  :: n
-      real(dp),intent(in) :: t
-      real(dp),intent(in) :: y(:)
-      real(dp) :: dydt(n)
-      integer :: iflag,inbvx
-      integer :: i
 
-      do i=1,n
-        inbvx = 1
-        dydt(i) = -me%Espl(i)%Eval(t+me%Tmin,0,iflag,inbvx)
-      end do
-      
-    end function deriv_func
-  !=================================== 
+    deallocate(Edata)
+
   end subroutine Pulse3D_Load_electricfield
 !--------------------------------------------------------------------------------------
   subroutine Pulse3D_Load_vectorpotential(me,fname,usecols,CalcEfield)

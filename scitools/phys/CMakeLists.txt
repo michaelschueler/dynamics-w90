@@ -9,7 +9,7 @@ set(OBJECT_FILES
 
 
 # ~~ Installation targets ~~
-add_library(phys OBJECT ${OBJECT_FILES})
+add_library(phys STATIC ${OBJECT_FILES})
 target_link_libraries(phys basic math ${COMMON_LIBS})
 add_dependencies(phys basic math )
 # install(TARGETS math ARCHIVE DESTINATION lib)
