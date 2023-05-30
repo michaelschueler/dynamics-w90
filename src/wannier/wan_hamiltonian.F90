@@ -16,6 +16,8 @@ module wan_hamiltonian
    public :: wann90_tb_t,ReadTB_from_w90,utility_recip_lattice
 !--------------------------------------------------------------------------------------
    integer,parameter :: field_mode_positions=0,field_mode_dipole=1,field_mode_berry=2
+
+   integer,parameter :: blocksize=8
 !--------------------------------------------------------------------------------------
    type :: wann90_tb_t
       !! Wannier Hamiltonian class. Reads/writes the Wannier Hamiltonian from/to file,
@@ -1682,7 +1684,6 @@ contains
    end subroutine
 !--------------------------------------------------------------------------------------
    subroutine fourier_R_to_k(kpt, w90, OO_R, OO)
-      integer,parameter :: blocksize=16
       !! Performs the Fourier transformation R -> k
       !! For \(\alpha=0\): 
       !! \(O_{ij}(R) \rightarrow O_{ij}(k) = \sum_R e^{i k \cdot R} O_{ij}(R)\)
@@ -1719,7 +1720,6 @@ contains
       !! \(O_{ij}(R) \rightarrow O_{ij}(k) = \sum_R e^{i k \cdot R} O_{ij}(R)\)
       !! For \(\alpha=1,2,3\):
       !! \(i \sum_R R_\alpha e^{i k \cdot R} O_{ij}(R) \)
-      integer,parameter :: blocksize=16
       real(kind=dp)                                     :: kpt(3) !! k-point (reduced coordinates)
       type(wann90_tb_t),intent(in)                      :: w90 !! Wannier90 object
       complex(kind=dp), dimension(:, :, :), intent(in)  :: OO_R !! operator in real space O(R)
@@ -1738,7 +1738,7 @@ contains
          imax = min(m * blocksize, w90%nrpts)
          call GetPhase(kpt,w90%irvec(imin:imax,:),w90%ndegen(imin:imax),phase_fac)
 
-         do concurrent(idir=1:3, j=1:w90%num_wann, i=1:w90%num_wann, ir=imin:imax)
+         do concurrent(ir=imin:imax, idir=1:3, j=1:w90%num_wann, i=1:w90%num_wann)
             OO(i, j, idir) = OO(i, j, idir) + iu * w90%crvec(idir,ir) &
                * phase_fac(ir-imin+1) * OO_R(i,j,ir)
          end do
@@ -1861,7 +1861,6 @@ contains
       !! $${\vec O}_{ij}(k) = \sum_R e^{+ik.R} {\vec O}_{ij}(R)$$
       !                                                                    !
       !====================================================================!
-      integer,parameter :: blocksize=16
       ! Arguments
       !
       real(kind=dp)                                     :: kpt(3)
