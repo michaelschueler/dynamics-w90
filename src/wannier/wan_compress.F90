@@ -45,7 +45,7 @@ contains
       allocate(wann_pruned%ndegen(wann_pruned%nrpts))
       allocate(wann_pruned%irvec(wann_pruned%nrpts,3))
       allocate(wann_pruned%ham_r(wann%num_wann,wann%num_wann,wann_pruned%nrpts))
-      allocate(wann_pruned%pos_r(wann%num_wann,wann%num_wann,wann_pruned%nrpts,3))
+      allocate(wann_pruned%pos_r(wann%num_wann,wann%num_wann,3,wann_pruned%nrpts))
       allocate(wann_pruned%coords(wann%num_wann,3))
       
       wann_pruned%coords = wann%coords
@@ -55,7 +55,7 @@ contains
          wann_pruned%ndegen(ir) = wann%ndegen(ir_old)
          wann_pruned%irvec(ir,1:3) = wann%irvec(ir_old,1:3)
          wann_pruned%ham_r(:,:,ir) = wann%ham_r(:,:,ir_old)
-         wann_pruned%pos_r(:,:,ir,:) = wann%pos_r(:,:,ir_old,:)
+         wann_pruned%pos_r(:,:,:,ir) = wann%pos_r(:,:,:,ir_old)
       end do
 
       comp_rate = 1.0_dp - wann_pruned%nrpts / dble(wann%nrpts)

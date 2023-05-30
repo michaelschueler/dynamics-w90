@@ -113,7 +113,7 @@ contains
       allocate(me%ndegen(me%nrpts))
       allocate(me%irvec(me%nrpts,3))
       allocate(me%ham_r(me%num_wann,me%num_wann,me%nrpts))
-      allocate(me%pos_r(me%num_wann,me%num_wann,me%nrpts,3))
+      allocate(me%pos_r(me%num_wann,me%num_wann,3,me%nrpts))
       allocate(me%coords(me%num_wann,3))
       allocate(me%crvec(me%nrpts,3))
 
@@ -200,7 +200,7 @@ contains
       real(dp),intent(in) :: kpt(3)
       complex(dp) :: Hk(me%num_wann,me%num_wann)
    
-      call fourier_R_to_k(kpt, me, me%ham_r, Hk, 0)
+      call fourier_R_to_k(kpt, me, me%ham_r, Hk)
 
    end function get_ham
 !--------------------------------------------------------------------------------------
@@ -1132,7 +1132,7 @@ contains
       if(allocated(me%pos_r)) then
          call hdf_write_attribute(file_id,'','pos_stored', 1)
 
-         allocate(d_pos_r(me%num_wann,me%num_wann,me%nrpts,3))
+         allocate(d_pos_r(me%num_wann,me%num_wann,3,me%nrpts))
 
          d_pos_r = dble(me%pos_r)
          call hdf_write_dataset(file_id,'pos_r_real',d_pos_r)
@@ -1199,8 +1199,8 @@ contains
       call hdf_read_attribute(file_id,'','pos_stored', pos_stored)
 
       if(pos_stored == 1) then
-         allocate(d_pos_r(me%num_wann,me%num_wann,me%nrpts,3))
-         allocate(me%pos_r(me%num_wann,me%num_wann,me%nrpts,3))
+         allocate(d_pos_r(me%num_wann,me%num_wann,3,me%nrpts))
+         allocate(me%pos_r(me%num_wann,me%num_wann,3,me%nrpts))
 
          call hdf_read_dataset(file_id,'pos_r_real',d_pos_r)
          me%pos_r = d_pos_r
@@ -1277,7 +1277,7 @@ contains
       end do
 
       ! read dipole matrix elements 
-      allocate(pos_r(num_wann,num_wann,nrpts,3))
+      allocate(pos_r(num_wann,num_wann,3,nrpts))
       do irpt = 1,nrpts
          read(file_unit,*) irvec(irpt,1),irvec(irpt,2),irvec(irpt,3)
          do i=1,num_wann
@@ -1285,7 +1285,7 @@ contains
                ! read(file_unit,*) ndx1, ndx2, pos_real, pos_imag
                ! pos_r(j,i,irpt,:) = (pos_real + iu*pos_imag) / BohrAngstrom
                read(file_unit,'(2I5,3x,6(E15.8,1x))') ndx1, ndx2, pos
-               pos_r(j,i,irpt,:) = pos / BohrAngstrom
+               pos_r(j,i,:,irpt) = pos / BohrAngstrom
             end do
          end do
       end do
@@ -1336,7 +1336,7 @@ contains
          write(file_unit, '(/,3I5)') me%irvec(irpt,:)
          do i = 1, me%num_wann
             do j = 1, me%num_wann
-               write(file_unit, '(2I5,3x,6(E15.8,1x))') j, i, me%pos_r(j, i, irpt, 1:3) * BohrAngstrom
+               write(file_unit, '(2I5,3x,6(E15.8,1x))') j, i, me%pos_r(j, i, 1:3, irpt) * BohrAngstrom
             end do
          end do
       end do
@@ -1554,7 +1554,7 @@ contains
       degen_thr_ = 1.0e-5_dp
       if(present(degen_thr)) degen_thr_ = degen_thr
 
-      call fourier_R_to_k(kpt, w90, w90%ham_r, HH, 0)
+      call fourier_R_to_k(kpt, w90, w90%ham_r, HH)
       call utility_diagonalize(HH, w90%num_wann, eig, UU)
       call fourier_R_to_k_deriv(kpt, w90, w90%ham_r, delHH)
       ! call fourier_R_to_k(kpt, w90, w90%ham_r, delHH(:, :, 1), 1)
@@ -1681,7 +1681,7 @@ contains
 
    end subroutine
 !--------------------------------------------------------------------------------------
-   subroutine fourier_R_to_k(kpt, w90, OO_R, OO, alpha)
+   subroutine fourier_R_to_k(kpt, w90, OO_R, OO)
       !! Performs the Fourier transformation R -> k
       !! For \(\alpha=0\): 
       !! \(O_{ij}(R) \rightarrow O_{ij}(k) = \sum_R e^{i k \cdot R} O_{ij}(R)\)
@@ -1691,25 +1691,15 @@ contains
       type(wann90_tb_t),intent(in)                      :: w90 !! Wannier90 object
       complex(kind=dp), dimension(:, :, :), intent(in)  :: OO_R !! operator in real space O(R)
       complex(kind=dp), dimension(:, :), intent(inout)  :: OO !! operator in k-space O(k)
-      integer                                           :: alpha !! cartesian direction for derivative
 
-      integer          :: ir, i, j, ideg
-      real(kind=dp)    :: rdotk
+      integer          :: ir
       complex(kind=dp) :: phase_fac
-      real(dp),allocatable :: crvec(:,:)
 
       OO(:, :) = zero
       do ir = 1, w90%nrpts
          phase_fac = GetPhase(kpt(1),kpt(2),kpt(3),w90%irvec(ir,1),w90%irvec(ir,2),&
             w90%irvec(ir,3),w90%ndegen(ir))
-
-         select case(alpha)
-         case(1,2,3)
-            OO(:, :) = OO(:, :) + &
-               iu*w90%crvec(alpha, ir)*phase_fac*OO_R(:, :, ir)
-         case default
-            OO(:, :) = OO(:, :) + phase_fac*OO_R(:, :, ir)      
-         end select
+         OO(:, :) = OO(:, :) + phase_fac*OO_R(:, :, ir)      
       end do
 
    end subroutine fourier_R_to_k
@@ -1869,9 +1859,7 @@ contains
          phase_fac = GetPhase(kpt(1),kpt(2),kpt(3),w90%irvec(ir,1),w90%irvec(ir,2),&
             w90%irvec(ir,3),w90%ndegen(ir))
 
-         OO_true(:,:,1) = OO_true(:,:,1) + phase_fac * OO_R(:,:,ir,1)
-         OO_true(:,:,2) = OO_true(:,:,2) + phase_fac * OO_R(:,:,ir,2)
-         OO_true(:,:,3) = OO_true(:,:,3) + phase_fac * OO_R(:,:,ir,3)
+         OO_true(:,:,:) = OO_true(:,:,:) + phase_fac * OO_R(:,:,:,ir)
       end do
 
    end subroutine fourier_R_to_k_truevec
@@ -1907,20 +1895,20 @@ contains
          phase_fac = cmplx(cos(rdotk), sin(rdotk), dp)/real(w90%ndegen(ir), dp)
 
          if (present(OO_true)) then
-            OO_true(:, :, 1) = OO_true(:, :, 1) + phase_fac*OO_R(:, :, ir, 1)
-            OO_true(:, :, 2) = OO_true(:, :, 2) + phase_fac*OO_R(:, :, ir, 2)
-            OO_true(:, :, 3) = OO_true(:, :, 3) + phase_fac*OO_R(:, :, ir, 3)
+            OO_true(:, :, 1) = OO_true(:, :, 1) + phase_fac*OO_R(:, :, 1, ir)
+            OO_true(:, :, 2) = OO_true(:, :, 2) + phase_fac*OO_R(:, :, 2, ir)
+            OO_true(:, :, 3) = OO_true(:, :, 3) + phase_fac*OO_R(:, :, 3, ir)
          end if
          if (present(OO_pseudo)) then
             OO_pseudo(:, :, 1) = OO_pseudo(:, :, 1) &
-               + iu*crvec(2, ir)*phase_fac*OO_R(:, :, ir, 3) &
-               - iu*crvec(3, ir)*phase_fac*OO_R(:, :, ir, 2)
+               + iu*crvec(2, ir)*phase_fac*OO_R(:, :, 3, ir) &
+               - iu*crvec(3, ir)*phase_fac*OO_R(:, :, 2, ir)
             OO_pseudo(:, :, 2) = OO_pseudo(:, :, 2) &
-               + iu*crvec(3, ir)*phase_fac*OO_R(:, :, ir, 1) &
-               - iu*crvec(1, ir)*phase_fac*OO_R(:, :, ir, 3)
+               + iu*crvec(3, ir)*phase_fac*OO_R(:, :, 1, ir) &
+               - iu*crvec(1, ir)*phase_fac*OO_R(:, :, 3, ir)
             OO_pseudo(:, :, 3) = OO_pseudo(:, :, 3) &
-               + iu*crvec(1, ir)*phase_fac*OO_R(:, :, ir, 2) &
-               - iu*crvec(2, ir)*phase_fac*OO_R(:, :, ir, 1)
+               + iu*crvec(1, ir)*phase_fac*OO_R(:, :, 2, ir) &
+               - iu*crvec(2, ir)*phase_fac*OO_R(:, :, 1, ir)
          end if
 
       end do
