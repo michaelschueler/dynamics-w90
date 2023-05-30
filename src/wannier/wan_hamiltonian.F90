@@ -1682,6 +1682,7 @@ contains
    end subroutine
 !--------------------------------------------------------------------------------------
    subroutine fourier_R_to_k(kpt, w90, OO_R, OO)
+      integer,parameter :: blocksize=16
       !! Performs the Fourier transformation R -> k
       !! For \(\alpha=0\): 
       !! \(O_{ij}(R) \rightarrow O_{ij}(k) = \sum_R e^{i k \cdot R} O_{ij}(R)\)
@@ -1692,14 +1693,22 @@ contains
       complex(kind=dp), dimension(:, :, :), intent(in)  :: OO_R !! operator in real space O(R)
       complex(kind=dp), dimension(:, :), intent(inout)  :: OO !! operator in k-space O(k)
 
-      integer          :: ir
-      complex(kind=dp) :: phase_fac
+      integer          :: ir,m
+      complex(kind=dp) :: phase_fac(blocksize)
+      integer :: numblock,imin,imax
+
+      ! compute the number of chuncks
+      numblock  = (w90%nrpts+blocksize-1)/blocksize
 
       OO(:, :) = zero
-      do ir = 1, w90%nrpts
-         phase_fac = GetPhase(kpt(1),kpt(2),kpt(3),w90%irvec(ir,1),w90%irvec(ir,2),&
-            w90%irvec(ir,3),w90%ndegen(ir))
-         OO(:, :) = OO(:, :) + phase_fac*OO_R(:, :, ir)      
+      do m = 1, numblock
+         imin = (m-1)*blocksize+1
+         imax = min(m * blocksize, w90%nrpts)
+         call GetPhase(kpt,w90%irvec(imin:imax,:),w90%ndegen(imin:imax),phase_fac)
+
+         do ir = imin, imax
+            OO(:, :) = OO(:, :) + phase_fac(ir - imin + 1)*OO_R(:, :, ir)
+         end do      
       end do
 
    end subroutine fourier_R_to_k
@@ -1710,22 +1719,28 @@ contains
       !! \(O_{ij}(R) \rightarrow O_{ij}(k) = \sum_R e^{i k \cdot R} O_{ij}(R)\)
       !! For \(\alpha=1,2,3\):
       !! \(i \sum_R R_\alpha e^{i k \cdot R} O_{ij}(R) \)
+      integer,parameter :: blocksize=16
       real(kind=dp)                                     :: kpt(3) !! k-point (reduced coordinates)
       type(wann90_tb_t),intent(in)                      :: w90 !! Wannier90 object
       complex(kind=dp), dimension(:, :, :), intent(in)  :: OO_R !! operator in real space O(R)
       complex(kind=dp), dimension(:, :, :), intent(inout)  :: OO !! operator in k-space O(k)
 
-      integer          :: ir,i,j,idir
-      real(kind=dp)    :: rdotk
-      complex(kind=dp) :: phase_fac
+      integer          :: m,ir,i,j,idir
+      integer :: numblock,imin,imax
+      complex(kind=dp) :: phase_fac(blocksize)
+
+      ! compute the number of chuncks
+      numblock  = (w90%nrpts+blocksize-1)/blocksize
 
       OO(:, :, :) = zero
-      do ir = 1, w90%nrpts
-         phase_fac = GetPhase(kpt(1),kpt(2),kpt(3),w90%irvec(ir,1),w90%irvec(ir,2),&
-            w90%irvec(ir,3),w90%ndegen(ir))
+      do m = 1, numblock
+         imin = (m-1)*blocksize+1
+         imax = min(m * blocksize, w90%nrpts)
+         call GetPhase(kpt,w90%irvec(imin:imax,:),w90%ndegen(imin:imax),phase_fac)
 
-         do concurrent(idir=1:3, j=1:w90%num_wann, i=1:w90%num_wann)
-            OO(i, j, idir) = OO(i, j, idir) + iu * w90%crvec(idir,ir) * phase_fac * OO_R(i,j,ir)
+         do concurrent(idir=1:3, j=1:w90%num_wann, i=1:w90%num_wann, ir=imin:imax)
+            OO(i, j, idir) = OO(i, j, idir) + iu * w90%crvec(idir,ir) &
+               * phase_fac(ir-imin+1) * OO_R(i,j,ir)
          end do
 
       end do
@@ -1821,19 +1836,23 @@ contains
 
    end subroutine fourier_D2_R_to_k
 !--------------------------------------------------------------------------------------
-   pure elemental function GetPhase(k1,k2,k3,ir1,ir2,ir3,dgen) result(ephi)
-      real(dp),intent(in) :: k1,k2,k3
-      integer,intent(in)  :: ir1,ir2,ir3
-      integer,intent(in)  :: dgen
-      complex(dp) :: ephi
+   subroutine GetPhase(kpt,irvecs,dgens,exp_iphase) 
+      real(dp),intent(in) :: kpt(3)
+      integer,intent(in)  :: irvecs(:,:)
+      integer,intent(in)  :: dgens(:)
+      complex(dp),intent(inout) :: exp_iphase(:)
+      integer :: np,m
       real(dp) :: s,c,rdotk
 
-      rdotk = DPI*(k1 * ir1 + k2 * ir2 + k3 * ir3)
-      c = cos(rdotk)
-      s = sin(rdotk)
-      ephi = cmplx(c, s, kind=dp) / dgen
+      np = size(irvecs, dim=1)
+      do concurrent(m=1:np)
+         rdotk = DPI*(kpt(1) * irvecs(m,1) + kpt(2) * irvecs(m,2) + kpt(3) * irvecs(m,3))
+         c = cos(rdotk)
+         s = sin(rdotk)
+         exp_iphase(m) = cmplx(c, s, kind=dp) / dgens(m)
+      end do
 
-   end function GetPhase
+   end subroutine GetPhase
 !--------------------------------------------------------------------------------------
    subroutine fourier_R_to_k_truevec(kpt, w90, OO_R, OO_true)
       !====================================================================!
@@ -1842,7 +1861,7 @@ contains
       !! $${\vec O}_{ij}(k) = \sum_R e^{+ik.R} {\vec O}_{ij}(R)$$
       !                                                                    !
       !====================================================================!
-
+      integer,parameter :: blocksize=16
       ! Arguments
       !
       real(kind=dp)                                     :: kpt(3)
@@ -1850,16 +1869,22 @@ contains
       complex(kind=dp), dimension(:, :, :, :), intent(in)  :: OO_R
       complex(kind=dp), dimension(:, :, :), intent(inout)   :: OO_true
 
-      integer          :: ir
-      complex(kind=dp) :: phase_fac
+      integer          :: ir,m
+      complex(kind=dp) :: phase_fac(blocksize)
+      integer :: numblock,imin,imax
+
+      ! compute the number of chuncks
+      numblock  = (w90%nrpts+blocksize-1)/blocksize
 
       OO_true = zero
 
-      do ir = 1, w90%nrpts
-         phase_fac = GetPhase(kpt(1),kpt(2),kpt(3),w90%irvec(ir,1),w90%irvec(ir,2),&
-            w90%irvec(ir,3),w90%ndegen(ir))
-
-         OO_true(:,:,:) = OO_true(:,:,:) + phase_fac * OO_R(:,:,:,ir)
+      do m = 1, numblock
+         imin = (m-1)*blocksize+1
+         imax = min(m * blocksize, w90%nrpts)
+         call GetPhase(kpt,w90%irvec(imin:imax,:),w90%ndegen(imin:imax),phase_fac)
+         do ir=imin,imax
+            OO_true(:,:,:) = OO_true(:,:,:) + phase_fac(ir-imin+1) * OO_R(:,:,:,ir)
+         end do
       end do
 
    end subroutine fourier_R_to_k_truevec
