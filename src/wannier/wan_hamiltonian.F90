@@ -1705,7 +1705,7 @@ contains
       do m = 1, numblock
          imin = (m-1)*blocksize+1
          imax = min(m * blocksize, w90%nrpts)
-         call GetPhase(kpt,w90%irvec(imin:imax,:),w90%ndegen(imin:imax),phase_fac)
+         call GetPhase(imax-imin+1,kpt,w90%irvec(imin:imax,:),w90%ndegen(imin:imax),phase_fac)
 
          do ir = imin, imax
             OO(:, :) = OO(:, :) + phase_fac(ir - imin + 1)*OO_R(:, :, ir)
@@ -1736,7 +1736,7 @@ contains
       do m = 1, numblock
          imin = (m-1)*blocksize+1
          imax = min(m * blocksize, w90%nrpts)
-         call GetPhase(kpt,w90%irvec(imin:imax,:),w90%ndegen(imin:imax),phase_fac)
+         call GetPhase(imax-imin+1,kpt,w90%irvec(imin:imax,:),w90%ndegen(imin:imax),phase_fac)
 
          do concurrent(ir=imin:imax, idir=1:3, j=1:w90%num_wann, i=1:w90%num_wann)
             OO(i, j, idir) = OO(i, j, idir) + iu * w90%crvec(idir,ir) &
@@ -1836,21 +1836,19 @@ contains
 
    end subroutine fourier_D2_R_to_k
 !--------------------------------------------------------------------------------------
-   subroutine GetPhase(kpt,irvecs,dgens,exp_iphase) 
+   subroutine GetPhase(nr,kpt,irvecs,dgens,exp_iphase) 
+      integer,intent(in)  :: nr
       real(dp),intent(in) :: kpt(3)
       integer,intent(in)  :: irvecs(:,:)
       integer,intent(in)  :: dgens(:)
       complex(dp),intent(inout) :: exp_iphase(:)
-      integer :: np,m
-      real(dp) :: s,c,rdotk
+      real(dp),dimension(blocksize) :: s,c,rdotk
 
-      np = size(irvecs, dim=1)
-      do concurrent(m=1:np)
-         rdotk = DPI*(kpt(1) * irvecs(m,1) + kpt(2) * irvecs(m,2) + kpt(3) * irvecs(m,3))
-         c = cos(rdotk)
-         s = sin(rdotk)
-         exp_iphase(m) = cmplx(c, s, kind=dp) / dgens(m)
-      end do
+      rdotk(1:nr) = DPI*(kpt(1) * irvecs(1:nr,1) + kpt(2) * irvecs(1:nr,2) &
+         + kpt(3) * irvecs(1:nr,3))
+      c(1:nr) = cos(rdotk(1:nr))
+      s(1:nr) = sin(rdotk(1:nr))
+      exp_iphase(1:nr) = cmplx(c(1:nr), s(1:nr), kind=dp) / dgens(1:nr)
 
    end subroutine GetPhase
 !--------------------------------------------------------------------------------------
@@ -1880,7 +1878,7 @@ contains
       do m = 1, numblock
          imin = (m-1)*blocksize+1
          imax = min(m * blocksize, w90%nrpts)
-         call GetPhase(kpt,w90%irvec(imin:imax,:),w90%ndegen(imin:imax),phase_fac)
+         call GetPhase(imax-imin+1,kpt,w90%irvec(imin:imax,:),w90%ndegen(imin:imax),phase_fac)
          do ir=imin,imax
             OO_true(:,:,:) = OO_true(:,:,:) + phase_fac(ir-imin+1) * OO_R(:,:,:,ir)
          end do
