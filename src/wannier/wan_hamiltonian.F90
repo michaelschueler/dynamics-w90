@@ -1087,6 +1087,7 @@ contains
 
       call utility_recip_reduced(me%recip_lattice, me%recip_reduced)
 
+      allocate(me%crvec(me%nrpts,3))
       do ir = 1, me%nrpts
         ! Note that 'real_lattice' stores the lattice vectors as *rows*
         me%crvec(:, ir) = matmul(transpose(me%real_lattice), me%irvec(ir, :))
@@ -1225,6 +1226,7 @@ contains
 
       call hdf_close_file(file_id)
 
+      allocate(me%crvec(me%nrpts,3))
       do ir = 1, me%nrpts
         ! Note that 'real_lattice' stores the lattice vectors as *rows*
         me%crvec(:, ir) = matmul(transpose(me%real_lattice), me%irvec(ir, :))
