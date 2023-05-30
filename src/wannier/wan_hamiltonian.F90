@@ -1675,10 +1675,10 @@ contains
       integer :: ir
 
       if(allocated(crvec)) deallocate(crvec)
-      allocate(crvec(3,w90%nrpts))
+      allocate(crvec(w90%nrpts,3))
       do ir = 1, w90%nrpts
         ! Note that 'real_lattice' stores the lattice vectors as *rows*
-        crvec(:, ir) = matmul(transpose(w90%real_lattice), w90%irvec(ir, :))
+        crvec(ir, :) = matmul(transpose(w90%real_lattice), w90%irvec(ir, :))
       end do
 
    end subroutine
@@ -1694,22 +1694,26 @@ contains
       complex(kind=dp), dimension(:, :, :), intent(in)  :: OO_R !! operator in real space O(R)
       complex(kind=dp), dimension(:, :), intent(inout)  :: OO !! operator in k-space O(k)
 
-      integer          :: ir,m
+      integer          :: ir,nn,nr,m
       complex(kind=dp) :: phase_fac(blocksize)
       integer :: numblock,imin,imax
 
       ! compute the number of chuncks
       numblock  = (w90%nrpts+blocksize-1)/blocksize
+      nn = (w90%num_wann)**2
 
       OO(:, :) = zero
       do m = 1, numblock
          imin = (m-1)*blocksize+1
          imax = min(m * blocksize, w90%nrpts)
-         call GetPhase(imax-imin+1,kpt,w90%irvec(imin:imax,:),w90%ndegen(imin:imax),phase_fac)
+         nr = imax-imin+1
+         call GetPhase(nr,kpt,w90%irvec(imin:imax,:),w90%ndegen(imin:imax),phase_fac)
 
-         do ir = imin, imax
-            OO(:, :) = OO(:, :) + phase_fac(ir - imin + 1)*OO_R(:, :, ir)
-         end do      
+         call ZGEMV("N",nn,nr,one,OO_R(1,1,imin),nn,phase_fac(1),1,one,OO(1,1),1)
+
+         ! do ir = imin, imax
+         !    OO(:, :) = OO(:, :) + phase_fac(ir - imin + 1)*OO_R(:, :, ir)
+         ! end do      
       end do
 
    end subroutine fourier_R_to_k
@@ -1725,23 +1729,30 @@ contains
       complex(kind=dp), dimension(:, :, :), intent(in)  :: OO_R !! operator in real space O(R)
       complex(kind=dp), dimension(:, :, :), intent(inout)  :: OO !! operator in k-space O(k)
 
-      integer          :: m,ir,i,j,idir
+      integer          :: m,nn,nr,ir,i,j,idir
       integer :: numblock,imin,imax
-      complex(kind=dp) :: phase_fac(blocksize)
+      complex(kind=dp) :: phase_fac(blocksize),r_phase(blocksize)
 
       ! compute the number of chuncks
       numblock  = (w90%nrpts+blocksize-1)/blocksize
+      nn = 3 * (w90%num_wann)**2
 
       OO(:, :, :) = zero
       do m = 1, numblock
          imin = (m-1)*blocksize+1
          imax = min(m * blocksize, w90%nrpts)
-         call GetPhase(imax-imin+1,kpt,w90%irvec(imin:imax,:),w90%ndegen(imin:imax),phase_fac)
+         nr = imax-imin+1
+         call GetPhase(nr,kpt,w90%irvec(imin:imax,:),w90%ndegen(imin:imax),phase_fac)
 
-         do concurrent(ir=imin:imax, idir=1:3, j=1:w90%num_wann, i=1:w90%num_wann)
-            OO(i, j, idir) = OO(i, j, idir) + iu * w90%crvec(idir,ir) &
-               * phase_fac(ir-imin+1) * OO_R(i,j,ir)
+         do idir=1,3
+            r_phase(1:nr) = iu * w90%crvec(imin:imax,idir) * phase_fac(1:nr)
+            call ZGEMV("N",nn,nr,one,OO_R(1,1,imin),nn,r_phase(1),1,one,OO(1,1,idir),1)
          end do
+
+         ! do concurrent(ir=imin:imax, idir=1:3, j=1:w90%num_wann, i=1:w90%num_wann)
+         !    OO(i, j, idir) = OO(i, j, idir) + iu * w90%crvec(ir,idir) &
+         !       * phase_fac(ir-imin+1) * OO_R(i,j,ir)
+         ! end do
 
       end do
 
@@ -1793,7 +1804,7 @@ contains
                     phase_fac*OO_R(:, :, ir)
              elseif (alpha == 1 .or. alpha == 2 .or. alpha == 3) then
                 OO(:, :,i3+ijmax+1) = OO(:, :,i3+ijmax+1) + &
-                   iu*crvec(alpha, ir)*phase_fac*OO_R(:, :, ir)
+                   iu*crvec(ir, alpha)*phase_fac*OO_R(:, :, ir)
              else
                 stop 'wrong value of alpha in fourier_R_to_k_2D'
              end if
@@ -1830,7 +1841,7 @@ contains
          rdotk = DPI*dot_product(kpt(:), w90%irvec(ir, :))
          phase_fac = cmplx(cos(rdotk), sin(rdotk), dp)/real(w90%ndegen(ir), dp)
          OO(:, :) = OO(:, :) - &
-            w90%crvec(a, ir)*w90%crvec(b, ir)*phase_fac*OO_R(:, :, ir)
+            w90%crvec(ir, a)*w90%crvec(ir, b)*phase_fac*OO_R(:, :, ir)
 
       end do
 
@@ -1866,22 +1877,25 @@ contains
       complex(kind=dp), dimension(:, :, :, :), intent(in)  :: OO_R
       complex(kind=dp), dimension(:, :, :), intent(inout)   :: OO_true
 
-      integer          :: ir,m
+      integer          :: nr,ir,m,nn
       complex(kind=dp) :: phase_fac(blocksize)
       integer :: numblock,imin,imax
 
       ! compute the number of chuncks
       numblock  = (w90%nrpts+blocksize-1)/blocksize
+      nn = 3 * (w90%num_wann)**2
 
       OO_true = zero
 
       do m = 1, numblock
          imin = (m-1)*blocksize+1
          imax = min(m * blocksize, w90%nrpts)
-         call GetPhase(imax-imin+1,kpt,w90%irvec(imin:imax,:),w90%ndegen(imin:imax),phase_fac)
-         do ir=imin,imax
-            OO_true(:,:,:) = OO_true(:,:,:) + phase_fac(ir-imin+1) * OO_R(:,:,:,ir)
-         end do
+         nr = imax-imin+1
+         call GetPhase(nr,kpt,w90%irvec(imin:imax,:),w90%ndegen(imin:imax),phase_fac)
+         ! do ir=imin,imax
+         !    OO_true(:,:,:) = OO_true(:,:,:) + phase_fac(ir-imin+1) * OO_R(:,:,:,ir)
+         ! end do
+         call ZGEMV("N",nn,nr,one,OO_R(1,1,1,imin),nn,phase_fac(1),1,one,OO_true(1,1,1),1)
       end do
 
    end subroutine fourier_R_to_k_truevec
@@ -1923,14 +1937,14 @@ contains
          end if
          if (present(OO_pseudo)) then
             OO_pseudo(:, :, 1) = OO_pseudo(:, :, 1) &
-               + iu*crvec(2, ir)*phase_fac*OO_R(:, :, 3, ir) &
-               - iu*crvec(3, ir)*phase_fac*OO_R(:, :, 2, ir)
+               + iu*crvec(ir, 2)*phase_fac*OO_R(:, :, 3, ir) &
+               - iu*crvec(ir, 3)*phase_fac*OO_R(:, :, 2, ir)
             OO_pseudo(:, :, 2) = OO_pseudo(:, :, 2) &
-               + iu*crvec(3, ir)*phase_fac*OO_R(:, :, 1, ir) &
-               - iu*crvec(1, ir)*phase_fac*OO_R(:, :, 3, ir)
+               + iu*crvec(ir, 3)*phase_fac*OO_R(:, :, 1, ir) &
+               - iu*crvec(ir, 1)*phase_fac*OO_R(:, :, 3, ir)
             OO_pseudo(:, :, 3) = OO_pseudo(:, :, 3) &
-               + iu*crvec(1, ir)*phase_fac*OO_R(:, :, 2, ir) &
-               - iu*crvec(2, ir)*phase_fac*OO_R(:, :, 1, ir)
+               + iu*crvec(ir, 1)*phase_fac*OO_R(:, :, 2, ir) &
+               - iu*crvec(ir, 2)*phase_fac*OO_R(:, :, 1, ir)
          end if
 
       end do
