@@ -1735,7 +1735,7 @@ contains
 
       ! compute the number of chuncks
       numblock  = (w90%nrpts+blocksize-1)/blocksize
-      nn = 3 * (w90%num_wann)**2
+      nn = (w90%num_wann)**2
 
       OO(:, :, :) = zero
       do m = 1, numblock
