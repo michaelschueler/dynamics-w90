@@ -27,6 +27,7 @@ module wan_hamiltonian
       real(dp),dimension(3,3)                    :: real_lattice,recip_lattice
       real(dp),dimension(3,3)                    :: recip_reduced
       real(dp),allocatable,dimension(:,:)        :: coords
+      real(dp),allocatable,dimension(:,:)        :: crvec
       complex(dp),allocatable,dimension(:,:,:)   :: ham_r
       complex(dp),allocatable,dimension(:,:,:,:) :: pos_r
       ! .. internal parameters for tuning the calculation ..
@@ -107,12 +108,14 @@ contains
       if(allocated(me%ham_r)) deallocate(me%ham_r)
       if(allocated(me%pos_r)) deallocate(me%pos_r)
       if(allocated(me%coords)) deallocate(me%coords)
+      if(allocated(me%crvec)) deallocate(me%crvec)
 
       allocate(me%ndegen(me%nrpts))
       allocate(me%irvec(me%nrpts,3))
       allocate(me%ham_r(me%num_wann,me%num_wann,me%nrpts))
       allocate(me%pos_r(me%num_wann,me%num_wann,me%nrpts,3))
       allocate(me%coords(me%num_wann,3))
+      allocate(me%crvec(me%nrpts,3))
 
       me%ndegen = w90%ndegen
       me%irvec = w90%irvec
@@ -120,6 +123,7 @@ contains
       me%pos_r = w90%pos_r
       me%coords = w90%coords
       me%coords_present = w90%coords_present
+      me%crvec = w90%crvec
 
    end subroutine Set
 !--------------------------------------------------------------------------------------
@@ -258,11 +262,8 @@ contains
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
       complex(dp) :: grad_Hk(me%num_wann,me%num_wann,3)
-      integer :: idir
    
-      do idir=1,3
-         call fourier_R_to_k(kpt, me, me%ham_r, grad_Hk(:,:,idir), idir)
-      end do
+      call fourier_R_to_k_deriv(kpt, me, me%ham_r, grad_Hk)
 
    end function get_gradk_ham
 !--------------------------------------------------------------------------------------
@@ -296,7 +297,7 @@ contains
 
       large_size = get_large_size(me%num_wann)
 
-      call fourier_R_to_k_vec(kpt, me, me%pos_r, OO_true=Dk)
+      call fourier_R_to_k_truevec(kpt, me, me%pos_r, Dk)
 
       if(me%force_herm) then
          do idir=1,3
@@ -375,7 +376,7 @@ contains
       call wham_get_D_h(me%num_wann, delHH, UU, eig, D_h, &
          degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
 
-      call fourier_R_to_k_vec(kpt, me, me%pos_r, OO_true=AA)
+      call fourier_R_to_k_truevec(kpt, me, me%pos_r, AA)
       do i = 1, 3
          AA(:, :, i) = util_rotate(me%num_wann, UU, AA(:, :, i), large_size=large_size)
          ! AA(:, :, i) = utility_rotate(AA(:, :, i), UU, me%num_wann)
@@ -446,7 +447,7 @@ contains
       call wham_get_D_h_spin(me%num_wann, delHH, UU, eig, Dh_spin, &
          degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
 
-      call fourier_R_to_k_vec(kpt, me, me%pos_r, OO_true=AA)
+      call fourier_R_to_k_truevec(kpt, me, me%pos_r, AA)
 
       do idir = 1, 3
          call GetSpinElements(me%num_wann, AA(:,:,idir), AA_spin(:,:,idir,:))
@@ -515,7 +516,7 @@ contains
       call wham_get_D_h(me%num_wann, delHH, UU, eig, D_h, &
          degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
 
-      call fourier_R_to_k_vec(kpt, me, me%pos_r, OO_true=AA)
+      call fourier_R_to_k_truevec(kpt, me, me%pos_r, AA)
       do idir = 1, 3
          AA(:, :, idir) = util_rotate(me%num_wann, UU, AA(:, :, idir), large_size=large_size)
       end do
@@ -625,7 +626,7 @@ contains
       call wham_get_D_h_spin(me%num_wann, delHH, UU, eig, Dh_spin, &
          degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
 
-      call fourier_R_to_k_vec(kpt, me, me%pos_r, OO_true=AA)
+      call fourier_R_to_k_truevec(kpt, me, me%pos_r, AA)
 
       do idir = 1, 3
          call GetSpinElements(me%num_wann, AA(:,:,idir), AA_spin(:,:,idir,:))
@@ -909,7 +910,7 @@ contains
       call wham_get_D_h(me%num_wann, delHH, UU, eig, D_h, &
          degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
 
-      call fourier_R_to_k_vec(kpt, me, me%pos_r, OO_true=AA)
+      call fourier_R_to_k_truevec(kpt, me, me%pos_r, AA)
       do idir = 1, 3
          ! AA(:, :, idir) = utility_rotate(AA(:, :, idir), UU, me%num_wann)
          AA(:, :, idir) = util_rotate(me%num_wann, UU, AA(:, :, idir), large_size=large_size)
@@ -1024,7 +1025,7 @@ contains
       call wham_get_D_h(me%num_wann, delHH, UU, eig, D_h, &
          degen_thr=me%degen_thresh, anti_herm=me%force_antiherm)
 
-      call fourier_R_to_k_vec(kpt, me, me%pos_r, OO_true=AA)
+      call fourier_R_to_k_truevec(kpt, me, me%pos_r, AA)
       do idir = 1, 3
          AA(:, :, idir) = util_rotate(me%num_wann, UU, AA(:, :, idir), large_size=large_size)
          ! AA(:, :, i) = utility_rotate(AA(:, :, i), UU, me%num_wann)
@@ -1068,6 +1069,7 @@ contains
       class(wann90_tb_t)  :: me
       character(len=*),intent(in) :: file_ham
       character(len=*),intent(in),optional :: file_xyz
+      integer :: ir
 
       call ReadTB_from_w90(file_ham,me%real_lattice,me%num_wann,me%nrpts,me%ndegen,&
          me%irvec,me%ham_r,me%pos_r)
@@ -1084,6 +1086,11 @@ contains
       call utility_recip_lattice(me%real_lattice, me%recip_lattice)
 
       call utility_recip_reduced(me%recip_lattice, me%recip_reduced)
+
+      do ir = 1, me%nrpts
+        ! Note that 'real_lattice' stores the lattice vectors as *rows*
+        me%crvec(:, ir) = matmul(transpose(me%real_lattice), me%irvec(ir, :))
+      end do 
 
    end subroutine ReadFromW90
 !--------------------------------------------------------------------------------------
@@ -1158,6 +1165,7 @@ contains
       character(len=*),intent(in) :: fname
       integer(HID_t) :: file_id
       integer :: atomic_units,pos_stored,coords_stored
+      integer :: ir
       real(dp),allocatable :: d_ham_r(:,:,:)
       real(dp),allocatable :: d_pos_r(:,:,:,:)
 
@@ -1216,6 +1224,11 @@ contains
       end if
 
       call hdf_close_file(file_id)
+
+      do ir = 1, me%nrpts
+        ! Note that 'real_lattice' stores the lattice vectors as *rows*
+        me%crvec(:, ir) = matmul(transpose(me%real_lattice), me%irvec(ir, :))
+      end do 
 
    end subroutine ReadFromHDF5
 #endif
@@ -1549,9 +1562,10 @@ contains
 
       call fourier_R_to_k(kpt, w90, w90%ham_r, HH, 0)
       call utility_diagonalize(HH, w90%num_wann, eig, UU)
-      call fourier_R_to_k(kpt, w90, w90%ham_r, delHH(:, :, 1), 1)
-      call fourier_R_to_k(kpt, w90, w90%ham_r, delHH(:, :, 2), 2)
-      call fourier_R_to_k(kpt, w90, w90%ham_r, delHH(:, :, 3), 3)
+      call fourier_R_to_k_deriv(kpt, w90, w90%ham_r, delHH)
+      ! call fourier_R_to_k(kpt, w90, w90%ham_r, delHH(:, :, 1), 1)
+      ! call fourier_R_to_k(kpt, w90, w90%ham_r, delHH(:, :, 2), 2)
+      ! call fourier_R_to_k(kpt, w90, w90%ham_r, delHH(:, :, 3), 3)
       call wham_get_deleig_a(w90%num_wann, del_eig(:, 1), w90, eig, delHH(:, :, 1), UU, use_degen_pert_, degen_thr_)
       call wham_get_deleig_a(w90%num_wann, del_eig(:, 2), w90, eig, delHH(:, :, 2), UU, use_degen_pert_, degen_thr_)
       call wham_get_deleig_a(w90%num_wann, del_eig(:, 3), w90, eig, delHH(:, :, 3), UU, use_degen_pert_, degen_thr_)
@@ -1690,26 +1704,49 @@ contains
       complex(kind=dp) :: phase_fac
       real(dp),allocatable :: crvec(:,:)
 
-      if(alpha > 0) call get_crvec(w90, crvec)
-
       OO(:, :) = zero
       do ir = 1, w90%nrpts
-         rdotk = DPI*dot_product(kpt(:), w90%irvec(ir, :))
-         phase_fac = cmplx(cos(rdotk), sin(rdotk), dp)/real(w90%ndegen(ir), dp)
-         if (alpha == 0) then
-            OO(:, :) = OO(:, :) + phase_fac*OO_R(:, :, ir)
-         elseif (alpha == 1 .or. alpha == 2 .or. alpha == 3) then
+         phase_fac = GetPhase(kpt(1),kpt(2),kpt(3),w90%irvec(ir,1),w90%irvec(ir,2),&
+            w90%irvec(ir,3),w90%ndegen(ir))
+
+         select case(alpha)
+         case(1,2,3)
             OO(:, :) = OO(:, :) + &
-               iu*crvec(alpha, ir)*phase_fac*OO_R(:, :, ir)
-         else
-            stop 'wrong value of alpha in fourier_R_to_k'
-         end if
+               iu*w90%crvec(alpha, ir)*phase_fac*OO_R(:, :, ir)
+         case default
+            OO(:, :) = OO(:, :) + phase_fac*OO_R(:, :, ir)      
+         end select
+      end do
+
+   end subroutine fourier_R_to_k
+!--------------------------------------------------------------------------------------
+   subroutine fourier_R_to_k_deriv(kpt, w90, OO_R, OO)
+      !! Performs the Fourier transformation R -> k
+      !! For \(\alpha=0\): 
+      !! \(O_{ij}(R) \rightarrow O_{ij}(k) = \sum_R e^{i k \cdot R} O_{ij}(R)\)
+      !! For \(\alpha=1,2,3\):
+      !! \(i \sum_R R_\alpha e^{i k \cdot R} O_{ij}(R) \)
+      real(kind=dp)                                     :: kpt(3) !! k-point (reduced coordinates)
+      type(wann90_tb_t),intent(in)                      :: w90 !! Wannier90 object
+      complex(kind=dp), dimension(:, :, :), intent(in)  :: OO_R !! operator in real space O(R)
+      complex(kind=dp), dimension(:, :, :), intent(inout)  :: OO !! operator in k-space O(k)
+
+      integer          :: ir,i,j,idir
+      real(kind=dp)    :: rdotk
+      complex(kind=dp) :: phase_fac
+
+      OO(:, :, :) = zero
+      do ir = 1, w90%nrpts
+         phase_fac = GetPhase(kpt(1),kpt(2),kpt(3),w90%irvec(ir,1),w90%irvec(ir,2),&
+            w90%irvec(ir,3),w90%ndegen(ir))
+
+         do concurrent(idir=1:3, j=1:w90%num_wann, i=1:w90%num_wann)
+            OO(i, j, idir) = OO(i, j, idir) + iu * w90%crvec(idir,ir) * phase_fac * OO_R(i,j,ir)
+         end do
 
       end do
 
-      if(allocated(crvec)) deallocate(crvec)
-
-   end subroutine fourier_R_to_k
+   end subroutine fourier_R_to_k_deriv
 !--------------------------------------------------------------------------------------
    subroutine fourier_R_to_k_slab(ijmax, kpt, w90, OO_R, OO, alpha)
       !=========================================================!
@@ -1788,22 +1825,62 @@ contains
       integer          :: ir, i, j, ideg
       real(kind=dp)    :: rdotk
       complex(kind=dp) :: phase_fac
-      real(dp),allocatable :: crvec(:,:)
-
-      call get_crvec(w90, crvec)
 
       OO(:, :) = zero
       do ir = 1, w90%nrpts
          rdotk = DPI*dot_product(kpt(:), w90%irvec(ir, :))
          phase_fac = cmplx(cos(rdotk), sin(rdotk), dp)/real(w90%ndegen(ir), dp)
          OO(:, :) = OO(:, :) - &
-            crvec(a, ir)*crvec(b, ir)*phase_fac*OO_R(:, :, ir)
+            w90%crvec(a, ir)*w90%crvec(b, ir)*phase_fac*OO_R(:, :, ir)
 
       end do
 
-      if(allocated(crvec)) deallocate(crvec)
-
    end subroutine fourier_D2_R_to_k
+!--------------------------------------------------------------------------------------
+   pure elemental function GetPhase(k1,k2,k3,ir1,ir2,ir3,dgen) result(ephi)
+      real(dp),intent(in) :: k1,k2,k3
+      integer,intent(in)  :: ir1,ir2,ir3
+      integer,intent(in)  :: dgen
+      complex(dp) :: ephi
+      real(dp) :: s,c,rdotk
+
+      rdotk = DPI*(k1 * ir1 + k2 * ir2 + k3 * ir3)
+      c = cos(rdotk)
+      s = sin(rdotk)
+      ephi = cmplx(c, s, kind=dp) / dgen
+
+   end function GetPhase
+!--------------------------------------------------------------------------------------
+   subroutine fourier_R_to_k_truevec(kpt, w90, OO_R, OO_true)
+      !====================================================================!
+      !                                                                    !
+      !! For OO_true (true vector):
+      !! $${\vec O}_{ij}(k) = \sum_R e^{+ik.R} {\vec O}_{ij}(R)$$
+      !                                                                    !
+      !====================================================================!
+
+      ! Arguments
+      !
+      real(kind=dp)                                     :: kpt(3)
+      type(wann90_tb_t),intent(in)                      :: w90
+      complex(kind=dp), dimension(:, :, :, :), intent(in)  :: OO_R
+      complex(kind=dp), dimension(:, :, :), intent(inout)   :: OO_true
+
+      integer          :: ir
+      complex(kind=dp) :: phase_fac
+
+      OO_true = zero
+
+      do ir = 1, w90%nrpts
+         phase_fac = GetPhase(kpt(1),kpt(2),kpt(3),w90%irvec(ir,1),w90%irvec(ir,2),&
+            w90%irvec(ir,3),w90%ndegen(ir))
+
+         OO_true(:,:,1) = OO_true(:,:,1) + phase_fac * OO_R(:,:,ir,1)
+         OO_true(:,:,2) = OO_true(:,:,2) + phase_fac * OO_R(:,:,ir,2)
+         OO_true(:,:,3) = OO_true(:,:,3) + phase_fac * OO_R(:,:,ir,3)
+      end do
+
+   end subroutine fourier_R_to_k_truevec
 !--------------------------------------------------------------------------------------
    subroutine fourier_R_to_k_vec(kpt, w90, OO_R, OO_true, OO_pseudo)
       !====================================================================!
