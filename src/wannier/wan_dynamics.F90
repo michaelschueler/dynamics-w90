@@ -379,10 +379,10 @@ contains
       do ik=1,Nk
          kpt = kpts(ik,:)
          Rho_old = Rhok(:,:,ik)
-         ! H1 = Wann_GetHk_dip(w90,AF_1,EF_1,kpts(ik,:),reducedA=.false.,Peierls_only=peierls_)
-         ! H2 = Wann_GetHk_dip(w90,AF_2,EF_2,kpts(ik,:),reducedA=.false.,Peierls_only=peierls_)
-         H1 = w90%get_ham_Peierls_Dipole(kpt,AF_1,EF_1,Peierls_only=peierls_)
-         H2 = w90%get_ham_Peierls_Dipole(kpt,AF_2,EF_2,Peierls_only=peierls_)
+         H1 = Wann_GetHk_dip(w90,AF_1,EF_1,kpts(ik,:),reducedA=.false.,Peierls_only=peierls_)
+         H2 = Wann_GetHk_dip(w90,AF_2,EF_2,kpts(ik,:),reducedA=.false.,Peierls_only=peierls_)
+         ! H1 = w90%get_ham_Peierls_Dipole(kpt,AF_1,EF_1,Peierls_only=peierls_)
+         ! H2 = w90%get_ham_Peierls_Dipole(kpt,AF_2,EF_2,Peierls_only=peierls_)
          call GenU_CF4(dt,H1,H2,Udt)
          call UnitaryStepFBW(w90%num_wann,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
       end do
