@@ -31,6 +31,7 @@ module wan_hamiltonian
       real(dp),allocatable,dimension(:,:)        :: coords
       real(dp),allocatable,dimension(:,:)        :: crvec
       complex(dp),allocatable,dimension(:,:,:)   :: ham_r
+      complex(dp),allocatable,dimension(:,:,:)   :: OO_r
       complex(dp),allocatable,dimension(:,:,:,:) :: pos_r
       ! .. internal parameters for tuning the calculation ..
       logical  :: use_degen_pert=.false.,force_herm=.true.,force_antiherm=.true.
@@ -46,6 +47,7 @@ module wan_hamiltonian
       procedure,public  :: get_ham_diag
       procedure,public  :: get_ham
       procedure,public  :: get_ham_field 
+      procedure,public  :: get_ham_Peierls_Dipole
       procedure,public  :: get_ham_elpot
       procedure,public  :: get_gradk_ham
       procedure,public  :: get_hess_ham
@@ -76,6 +78,7 @@ contains
       if(allocated(me%ndegen)) deallocate(me%ndegen)
       if(allocated(me%irvec)) deallocate(me%irvec)
       if(allocated(me%ham_r)) deallocate(me%ham_r)
+      if(allocated(me%OO_r)) deallocate(me%OO_r)   
       if(allocated(me%pos_r)) deallocate(me%pos_r)      
       if(allocated(me%coords)) deallocate(me%coords)      
 
@@ -108,6 +111,7 @@ contains
       if(allocated(me%ndegen)) deallocate(me%ndegen)
       if(allocated(me%irvec)) deallocate(me%irvec)
       if(allocated(me%ham_r)) deallocate(me%ham_r)
+      if(allocated(me%OO_r)) deallocate(me%OO_r)
       if(allocated(me%pos_r)) deallocate(me%pos_r)
       if(allocated(me%coords)) deallocate(me%coords)
       if(allocated(me%crvec)) deallocate(me%crvec)
@@ -115,6 +119,7 @@ contains
       allocate(me%ndegen(me%nrpts))
       allocate(me%irvec(me%nrpts,3))
       allocate(me%ham_r(me%num_wann,me%num_wann,me%nrpts))
+      allocate(me%OO_r(me%num_wann,me%num_wann,me%nrpts))
       allocate(me%pos_r(me%num_wann,me%num_wann,3,me%nrpts))
       allocate(me%coords(me%num_wann,3))
       allocate(me%crvec(me%nrpts,3))
@@ -238,6 +243,40 @@ contains
 
 
    end function get_ham_field
+!--------------------------------------------------------------------------------------
+   function get_ham_Peierls_Dipole(me,kpt,Av,Ef,Peierls_only) result(Hk)
+      class(wann90_tb_t)  :: me
+      real(dp),intent(in) :: kpt(3)
+      real(dp),intent(in) :: Av(3)
+      real(dp),intent(in) :: Ef(3)
+      logical,intent(in),optional :: Peierls_only
+      logical :: peierls_
+      complex(dp) :: Hk(me%num_wann,me%num_wann)
+      integer :: idir,ir
+      real(dp) :: Ared(3),kA(3)
+      complex(dp) :: za
+
+      peierls_ = .false.
+      if(present(Peierls_only)) peierls_ = Peierls_only
+
+      me%OO_r = me%ham_r
+
+      if(.not.peierls_) then
+         do ir=1,me%nrpts
+            do idir=1,3
+               za = -Ef(idir)
+               ! me%OO_r(:,:,ir) = me%OO_r(:,:,ir) - Ef(idir) * me%pos_r(:,:,idir,ir)
+               call ZAXPY(me%num_wann**2,za,me%pos_r(1,1,idir,ir),1,me%OO_r(1,1,ir),1)
+            end do
+         end do
+      end if
+
+      Ared = me%get_kreduced(Av)
+      kA = kpt - Ared
+
+      call fourier_R_to_k(kA, me, me%OO_r, Hk)
+
+   end function get_ham_Peierls_Dipole
 !--------------------------------------------------------------------------------------
    function get_ham_elpot(me,kpt,elpot) result(Hk)
       class(wann90_tb_t)  :: me

@@ -363,7 +363,7 @@ contains
       logical :: peierls_
       logical :: large_size
       integer :: ik
-      real(dp) :: EF_1(3),AF_1(3),EF_2(3),AF_2(3)
+      real(dp) :: kpt(3),EF_1(3),AF_1(3),EF_2(3),AF_2(3)
       complex(dp),dimension(w90%num_wann,w90%num_wann) :: H1,H2,Rho_old,Udt
       
       large_size = get_large_size(w90%num_wann)
@@ -377,9 +377,12 @@ contains
       call field((tstp + c2)*dt,AF_2,EF_2)
 
       do ik=1,Nk
+         kpt = kpts(ik,:)
          Rho_old = Rhok(:,:,ik)
-         H1 = Wann_GetHk_dip(w90,AF_1,EF_1,kpts(ik,:),reducedA=.false.,Peierls_only=peierls_)
-         H2 = Wann_GetHk_dip(w90,AF_2,EF_2,kpts(ik,:),reducedA=.false.,Peierls_only=peierls_)
+         ! H1 = Wann_GetHk_dip(w90,AF_1,EF_1,kpts(ik,:),reducedA=.false.,Peierls_only=peierls_)
+         ! H2 = Wann_GetHk_dip(w90,AF_2,EF_2,kpts(ik,:),reducedA=.false.,Peierls_only=peierls_)
+         H1 = w90%get_ham_Peierls_Dipole(kpt,AF_1,EF_1,Peierls_only=peierls_)
+         H2 = w90%get_ham_Peierls_Dipole(kpt,AF_2,EF_2,Peierls_only=peierls_)
          call GenU_CF4(dt,H1,H2,Udt)
          call UnitaryStepFBW(w90%num_wann,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
       end do

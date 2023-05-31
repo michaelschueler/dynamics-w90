@@ -404,8 +404,10 @@ contains
       commutator_ = .true.
       if(present(commutator)) commutator_ = commutator
 
-      Hkt = Wann_GetHk_dip(w90,AF,EF,kpt,reducedA=.false.,&
-         Peierls_only=empirical)
+      ! Hkt = Wann_GetHk_dip(w90,AF,EF,kpt,reducedA=.false.,&
+      !    Peierls_only=empirical)
+
+      Hkt = w90%get_ham_Peierls_Dipole(kpt,AF,EF,Peierls_only=empirical)
 
       dydt = GetDeriv(nst,beta,mu,gm,Hkt,yt,commutator=commutator_)
 
