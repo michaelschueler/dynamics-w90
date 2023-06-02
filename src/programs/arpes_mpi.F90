@@ -17,7 +17,7 @@ program arpes_mpi
    use scitools_def,only: dp,zero
    use scitools_time,only: Timer_act, Timer_Tic, Timer_Toc, PrintTime
    use scitools_utils,only: print_title, print_header
-   use wan_latt_kpts,only: Read_Kpoints
+   use wan_latt_kpts,only: Read_Kpoints,kpoints_t
    use Marpes_calc_mpi,only: arpes_calc_t
    use io_params,only: HamiltonianParams_t, PESParams_t
    implicit none
@@ -30,7 +30,7 @@ program arpes_mpi
    integer :: Narg,unit_inp
    character(len=255) :: FlIn,FlOutPref
    ! -- internal variables --
-   real(dp),allocatable,dimension(:,:) :: kpts
+   type(kpoints_t)                     :: kp
    type(arpes_calc_t)                  :: calc
    type(HamiltonianParams_t)           :: par_ham
    type(PESParams_t)                   :: par_pes
@@ -58,7 +58,7 @@ program arpes_mpi
       call get_command_argument(1,FlIn)
       call par_ham%ReadFromFile(FlIn)
       call par_pes%ReadFromFile(FlIn)
-      call Read_Kpoints(FlIn,kpts,print_info=.true.,root_tag=on_root)
+      call Read_Kpoints(FlIn,kp,print_info=.true.,root_tag=on_root)
    else
       if(on_root) write(error_unit,fmt900) 'Please provide a namelist input file.'
       call MPI_Finalize(ierr); stop
@@ -72,7 +72,7 @@ program arpes_mpi
       if(on_root) write(output_unit,fmt_info) 'No output prefix given. No output will be produced.'
    end if
 
-   call calc%Init(par_ham,par_pes,kpts)
+   call calc%Init(par_ham,par_pes,kp)
 
    toc = MPI_Wtime()
    if(on_root) then

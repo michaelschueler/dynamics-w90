@@ -6,7 +6,7 @@ set(OBJECT_FILES
     wan_rungekutta.F90
     wan_read_xyz.F90
     wan_hamiltonian.F90
-    wan_latt_utils.f90
+    wan_utils.f90
     wan_latt_kpts.F90
     wan_compress.F90
     wan_equilibrium.F90
@@ -14,6 +14,7 @@ set(OBJECT_FILES
     wan_slab.F90
     wan_soc.F90
     wan_orbitals.F90
+    wan_prop_hybrid.F90
 )
 
 # ~~ Installation targets ~~
@@ -31,7 +32,7 @@ if(wannier_lib)
     set(LIB_FILES
         wan_read_xyz.F90
         wan_hamiltonian.F90
-        wan_latt_utils.f90    
+        wan_utils.f90    
     )
     add_library(hamw90 SHARED ${LIB_FILES})
     target_link_libraries(hamw90 basic scitools ${COMMON_LIBS})

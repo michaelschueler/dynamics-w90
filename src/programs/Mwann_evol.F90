@@ -5,6 +5,7 @@ module Mwann_evol
    use scitools_def,only: dp,iu,one,zero,nfermi
    use scitools_utils,only: stop_error
    use scitools_linalg,only: get_large_size,util_matmul,util_rotate,util_rotate_cc
+   use wan_latt_kpts,only: kpoints_t
    use wan_hamiltonian,only: wann90_tb_t
    use wan_equilibrium,only: GetChemicalPotential, Wann_GenRhok_eq
    use wan_rungekutta,only: Init_RungeKutta
@@ -18,7 +19,7 @@ module Mwann_evol
 !--------------------------------------------------------------------------------------
    logical :: large_size
    integer,parameter :: velocity_gauge=0,dipole_gauge=1,velo_emp_gauge=2,dip_emp_gauge=3
-   integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2
+   integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2, prop_hybrid=3
 !--------------------------------------------------------------------------------------
    private
    public :: wann_evol_t
@@ -29,6 +30,7 @@ module Mwann_evol
       integer  :: propagator=prop_unitary
       integer  :: Nk,nbnd
       real(dp) :: Beta,MuChem,nelec
+      real(dp) :: T1,T2
       complex(dp),allocatable,dimension(:,:,:)  :: Hk,Udt,wan_rot
       complex(dp),allocatable,dimension(:,:,:,:) :: grad_Hk,Dk,velok
       ! .. kpoints ..
@@ -61,25 +63,30 @@ module Mwann_evol
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,Beta,MuChem,ham,kpts,gauge,spin_current,propagator)
-      class(wann_evol_t)           :: me
-      real(dp),intent(in)          :: Beta
-      real(dp),intent(in)          :: MuChem
-      type(wann90_tb_t),intent(in) :: ham
-      real(dp),target,intent(in)   :: kpts(:,:)
-      integer,intent(in)           :: gauge
-      logical,intent(in),optional  :: spin_current
-      integer,intent(in),optional  :: propagator
+   subroutine Init(me,Beta,MuChem,ham,kp,gauge,T1,T2,spin_current,propagator)
+      class(wann_evol_t)                :: me
+      real(dp),intent(in)               :: Beta
+      real(dp),intent(in)               :: MuChem
+      type(wann90_tb_t),intent(in)      :: ham
+      type(kpoints_t),target,intent(in) :: kp
+      integer,intent(in)                :: gauge
+      real(dp),intent(in),optional      :: T1
+      real(dp),intent(in),optional      :: T2
+      logical,intent(in),optional       :: spin_current
+      integer,intent(in),optional       :: propagator
 
       me%gauge = gauge
-      me%Nk = size(kpts,dim=1)
-      me%kcoord => kpts
+      me%Nk = kp%nk
+      me%kcoord => kp%kpts
 
       call me%Ham%Set(Ham)
 
       me%nbnd = me%ham%num_wann
       me%Beta = Beta
       me%MuChem = MuChem
+      me%T1 = 1.0e10_dp; me%T2 = 1.0e10_dp
+      if(present(T1)) me%T1 = T1
+      if(present(T2)) me%T2 = T2
 
       allocate(me%Rhok(me%nbnd,me%nbnd,me%Nk))
 
@@ -174,9 +181,8 @@ contains
 
    end subroutine SolveEquilibrium
 !--------------------------------------------------------------------------------------
-   subroutine Timestep_RelaxTime(me,T1,T2,tstp,dt)
+   subroutine Timestep_RelaxTime(me,tstp,dt)
       class(wann_evol_t)        :: me
-      real(dp),intent(in)       :: T1,T2
       integer,intent(in)        :: tstp
       real(dp),intent(in)       :: dt
 
@@ -184,14 +190,14 @@ contains
       case(dipole_gauge)
          ! call Wann_timestep_RelaxTime(me%ham,me%Nk,me%kcoord,tstp,dt,field,T1,T2,&
             ! me%Rhok_Eq,me%Rhok)
-         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk,me%kcoord,tstp,dt,field,T1,T2,&
+         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk,me%kcoord,tstp,dt,field,me%T1,me%T2,&
             me%Beta,me%MuChem,me%Rhok,method=me%propagator)
       case(dip_emp_gauge)
-         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk,me%kcoord,tstp,dt,field,T1,T2,&
+         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk,me%kcoord,tstp,dt,field,me%T1,me%T2,&
             me%Beta,me%MuChem,me%Rhok,empirical=.true.,method=me%propagator)        
       case(velocity_gauge,velo_emp_gauge)
-         call Wann_timestep_RelaxTime_velo_calc(me%nbnd,me%Nk,me%Hk,me%velok,tstp,dt,field,T1,T2,&
-            me%Beta,me%MuChem,me%Rhok,method=me%propagator)
+         call Wann_timestep_RelaxTime_velo_calc(me%nbnd,me%Nk,me%Hk,me%velok,tstp,dt,field,&
+            me%T1,me%T2,me%Beta,me%MuChem,me%Rhok,method=me%propagator)
       end select
 
    end subroutine Timestep_RelaxTime

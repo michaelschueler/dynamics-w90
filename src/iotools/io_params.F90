@@ -13,7 +13,7 @@ module io_params
    integer,parameter :: field_mode_positions=0,field_mode_dipole=1,field_mode_berry=2
    integer,parameter :: gauge_len=0, gauge_mom=1
    integer,parameter :: wf_pw=0, wf_coul=1
-   integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2
+   integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2, prop_hybrid=3
 !--------------------------------------------------------------------------------------
    type :: WannierCalcParams_t
    !! Options and parameters for the Wannier calculation performed by [[wann_calc]]
@@ -187,7 +187,7 @@ contains
       character(len=*),intent(in)  :: fname
       integer :: unit_inp
       character(len=256) :: file_field="" 
-      integer  :: propagator 
+      integer  :: propagator=0
       integer  :: Nt=100 
       integer  :: output_step=1 
       real(dp) :: Tmax=1.0_dp 

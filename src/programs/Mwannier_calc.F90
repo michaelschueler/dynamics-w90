@@ -6,6 +6,7 @@ module Mwannier_calc
    use scitools_utils,only: str, linspace
    use scitools_linalg,only: EigH
    use scitools_laserpulse,only: scalarfunc_spline_t
+   use wan_latt_kpts,only: kpoints_t
    use wan_hamiltonian,only: wann90_tb_t
    use wan_compress,only: PruneHoppings
    use wan_slab,only: Wannier_BulkToSlab
@@ -46,11 +47,11 @@ module Mwannier_calc
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,par_ham,par_calc,kpts)
+   subroutine Init(me,par_ham,par_calc,kp)
       class(wannier_calc_t) :: me
       type(HamiltonianParams_t),intent(in) :: par_ham !! Hamiltonian input parameters
       type(WannierCalcParams_t),intent(in) :: par_calc !! Wannier calculation input parameters
-      real(dp),intent(in)                  :: kpts(:,:)
+      type(kpoints_t),intent(in)           :: kp
       !......................................
       integer :: ik,norbs_excl
       real(dp) :: comp_rate
@@ -109,8 +110,8 @@ contains
       end if
       me%nbnd = me%ham%num_wann
 
-      allocate(me%kpts(size(kpts,1), size(kpts,2)))
-      me%kpts = kpts
+      allocate(me%kpts(size(kp%kpts,1), size(kp%kpts,2)))
+      me%kpts = kp%kpts
 
       me%Nk = size(me%kpts,1)
       allocate(me%epsk(me%nbnd,me%Nk),me%vectk(me%nbnd,me%nbnd,me%Nk))

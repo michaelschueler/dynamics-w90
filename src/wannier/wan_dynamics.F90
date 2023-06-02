@@ -6,8 +6,9 @@ module wan_dynamics
    use scitools_evol,only: GenU_CF2,GenU_CF4,UnitaryStepFBW
    use scitools_rungekutta,only: ODE_step_rk5
    use wan_hamiltonian,only: wann90_tb_t
-   use wan_rungekutta,only: Init_RungeKutta, Clean_RungeKutta, RK5_TimeStep_Dip_k, &
-      RK5_TimeStep_velo_k, RK4_TimeStep_Dip_k, RK4_TimeStep_velo_k
+   use wan_rungekutta,only: RK5_TimeStep_Dip_k, RK5_TimeStep_velo_k, &
+      RK4_TimeStep_Dip_k, RK4_TimeStep_velo_k
+   use wan_prop_hybrid,only: hybrid_propagator_t
    implicit none
 !--------------------------------------------------------------------------------------
    private
@@ -141,6 +142,7 @@ contains
       integer :: method_
       integer :: ik
       real(dp) :: kpt(3)
+      type(hybrid_propagator_t) :: hybrid
    
       empirical_ = .false.
       if(present(empirical)) empirical_ = empirical
@@ -160,7 +162,15 @@ contains
             kpt = kpts(ik,:)
             call RK5_TimeStep_Dip_k(w90,kpt,tstp,dt,field,T1,T2,beta,mu,Rhok(:,:,ik),&
                empirical=empirical_)
-         end do
+         end do     
+      case(3)
+         call hybrid%Init(w90%num_wann,Beta,Mu,T1,T2)
+         call hybrid%Prepare_Timestep(tstp,dt,field,w90=w90)
+         do ik=1,Nk
+            kpt = kpts(ik,:)
+            call hybrid%TimeStep_dip(w90,kpt,tstp,dt,Rhok(:,:,ik),empirical=empirical_)
+         end do             
+         call hybrid%Clean()
       end select
    
    end subroutine Wann_timestep_RelaxTime_dip
@@ -188,6 +198,7 @@ contains
       logical :: empirical_
       integer :: method_
       integer :: ik
+      type(hybrid_propagator_t) :: hybrid
 
       method_ = 2
       if(present(method)) method_ = method
@@ -204,7 +215,14 @@ contains
       case(2)
          do ik=1,Nk
             call RK5_TimeStep_velo_k(ik,tstp,dt,field,T1,T2,beta,mu,Hk,vk,Rhok(:,:,ik))
-         end do
+         end do        
+      case(3)
+         call hybrid%Init(nbnd,Beta,Mu,T1,T2)
+         call hybrid%Prepare_Timestep(tstp,dt,field)
+         do ik=1,Nk
+            call hybrid%TimeStep_velo(ik,tstp,dt,Hk,vk,Rhok(:,:,ik))
+         end do             
+         call hybrid%Clean()
       end select
 
    end subroutine Wann_timestep_RelaxTime_velo_calc

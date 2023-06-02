@@ -3,7 +3,7 @@ module wan_slab
 !======================================================================================
    use Mdebug
    use scitools_def,only: dp,zero
-   use wan_latt_utils,only: utility_recip_lattice, utility_recip_reduced
+   use wan_utils,only: utility_recip_lattice, utility_recip_reduced
    use wan_hamiltonian,only: wann90_tb_t
    implicit none
    include "../formats.h"

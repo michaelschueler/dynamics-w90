@@ -7,6 +7,8 @@ module Mwann_evol_mpi
    use scitools_utils,only: stop_error
    use scitools_linalg,only: get_large_size,util_matmul,util_rotate,util_rotate_cc
    use scitools_array1d_dist,only: dist_array1d_t,GetDisplSize1D
+   use wan_utils,only: Batch_Diagonalize_t
+   use wan_latt_kpts,only: kpoints_t
    use wan_hamiltonian,only: wann90_tb_t
    use wan_equilibrium,only: GetChemicalPotential_mpi, Wann_GenRhok_eq
    use wan_rungekutta,only: Init_RungeKutta
@@ -25,7 +27,7 @@ module Mwann_evol_mpi
    type(dist_array1d_t),private :: kdist
 !--------------------------------------------------------------------------------------
    integer,parameter :: velocity_gauge=0,dipole_gauge=1,velo_emp_gauge=2,dip_emp_gauge=3
-   integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2
+   integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2, prop_hybrid=3
    logical :: large_size
 !--------------------------------------------------------------------------------------
    private
@@ -37,6 +39,7 @@ module Mwann_evol_mpi
       integer  :: propagator=prop_unitary
       integer  :: Nk,Nk_loc,nbnd
       real(dp) :: Beta,MuChem,nelec
+      real(dp) :: T1,T2
       real(dp),allocatable :: kcoord_loc(:,:)
       complex(dp),allocatable,dimension(:,:,:)  :: Hk,Udt,wan_rot
       complex(dp),allocatable,dimension(:,:,:,:) :: grad_Hk,Dk,velok
@@ -68,13 +71,15 @@ module Mwann_evol_mpi
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,Beta,MuChem,ham,kpts,gauge,spin_current,propagator)
+   subroutine Init(me,Beta,MuChem,ham,kp,gauge,T1,T2,spin_current,propagator)
       class(wann_evol_t)           :: me
       real(dp),intent(in)          :: Beta
       real(dp),intent(in)          :: MuChem
       type(wann90_tb_t),intent(in) :: ham
-      real(dp),intent(in)          :: kpts(:,:)
+      type(kpoints_t),intent(in)   :: kp
       integer,intent(in)           :: gauge
+      real(dp),intent(in),optional :: T1
+      real(dp),intent(in),optional :: T2
       logical,intent(in),optional  :: spin_current
       integer,intent(in),optional  :: propagator
       integer :: ik,ik_glob
@@ -85,7 +90,7 @@ contains
 
       me%gauge = gauge
 
-      me%Nk = size(kpts,dim=1)
+      me%Nk = size(kp%kpts,dim=1)
 
       call me%Ham%Set(Ham)
 
@@ -98,11 +103,14 @@ contains
       allocate(me%kcoord_loc(me%Nk_loc,3))
       do ik=1,me%Nk_loc
          ik_glob = kdist%Indx_Loc2Glob(taskid,ik)
-         me%kcoord_loc(ik,1:3) = kpts(ik_glob,1:3)
+         me%kcoord_loc(ik,1:3) = kp%kpts(ik_glob,1:3)
       end do
 
       me%Beta = Beta
       me%MuChem = MuChem
+      me%T1 = 1.0e10_dp; me%T2 = 1.0e10_dp
+      if(present(T1)) me%T1 = T1
+      if(present(T2)) me%T2 = T2
 
       allocate(me%Rhok(me%nbnd,me%nbnd,me%Nk_loc))
 
@@ -143,6 +151,7 @@ contains
       integer :: ik,j
       real(dp) :: nel_loc
       real(dp) :: kpt(3)
+      type(Batch_Diagonalize_t) :: batch_diag
       real(dp),allocatable :: Ek(:,:)
       complex(dp),allocatable :: Hk(:,:,:)
 
@@ -152,10 +161,11 @@ contains
       allocate(me%wan_rot(me%nbnd,me%nbnd,me%Nk_loc))
       allocate(me%Rhok_eq(me%nbnd,me%nbnd,me%Nk_loc))
 
+      call batch_diag%Init(me%nbnd)
+
       call Wann_GenHk(me%ham,me%Nk_loc,me%kcoord_loc,Hk)
       do ik=1,me%Nk_loc
-         call EigH(Hk(:,:,ik),Ek(:,ik),me%wan_rot(:,:,ik))
-         Ek(:,ik) = me%ham%get_eig(me%kcoord_loc(ik,:))
+         call batch_diag%Diagonalize(Hk(:,:,ik),epsk=Ek(:,ik),vectk=me%wan_rot(:,:,ik))
       end do
 
       if(calc_mu) then
@@ -196,23 +206,24 @@ contains
 
       deallocate(Ek,Hk)
 
+      call batch_diag%Clean()
+
    end subroutine SolveEquilibrium
 !--------------------------------------------------------------------------------------
-   subroutine Timestep_RelaxTime(me,T1,T2,tstp,dt)
+   subroutine Timestep_RelaxTime(me,tstp,dt)
       class(wann_evol_t)        :: me
-      real(dp),intent(in)       :: T1,T2
       integer,intent(in)        :: tstp
       real(dp),intent(in)       :: dt
 
       select case(me%gauge)
       case(dipole_gauge)
-         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,field,T1,T2,&
+         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,field,me%T1,me%T2,&
             me%Beta,me%MuChem,me%Rhok,method=me%propagator)
       case(dip_emp_gauge)
-         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,field,T1,T2,&
+         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,field,me%T1,me%T2,&
             me%Beta,me%MuChem,me%Rhok,empirical=.true.,method=me%propagator)        
       case(velocity_gauge,velo_emp_gauge)
-         call Wann_timestep_RelaxTime_velo_calc(me%nbnd,me%Nk_loc,me%Hk,me%velok,tstp,dt,field,T1,T2,&
+         call Wann_timestep_RelaxTime_velo_calc(me%nbnd,me%Nk_loc,me%Hk,me%velok,tstp,dt,field,me%T1,me%T2,&
             me%Beta,me%MuChem,me%Rhok,method=me%propagator)
       end select
 

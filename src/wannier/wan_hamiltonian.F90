@@ -6,7 +6,8 @@ module wan_hamiltonian
    use Mdebug
    use scitools_def,only: dp,iu,zero,one
    use scitools_linalg,only: get_large_size,util_zgemm,util_matmul,util_rotate,util_rotate_cc
-   use wan_latt_utils,only: utility_recip_lattice, utility_recip_reduced
+   use wan_utils,only: utility_recip_lattice, utility_recip_reduced, utility_diagonalize, &
+      utility_rotate_diag, utility_matmul_diag
    use wan_read_xyz,only: ReadXYZ
    implicit none
    include '../units_inc.f90'
@@ -1385,85 +1386,6 @@ contains
       close(file_unit)
 
    end subroutine SaveToW90
-!--------------------------------------------------------------------------------------
-   subroutine utility_diagonalize(mat, dim, eig, rot)
-      !============================================================!
-      !                                                            !
-      !! Diagonalize the dim x dim  hermitian matrix 'mat' and
-      !! return the eigenvalues 'eig' and the unitary rotation 'rot'
-      !                                                            !
-      !============================================================!
-      use,intrinsic::iso_fortran_env,only: output_unit, error_unit
-
-      integer, intent(in)           :: dim
-      complex(kind=dp), intent(in)  :: mat(dim, dim)
-      real(kind=dp), intent(out)    :: eig(dim)
-      complex(kind=dp), intent(out) :: rot(dim, dim)
-
-      complex(kind=dp)   :: mat_pack((dim*(dim + 1))/2), cwork(2*dim)
-      real(kind=dp)      :: rwork(7*dim)
-      integer            :: i, j, info, nfound, iwork(5*dim), ifail(dim)
-
-      do j = 1, dim
-         do i = 1, j
-            mat_pack(i + ((j - 1)*j)/2) = mat(i, j)
-         end do
-      end do
-      rot = zero; eig = 0.0_dp; cwork = zero; rwork = 0.0_dp; iwork = 0
-      call ZHPEVX('V', 'A', 'U', dim, mat_pack, 0.0_dp, 0.0_dp, 0, 0, -1.0_dp, &
-         nfound, eig(1), rot, dim, cwork, rwork, iwork, ifail, info)
-      if (info < 0) then
-         write (output_unit, '(a,i3,a)') 'THE ', -info, &
-         ' ARGUMENT OF ZHPEVX HAD AN ILLEGAL VALUE'
-         write(error_unit,*) 'Error in utility_diagonalize'
-      end if
-      if (info > 0) then
-         write (output_unit, '(i3,a)') info, ' EIGENVECTORS FAILED TO CONVERGE'
-         write(error_unit,*) 'Error in utility_diagonalize'
-      end if
-
-  end subroutine utility_diagonalize
-!--------------------------------------------------------------------------------------
-   function utility_rotate_diag(mat, rot, dim)
-      !===========================================================!
-      !                                                           !
-      !! Rotates the dim x dim matrix 'mat' according to
-      !! (rot)^dagger.mat.rot, where 'rot' is a unitary matrix.
-      !! Computes only the diagonal elements of rotated matrix.
-      !                                                           !
-      !===========================================================!
-      integer          :: dim
-      complex(kind=dp) :: utility_rotate_diag(dim)
-      complex(kind=dp) :: mat(dim, dim)
-      complex(kind=dp) :: rot(dim, dim)
-      complex(kind=dp) :: tmp(dim, dim)
-
-      call util_zgemm(rot, mat, tmp, transa_opt='C')
-      utility_rotate_diag = utility_matmul_diag(tmp, rot, dim)
-
-   end function utility_rotate_diag
-!--------------------------------------------------------------------------------------
-   function utility_matmul_diag(mat1, mat2, dim)
-      !===========================================================!
-      !                                                           !
-      !! Computes the diagonal elements of the matrix mat1.mat2
-      !                                                           !
-      !===========================================================!
-      integer          :: dim
-      complex(kind=dp) :: utility_matmul_diag(dim)
-      complex(kind=dp) :: mat1(dim, dim)
-      complex(kind=dp) :: mat2(dim, dim)
-
-      integer i, j
-
-      utility_matmul_diag = zero
-      do i = 1, dim
-         do j = 1, dim
-            utility_matmul_diag(i) = utility_matmul_diag(i) + mat1(i, j)*mat2(j, i)
-         end do
-      end do
-
-   end function utility_matmul_diag
 !--------------------------------------------------------------------------------------
    subroutine wham_get_D_h(num_wann, delHH, UU, eig, D_h, degen_thr, anti_herm)
       !=========================================!

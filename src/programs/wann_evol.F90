@@ -95,7 +95,7 @@ program wann_evol
       stop_error
    use scitools_laserpulse,only: Laserpulse_3D_t
    use wan_hamiltonian,only: wann90_tb_t
-   use wan_latt_kpts,only: Read_Kpoints
+   use wan_latt_kpts,only: Read_Kpoints,kpoints_t
    use io_params,only: HamiltonianParams_t, TimeParams_t
    use io_hamiltonian,only: ReadHamiltonian
    use io_obs,only: SaveTDObs, SaveTDOccupation, SaveSpinCurrent
@@ -107,7 +107,7 @@ program wann_evol
    character(len=*),parameter :: fmt_info='(" Info: ",a)'
    character(len=*),parameter :: fmt_input='(" Input: [",a,"]")'
    integer,parameter :: velocity_gauge=0,dipole_gauge=1,velo_emp_gauge=2,dip_emp_gauge=3
-   integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2
+   integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2, prop_hybrid=3
    ! -- for reading i/o --
    logical :: PrintToFile = .false.
    integer :: Narg,unit_inp
@@ -127,6 +127,7 @@ program wann_evol
    real(dp),allocatable,dimension(:,:)   :: Jpara,Jdia,JHk,Jpol,Jintra
    real(dp),allocatable,dimension(:,:,:) :: Occk,Jspin
    type(Laserpulse_3D_t)     :: pulse
+   type(kpoints_t)           :: kp
    type(wann90_tb_t)         :: Ham
    type(wann_evol_t)         :: lattsys
    ! -- parallelization --
@@ -176,7 +177,7 @@ program wann_evol
    write(output_unit,fmt_input) 'Hamiltionian from file: '//trim(par_ham%file_ham)
    call ReadHamiltonian(par_ham%file_ham,Ham)
 
-   call Read_Kpoints(FlIn,kpts,print_info=.true.)
+   call Read_Kpoints(FlIn,kp,print_info=.true.)
 
    ApplyField = len_trim(par_time%file_field) > 0
    if(ApplyField) then
@@ -196,8 +197,8 @@ program wann_evol
    call print_header(output_unit,"Equilibrium","*")
    call Timer_Tic('equilibrium', 2)
 
-   call lattsys%Init(par_ham%Beta,par_ham%MuChem,ham,kpts,par_ham%lm_gauge,&
-      propagator=par_time%propagator)
+   call lattsys%Init(par_ham%Beta,par_ham%MuChem,ham,kp,par_ham%lm_gauge,&
+      T1=par_time%T1_relax,T2=par_time%T2_relax,propagator=par_time%propagator)
    call lattsys%SetLaserPulse(external_field)
 
    if(par_ham%FixMuChem) then
@@ -272,12 +273,11 @@ program wann_evol
 
    step = 0
    do tstp=0,par_time%Nt-1
-      select case(par_time%propagator)
-      case(prop_unitary)
+      if(par_time%propagator == prop_unitary) then
          call lattsys%Timestep(tstp,dt,field_tmax=pulse_tmax)
-      case(prop_rk4, prop_rk5)
-         call lattsys%Timestep_RelaxTime(par_time%T1_relax,par_time%T2_relax,tstp,dt)
-      end select
+      else
+         call lattsys%Timestep_RelaxTime(tstp,dt)
+      end if
 
       if(mod(tstp+1, par_time%output_step) == 0) then
          step = step + 1

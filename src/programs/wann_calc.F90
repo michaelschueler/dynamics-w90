@@ -7,7 +7,7 @@ program wann_calc
    use scitools_def,only: dp,zero
    use scitools_time,only: Timer_act, Timer_Tic, Timer_Toc
    use scitools_utils,only: print_title, print_header
-   use wan_latt_kpts,only: Read_Kpoints
+   use wan_latt_kpts,only: Read_Kpoints,kpoints_t
    use Mwannier_calc,only: wannier_calc_t
    use io_params,only: HamiltonianParams_t, WannierCalcParams_t
    use io_obs,only: WannierCalcOutput_t
@@ -22,10 +22,10 @@ program wann_calc
    integer :: Narg,unit_inp
    character(len=255) :: FlIn,FlOutPref
    ! -- internal variables --
-   real(dp),allocatable,dimension(:,:)        :: kpts
    real(dp),allocatable,dimension(:,:,:)      :: orb_weight,spin,berry,oam
    real(dp),allocatable,dimension(:,:,:,:)    :: metric,spin_berry
    complex(dp),allocatable,dimension(:,:,:,:) :: velok
+   type(kpoints_t)                            :: kp
    type(wannier_calc_t)                       :: wann
    type(HamiltonianParams_t)                  :: par_ham
    type(WannierCalcParams_t)                  :: par_calc
@@ -43,7 +43,7 @@ program wann_calc
       call get_command_argument(1,FlIn)
       call par_ham%ReadFromFile(FlIn)
       call par_calc%ReadFromFile(FlIn)
-      call Read_Kpoints(FlIn,kpts,print_info=.true.)
+      call Read_Kpoints(FlIn,kp,print_info=.true.)
    else
       write(error_unit,fmt900) 'Please provide a namelist input file.'
       stop
@@ -57,10 +57,10 @@ program wann_calc
       write(output_unit,fmt_info) 'No output prefix given. No output will be produced.'
    end if
 
-   call wann%Init(par_ham,par_calc,kpts)
+   call wann%Init(par_ham,par_calc,kp)
  
    call output%AddEpsk(wann%epsk)
-   if(par_calc%write_kpts) call output%AddKpts(kpts)
+   if(par_calc%write_kpts) call output%AddKpts(kp%kpts)
    if(par_calc%calc_evecs) call output%AddEvecs(wann%vectk)
 
    write(output_unit,*)

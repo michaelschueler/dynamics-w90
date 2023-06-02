@@ -6,7 +6,8 @@ module Marpes_calc_mpi
    use scitools_def,only: dp,iu,zero
    use scitools_utils,only: str, linspace, savetxt
    use scitools_vector_bsplines,only: cplx_matrix_spline_t
-   use scitools_array1d_dist,only: dist_array1d_t,GetDisplSize1D                 
+   use scitools_array1d_dist,only: dist_array1d_t,GetDisplSize1D        
+   use wan_latt_kpts,only: kpoints_t         
    use wan_hamiltonian,only: wann90_tb_t
    use wan_compress,only: PruneHoppings
    use wan_slab,only: Wannier_BulkToSlab
@@ -80,11 +81,11 @@ contains
 
    end subroutine WannOrb_to_RadialWF
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,par_ham,par_pes,kpts)
+   subroutine Init(me,par_ham,par_pes,kp)
       class(arpes_calc_t) :: me
       type(HamiltonianParams_t),intent(in) :: par_ham
       type(PESParams_t),intent(in)         :: par_pes
-      real(dp),intent(in)                  :: kpts(:,:)
+      type(kpoints_t),intent(in)           :: kp
       integer :: ik,ik_glob,iorb,ilay
       real(dp) :: comp_rate
       real(dp) :: kvec(3),kred(3)
@@ -158,15 +159,15 @@ contains
          call me%chis(iorb)%Init(par_pes%scatt_type,me%orbs%Zscatt(iorb))
       end do
 
-      me%Nk = size(kpts, dim=1)
+      me%Nk = kp%Nk
       allocate(me%kpts(me%Nk,2))
       if(par_pes%kpts_reduced) then
          do ik=1,me%Nk
-            me%kpts(ik,1:2) = me%ham%recip_lattice(1,1:2) * kpts(ik,1) + &
-               me%ham%recip_lattice(2,1:2) * kpts(ik,2) 
+            me%kpts(ik,1:2) = me%ham%recip_lattice(1,1:2) * kp%kpts(ik,1) + &
+               me%ham%recip_lattice(2,1:2) * kp%kpts(ik,2) 
          end do
       else
-         me%kpts(1:me%Nk,1:2) = kpts(1:me%Nk,1:2)
+         me%kpts(1:me%Nk,1:2) = kp%kpts(1:me%Nk,1:2)
       end if
 
       call kdist%Init(ntasks,taskid,me%Nk)
