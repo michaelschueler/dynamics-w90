@@ -116,7 +116,7 @@ contains
       logical :: empirical_
       integer :: i,icomm
       real(dp) :: kA(3)
-      complex(dp) :: zh
+      complex(dp) :: zh,mzh
 
       empirical_ = .false.
       if(present(empirical)) empirical_ = empirical
@@ -149,15 +149,23 @@ contains
       me%Ckt(:,:,1) = -iu * dt * me%Dscatt
       do icomm=1,me%comm_order - 1
          zh = iu * dt / (icomm + 1.0_dp)
-         call util_matmul(me%Hkt, me%Ckt(:,:,icomm), me%Ckt(:,:,icomm+1), alpha=zh, &
-            large_size=me%large_size)
-         call util_matmul(me%Ckt(:,:,icomm), me%Hkt, me%Ckt(:,:,icomm+1), alpha=-zh, beta=one, &
-            large_size=me%large_size)
+         mzh = -zh
+         ! me%Ckt(:,:,icomm+1) = zh * (matmul(me%Hkt, me%Ckt(:,:,icomm)) - matmul(me%Ckt(:,:,icomm), me%Hkt))
+
+         call ZGEMM('N','N',me%nbnd,me%nbnd,me%nbnd,zh,me%Hkt(1,1),me%nbnd,me%Ckt(1,1,icomm),&
+            me%nbnd,zero,me%Ckt(1,1,icomm+1),me%nbnd)
+         call ZGEMM('N','N',me%nbnd,me%nbnd,me%nbnd,mzh,me%Ckt(1,1,icomm),me%nbnd,me%Hkt(1,1),&
+            me%nbnd,one,me%Ckt(1,1,icomm+1),me%nbnd)        
+
+         ! call util_matmul(me%Hkt, me%Ckt(:,:,icomm), me%Ckt(:,:,icomm+1), alpha=zh, &
+         !    large_size=me%large_size)
+         ! call util_matmul(me%Ckt(:,:,icomm), me%Hkt, me%Ckt(:,:,icomm+1), alpha=-zh, beta=one, &
+         !    large_size=me%large_size)
       end do
 
       me%Rho_tmp = Rhok
       do icomm=1,me%comm_order
-         me%Rho_tmp = me%Rho_tmp + me%Ckt(:,:,icomm)
+         me%Rho_tmp = me%Rho_tmp + iu * me%Ckt(:,:,icomm)
       end do
 
       call UnitaryStepFBW(me%nbnd,me%Udt,me%Rho_tmp,Rhok,large_size=me%large_size)

@@ -18,7 +18,7 @@ module wan_hamiltonian
 !--------------------------------------------------------------------------------------
    integer,parameter :: field_mode_positions=0,field_mode_dipole=1,field_mode_berry=2
 
-   integer,parameter :: blocksize=8
+   integer,parameter :: blocksize=32
 !--------------------------------------------------------------------------------------
    type :: wann90_tb_t
       !! Wannier Hamiltonian class. Reads/writes the Wannier Hamiltonian from/to file,
