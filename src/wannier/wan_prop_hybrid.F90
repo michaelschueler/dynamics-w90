@@ -148,7 +148,7 @@ contains
       me%Ckt = zero
       me%Ckt(:,:,1) = -iu * dt * me%Dscatt
       do icomm=1,me%comm_order - 1
-         zh = iu * dt / (me%comm_order + 1.0_dp)
+         zh = iu * dt / (icomm + 1.0_dp)
          call util_matmul(me%Hkt, me%Ckt(:,:,icomm), me%Ckt(:,:,icomm+1), alpha=zh, &
             large_size=me%large_size)
          call util_matmul(me%Ckt(:,:,icomm), me%Hkt, me%Ckt(:,:,icomm+1), alpha=-zh, beta=one, &
