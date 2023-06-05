@@ -4,10 +4,13 @@ module Mwannier_calc
    use Mdebug
    use scitools_def,only: dp,iu,zero,gauss
    use scitools_utils,only: str, linspace
-   use scitools_linalg,only: EigH
    use scitools_laserpulse,only: scalarfunc_spline_t
+   use wan_utils,only: Batch_Diagonalize_t
    use wan_latt_kpts,only: kpoints_t
    use wan_hamiltonian,only: wann90_tb_t
+#ifdef WITHFFTW
+   use wan_fft_ham,only: wann_fft_t
+#endif
    use wan_compress,only: PruneHoppings
    use wan_slab,only: Wannier_BulkToSlab
    use io_params,only: WannierCalcParams_t, HamiltonianParams_t
@@ -27,7 +30,10 @@ module Mwannier_calc
       real(dp),allocatable,dimension(:,:) :: kpts,epsk
       complex(dp),allocatable,dimension(:,:,:) :: vectk
       type(wann90_tb_t) :: ham
-   contains
+#ifdef WITHFFTW
+      type(wann_fft_t)  :: ham_fft
+#endif
+    contains
       procedure,public  :: Init
       procedure,public  :: GetOrbitalWeight
       procedure,public  :: GetSpin
@@ -42,6 +48,7 @@ module Mwannier_calc
    integer,parameter :: velocity_gauge=0,dipole_gauge=1
    character(len=*),parameter :: fmt_info='(" Info: ",a)'
    integer,parameter :: field_mode_positions=0,field_mode_dipole=1,field_mode_berry=2
+   integer,parameter :: kp_list=0, kp_path=1, kp_grid=2, kp_fft_grid_2d=3, kp_fft_grid_3d=4
 
    type(scalarfunc_spline_t) :: elpot
 !--------------------------------------------------------------------------------------
@@ -57,7 +64,10 @@ contains
       real(dp) :: comp_rate
       complex(dp),allocatable :: Hk(:,:)
       type(wann90_tb_t) :: ham_tmp
+      type(Batch_Diagonalize_t) :: batch_diag
       !......................................
+      complex(dp),allocatable  :: Hk_fft(:,:,:)
+
 
       call ReadHamiltonian(par_ham%file_ham,ham_tmp,file_xyz=par_ham%file_xyz)
       if(par_ham%energy_thresh > 0.0_dp) then
@@ -110,11 +120,36 @@ contains
       end if
       me%nbnd = me%ham%num_wann
 
+
       allocate(me%kpts(size(kp%kpts,1), size(kp%kpts,2)))
       me%kpts = kp%kpts
 
+#ifdef WITHFFTW
+      if(kp%kpoints_type == kp_fft_grid_2d) then
+         write(output_unit,fmt_info) "Fourier transform: 2D FFT"
+         call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2])
+      elseif(kp%kpoints_type == kp_fft_grid_3d) then
+         write(output_unit,fmt_info) "Fourier transform: 3D FFT"
+         call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2, kp%nk3])      
+      else
+         write(output_unit,fmt_info) "Fourier transform: DFT"
+      end if
+#endif
+
+      allocate(Hk(me%nbnd,me%nbnd))
+      allocate(Hk_fft(me%nbnd,me%nbnd,kp%Nk))
+      call me%ham_fft%GetHam(Hk_fft)
+      do ik=1,kp%Nk
+         Hk = me%Ham%get_ham(me%kpts(ik,:))
+         print*, ik, me%kpts(ik,:), Hk_fft(1,1,ik), Hk(1,1)
+      end do
+      stop
+
+
       me%Nk = size(me%kpts,1)
       allocate(me%epsk(me%nbnd,me%Nk),me%vectk(me%nbnd,me%nbnd,me%Nk))
+
+      call batch_diag%Init(me%nbnd)
 
       allocate(Hk(me%nbnd,me%nbnd))
       if(par_ham%apply_field) then
@@ -130,20 +165,22 @@ contains
          end select 
          do ik=1,me%Nk
             Hk = me%Ham%get_ham_field(me%kpts(ik,:),par_ham%Efield,par_ham%field_mode)
-            call EigH(Hk,me%epsk(:,ik),me%vectk(:,:,ik))
+            call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik))
          end do
       elseif(me%static_potential) then
          do ik=1,me%Nk
             Hk = me%Ham%get_ham_elpot(me%kpts(ik,:),elpot_func)
-            call EigH(Hk,me%epsk(:,ik),me%vectk(:,:,ik))
+            call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik))
          end do
       else
          do ik=1,me%Nk
             Hk = me%Ham%get_ham(me%kpts(ik,:))
-            call EigH(Hk,me%epsk(:,ik),me%vectk(:,:,ik))
+            call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik))
          end do
       end if
       deallocate(Hk)
+
+      call batch_diag%Clean()
 
       if(par_calc%calc_dos .or. par_calc%calc_pdos) then
          if(par_calc%Nomega < 2) then

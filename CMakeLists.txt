@@ -123,15 +123,29 @@ if (compile_test)
   message(STATUS "Building test programs")
 endif (compile_test)
 
-# ~~ CMake Configuration ~~
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-# ~~ Libraries ~~
-link_directories(${CMAKE_LIBRARY_PATH})
-
-# ~~ Paths and Subdirs ~~
-include_directories(${CMAKE_INCLUDE_PATH})
-
+# ~~ Add FFT ~~
+if (fftw)
+    message(STATUS "Building with FFTW")
+    if(fftw3_prefix)
+        message(STATUS "FFTW3 prefix: ${fftw3_prefix}")
+        find_library(FFTW_LIB
+        NAMES fftw3
+            HINTS "${fftw3_prefix}/lib"
+        )     
+        link_directories(${fftw3_prefix}/lib)
+        include_directories(${fftw3_prefix}/include)
+        message(STATUS "FFTW found: ${FFTW_LIB} " )
+        list(APPEND COMMON_LIBS ${FFTW_LIB})
+        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DWITHFFTW")
+    else(fftw3_prefix)
+        message(STATUS "FFTW3 prefix not specified. Trying other library")
+        if(fftw_library)
+            list(APPEND COMMON_LIBS ${fftw_library})
+            message(STATUS FFT library: ${fftw_library})
+        endif(fftw_library)
+        set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DWITHFFTW")
+    endif(fftw3_prefix)
+endif(fftw)
 
 # ~~ Add SciTools ~~
 if(scitools_prefix)
@@ -148,6 +162,16 @@ else(scitools_prefix)
 endif(scitools_prefix)
 
 add_subdirectory(src)
+
+# ~~ CMake Configuration ~~
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# ~~ Libraries ~~
+link_directories(${CMAKE_LIBRARY_PATH})
+
+# ~~ Paths and Subdirs ~~
+include_directories(${CMAKE_INCLUDE_PATH})
+
 
 
 # ~~ Include Guard ~~

@@ -85,17 +85,17 @@ contains
          kp%nk1 = nk1
          kp%nk2 = nk2
          kp%nk3 = nk3
-         call GenKgrid(kp%kpts,nk1,nk2,nk3)
+         call GenKgrid(kp%kpts,nk1,nk2,nk3,center_bz=.true.)
       elseif(checkoption(kpoints_type, "fft_grid_2d")) then
          kp%kpoints_type = kp_fft_grid_2d
          kp%nk1 = nk1
          kp%nk2 = nk2
-         call GenKgrid(kp%kpts,nk1,nk2,1)
+         call GenKgrid(kp%kpts,nk1,nk2,1,center_bz=.false.)
       elseif(checkoption(kpoints_type, "fft_grid_3d")) then
          kp%kpoints_type = kp_fft_grid_3d
          kp%nk1 = nk1
          kp%nk2 = nk2
-         call GenKgrid(kp%kpts,nk1,nk2,nk3)
+         call GenKgrid(kp%kpts,nk1,nk2,nk3,center_bz=.false.)
       else
          write(error_unit,fmt900) "invalid k-points format"
          stop
@@ -160,20 +160,25 @@ contains
 
    end subroutine ReadKpath
 !--------------------------------------------------------------------------------------
-   subroutine GenKgrid(kpts,nk1,nk2,nk3)
+   subroutine GenKgrid(kpts,nk1,nk2,nk3,center_bz)
    !! Generates a grid covering either the 2D or the 3D Brillouin zone by the
    !! Monkhorst-Pack scheme. 
       real(dp),target,allocatable,intent(out) :: kpts(:,:) !! the k-points
       integer,intent(in) :: nk1,nk2 !! number of points along the first two reciprocal lattice directions
       integer,intent(in),optional :: nk3 !! Number of points along the third reciprocal lattice direction.
                                          !! If not specified, we assume a 2D Brillouin zone.
+      logical,intent(in),optional :: center_bz
       integer :: nk3_
+      logical :: center_bz_
       integer :: nk,i1,i2,i3
       real(dp),pointer,dimension(:,:) :: kp2d_x,kp2d_y
       real(dp),pointer,dimension(:,:,:) :: kp3d_x,kp3d_y,kp3d_z
 
       nk3_ = 1
       if(present(nk3)) nk3_ = nk3
+
+      center_bz_ = .true.
+      if(present(center_bz)) center_bz_ = center_bz
 
       nk = nk1 * nk2 * nk3_
       allocate(kpts(nk,3)); kpts = 0.0_dp
@@ -183,10 +188,14 @@ contains
          kp2d_y(1:nk1,1:nk2) => kpts(:,2)
          do i1=1,nk1
             do i2=1,nk2
-               kp2d_x(i1,i2) = -0.5_dp + (i1-1)/dble(nk1)
-               kp2d_y(i1,i2) = -0.5_dp + (i2-1)/dble(nk2)
+               kp2d_x(i1,i2) = (i1-1)/dble(nk1)
+               kp2d_y(i1,i2) = (i2-1)/dble(nk2)
             end do
          end do
+         if(center_bz_) then
+            kp2d_x = kp2d_x - 0.5_dp
+            kp2d_y = kp2d_y - 0.5_dp
+         end if
       else 
          kp3d_x(1:nk1,1:nk2,1:nk3) => kpts(:,1)
          kp3d_y(1:nk1,1:nk2,1:nk3) => kpts(:,2)
@@ -194,12 +203,17 @@ contains
          do i1=1,nk1
             do i2=1,nk2
                do i3=1,nk3
-                  kp3d_x(i1,i2,i3) = -0.5_dp + (i1-1)/dble(nk1)
-                  kp3d_y(i1,i2,i3) = -0.5_dp + (i2-1)/dble(nk2)
-                  kp3d_z(i1,i2,i3) = -0.5_dp + (i3-1)/dble(nk3)
+                  kp3d_x(i1,i2,i3) = (i1-1)/dble(nk1)
+                  kp3d_y(i1,i2,i3) = (i2-1)/dble(nk2)
+                  kp3d_z(i1,i2,i3) = (i3-1)/dble(nk3)
                end do
             end do
          end do
+         if(center_bz_) then
+            kp3d_x = kp3d_x - 0.5_dp
+            kp3d_y = kp3d_y - 0.5_dp
+            kp3d_z = kp3d_z - 0.5_dp
+         end if
       end if
 
    end subroutine GenKgrid

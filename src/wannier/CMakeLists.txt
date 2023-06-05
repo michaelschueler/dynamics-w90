@@ -17,6 +17,10 @@ set(OBJECT_FILES
     wan_prop_hybrid.F90
 )
 
+if(fftw)
+    list(APPEND OBJECT_FILES wan_fft_ham.F90)
+endif(fftw)
+
 # ~~ Installation targets ~~
 add_library(wannier STATIC ${OBJECT_FILES})
 target_link_libraries(wannier basic scitools ${COMMON_LIBS})
