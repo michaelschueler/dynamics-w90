@@ -65,8 +65,9 @@ contains
       complex(dp),allocatable :: Hk(:,:)
       type(wann90_tb_t) :: ham_tmp
       type(Batch_Diagonalize_t) :: batch_diag
-      !......................................
+      logical :: use_fft
       complex(dp),allocatable  :: Hk_fft(:,:,:)
+      !......................................
 
 
       call ReadHamiltonian(par_ham%file_ham,ham_tmp,file_xyz=par_ham%file_xyz)
@@ -124,27 +125,21 @@ contains
       allocate(me%kpts(size(kp%kpts,1), size(kp%kpts,2)))
       me%kpts = kp%kpts
 
+      use_fft = .false.
+
 #ifdef WITHFFTW
       if(kp%kpoints_type == kp_fft_grid_2d) then
          write(output_unit,fmt_info) "Fourier transform: 2D FFT"
          call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2])
+         use_fft = .true.
       elseif(kp%kpoints_type == kp_fft_grid_3d) then
          write(output_unit,fmt_info) "Fourier transform: 3D FFT"
-         call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2, kp%nk3])      
+         call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2, kp%nk3])   
+         use_fft = .true.   
       else
          write(output_unit,fmt_info) "Fourier transform: DFT"
       end if
 #endif
-
-      allocate(Hk(me%nbnd,me%nbnd))
-      allocate(Hk_fft(me%nbnd,me%nbnd,kp%Nk))
-      call me%ham_fft%GetHam(Hk_fft)
-      do ik=1,kp%Nk
-         Hk = me%Ham%get_ham(me%kpts(ik,:))
-         print*, ik, me%kpts(ik,:), Hk_fft(1,1,ik), Hk(1,1)
-      end do
-      stop
-
 
       me%Nk = size(me%kpts,1)
       allocate(me%epsk(me%nbnd,me%Nk),me%vectk(me%nbnd,me%nbnd,me%Nk))
@@ -173,10 +168,17 @@ contains
             call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik))
          end do
       else
-         do ik=1,me%Nk
-            Hk = me%Ham%get_ham(me%kpts(ik,:))
-            call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik))
-         end do
+         if(use_fft) then
+            call me%ham_fft%GetHam(Hk_fft)
+            do ik=1,me%Nk
+               call batch_diag%Diagonalize(Hk_fft(:,:,ik),epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik))
+            end do
+         else
+            do ik=1,me%Nk
+               Hk = me%Ham%get_ham(me%kpts(ik,:))
+               call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik))
+            end do
+         end if
       end if
       deallocate(Hk)
 
