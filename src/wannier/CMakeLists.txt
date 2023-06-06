@@ -21,6 +21,7 @@ if(fftw)
     list(APPEND OBJECT_FILES 
         wan_fft_ham.F90
         wan_fft_propagation.F90
+        wan_fft_observables.F90
     )
 endif(fftw)
 

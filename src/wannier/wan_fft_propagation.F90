@@ -198,7 +198,7 @@ contains
       tn = (tstp + 0.5_dp) * dt
       call field(tn, AF(:,2), EF(:,2))
       tn = (tstp + 1.0_dp) * dt
-      call field(tn, AF(:,2), EF(:,2))
+      call field(tn, AF(:,3), EF(:,3))
 
       Ared(:,1) = ham%get_kreduced(AF(:,1))
       Ared(:,2) = ham%get_kreduced(AF(:,2))
@@ -213,7 +213,8 @@ contains
          allocate(Dk_1(nbnd,nbnd,3,Nk),Dk_2(nbnd,nbnd,3,Nk),Dk_3(nbnd,nbnd,3,Nk))
          call ham_fft%GetDipole_Dressed(Ared(:,1), Dk_1)
          call ham_fft%GetDipole_Dressed(Ared(:,2), Dk_2)
-         call ham_fft%GetDipole_Dressed(Ared(:,2), Dk_3)
+         call ham_fft%GetDipole_Dressed(Ared(:,3), Dk_3)
+         !$OMP PARALLEL DO
          do ik=1,Nk
             do idir=1,3
                Hk_1(:,:,ik) = Hk_1(:,:,ik) - EF(idir,1) * Dk_1(:,:,idir,ik)
@@ -238,9 +239,13 @@ contains
       allocate(Rho_old(nbnd,nbnd),Dscatt(nbnd,nbnd))
       allocate(DRhok_step(nbnd,nbnd,4)); DRhok_step=zero
 
+      Dscatt = zero
+
       !$OMP DO
       do ik=1,Nk
          Rho_old = Rhok(:,:,ik)
+
+         DRhok_step = zero
 
          call GetScattTerm(nbnd,large_size,Gmm,Beta,Mu,Hk_1(:,:,ik),Rho_old,batch_diag,tid,Dscatt)
          call util_matmul(Hk_1(:,:,ik), Rho_old, DRhok_step(:,:,1), alpha=-iu, large_size=large_size)

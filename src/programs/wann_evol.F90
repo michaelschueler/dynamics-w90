@@ -194,12 +194,13 @@ program wann_evol
 !--------------------------------------------------------------------------------------
 !                               ++  Equilibrium ++
 !--------------------------------------------------------------------------------------
-   call print_header(output_unit,"Equilibrium","*")
-   call Timer_Tic('equilibrium', 2)
 
    call lattsys%Init(par_ham%Beta,par_ham%MuChem,ham,kp,par_ham%lm_gauge,&
       T1=par_time%T1_relax,T2=par_time%T2_relax,propagator=par_time%propagator)
    call lattsys%SetLaserPulse(external_field)
+
+   call print_header(output_unit,"Equilibrium","*")
+   call Timer_Tic('equilibrium', 2)
 
    if(par_ham%FixMuChem) then
       call lattsys%SolveEquilibrium()

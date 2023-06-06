@@ -15,6 +15,7 @@ module Mwann_evol
 #ifdef WITHFFTW
    use wan_fft_ham,only: wann_fft_t
    use wan_fft_propagation,only: Wann_FFT_UnitaryTimestep_dip, Wann_FFT_RelaxTimestep_dip
+   use wan_fft_observables,only: Wann_FFT_Observables_dip
 #endif
    implicit none
    include '../formats.h'
@@ -444,6 +445,16 @@ contains
          end if
 
          Dip = Wann_Pol_dip_calc(me%nbnd,me%Nk,me%Dk,me%Rhok)
+
+         Ekin = Etot
+      elseif(me%fft_mode) then
+         if(me%gauge == dipole_gauge) then
+            call Wann_FFT_Observables_dip(me%ham,me%ham_fft,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
+               dipole_current=.true.)
+         else
+            call Wann_FFT_Observables_dip(me%ham,me%ham_fft,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
+               dipole_current=.false.)            
+         end if
       else
          Etot = Wann_TotalEn_dip(me%ham,me%Nk,me%kcoord,AF,EF,me%Rhok)
 
@@ -458,11 +469,13 @@ contains
          end if
 
          Dip = Wann_Pol_dip(me%ham,me%Nk,me%kcoord,AF,me%Rhok)
+
+         Ekin = Wann_KineticEn(me%ham,me%Nk,me%kcoord,me%Rhok,&
+            band_basis=.false.)
+      
       end if
 
-      Ekin = Wann_KineticEn(me%ham,me%Nk,me%kcoord,me%Rhok,&
-         band_basis=.false.)
-      
+
       BandOcc = 0.0_dp
       do ik=1,me%Nk
          rhok_bnd = util_rotate(me%nbnd,me%wan_rot(:,:,ik),me%Rhok(:,:,ik),large_size=large_size)

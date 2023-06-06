@@ -4,15 +4,11 @@ module wan_fft_observables
    use omp_lib
    use Mdebug
    use scitools_def,only: dp,iu,one,zero
+   use scitools_linalg,only: get_large_size,util_matmul
    use wan_hamiltonian,only: wann90_tb_t
    use wan_fft_ham,only: wann_fft_t
    implicit none
    include '../formats.h'
-   include '../units_inc.f90'
-!--------------------------------------------------------------------------------------
-   integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2, prop_hybrid=3
-   real(dp),parameter :: c1=0.5_dp-sqrt(3.0_dp)/6.0_dp
-   real(dp),parameter :: c2=0.5_dp+sqrt(3.0_dp)/6.0_dp
 !--------------------------------------------------------------------------------------
    private
    public :: Wann_FFT_Observables_dip
@@ -35,9 +31,9 @@ contains
       logical :: large_size
       integer :: nbnd,Nk,ik,idir
       real(dp),dimension(3) :: Ared,Jpol(3)
-      complex(dp),allocatable,dimension(:,:) :: Rho_old,Udt
-      complex(dp),allocatable,dimension(:,:,:) :: Hk_1,Hk_2
-      complex(dp),allocatable,dimension(:,:,:,:) :: Dk_1,Dk_2
+      complex(dp),allocatable,dimension(:,:) :: Hkt,DRhok_dt
+      complex(dp),allocatable,dimension(:,:,:) :: Hk
+      complex(dp),allocatable,dimension(:,:,:,:) :: grad_Hk,Dk
 
       dipole_current_ = .false.
       if(present(dipole_current)) dipole_current_ = dipole_current
@@ -82,7 +78,7 @@ contains
 
          do idir=1,3
             Jgrad(idir) = Jgrad(idir) + DTRAB(nbnd, grad_Hk(:,:,idir,ik), Rhok(:,:,ik)) / Nk
-            Dip(idir) = Dip(idir) + DTRAB(nbnd, Dk(:,:,idir,ik), Rhok(:,:,ik))
+            Dip(idir) = Dip(idir) + DTRAB(nbnd, Dk(:,:,idir,ik), Rhok(:,:,ik)) / Nk
          end do
 
          if(dipole_current_) then
