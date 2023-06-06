@@ -1,4 +1,5 @@
 module Mdebug
+!======================================================================================
 !! Provides tools for debugging. The debug checks are disabled if compiled in release
 !! mode, which is trigged by the precompiler flag -DNDEBUG
 !======================================================================================
@@ -66,12 +67,12 @@ contains
 
       if(debug_mode)then
 
-         if(any(shape(A) /= shap)) then
-            write(error_unit,'("[ERROR]",1x,A)')  "In routine " // trim(routine) // " matrix " &
+       if(any(shape(A) /= shap)) then
+          write(error_unit,*)  "[ERROR] In routine " // trim(routine) // " matrix " &
             // trim(matname) // " has illegal shape ", shape(A)
-            write(error_unit,'("[ERROR]",1x,A)')  "Shape should be ", shap
-            stop
-         end if
+          write(error_unit,*)  "[ERROR] Shape should be ", shap
+          stop
+       end if
       end if
 
    end subroutine dassert_shape_1
@@ -85,9 +86,9 @@ contains
 
     if(debug_mode) then
        if(any(shape(A) /= shap)) then
-          write(error_unit,'("[ERROR]",1x,A)')  "In routine " // trim(routine) // " matrix " &
+          write(error_unit,*)  "[ERROR] In routine " // trim(routine) // " matrix " &
             // trim(matname) // " has illegal shape ", shape(A)
-          write(error_unit,'("[ERROR]",1x,A)')  "Shape should be ", shap
+          write(error_unit,*)  "[ERROR] Shape should be ", shap
           stop
        end if
     endif
@@ -103,9 +104,9 @@ contains
     if(debug_mode)then
     
        if(any(shape(A) /= shap)) then
-          write(error_unit,'("[ERROR]",1x,A)')  "In routine " // trim(routine) // " matrix " &
+          write(error_unit,*)  "[ERROR] In routine " // trim(routine) // " matrix " &
             // trim(matname) // " has illegal shape ", shape(A)
-          write(error_unit,'("[ERROR]",1x,A)')  "Shape should be ", shap
+          write(error_unit,*)  "[ERROR] Shape should be ", shap
           stop
        end if
     end if
@@ -121,9 +122,9 @@ contains
 
     if(debug_mode) then
        if(any(shape(A) /= shap)) then
-          write(error_unit,'("[ERROR]",1x,A)')  "In routine " // trim(routine) // " matrix " &
+          write(error_unit,*)  "[ERROR] In routine " // trim(routine) // " matrix " &
             // trim(matname) // " has illegal shape ", shape(A)
-          write(error_unit,'("[ERROR]",1x,A)')  "Shape should be ", shap
+          write(error_unit,*)  "[ERROR] Shape should be ", shap
           stop
        end if
     endif
@@ -139,9 +140,9 @@ contains
     if(debug_mode)then
     
        if(any(shape(A) /= shap)) then
-          write(error_unit,'("[ERROR]",1x,A)')  "In routine " // trim(routine) // " matrix " &
+          write(error_unit,*)  "[ERROR] In routine " // trim(routine) // " matrix " &
             // trim(matname) // " has illegal shape ", shape(A)
-          write(error_unit,'("[ERROR]",1x,A)')  "Shape should be ", shap
+          write(error_unit,*)  "[ERROR] Shape should be ", shap
           stop
        end if
     end if
@@ -157,9 +158,9 @@ contains
 
     if(debug_mode) then
        if(any(shape(A) /= shap)) then
-          write(error_unit,'("[ERROR]",1x,A)')  "In routine " // trim(routine) // " matrix " &
+          write(error_unit,*)  "[ERROR] In routine " // trim(routine) // " matrix " &
             // trim(matname) // " has illegal shape ", shape(A)
-          write(error_unit,'("[ERROR]",1x,A)')  "Shape should be ", shap
+          write(error_unit,*)  "[ERROR] Shape should be ", shap
           stop
        end if
     endif
@@ -175,9 +176,9 @@ contains
     if(debug_mode)then
     
        if(any(shape(A) /= shap)) then
-          write(error_unit,'("[ERROR]",1x,A)')  "In routine " // trim(routine) // " matrix " &
+          write(error_unit,*)  "[ERROR] In routine " // trim(routine) // " matrix " &
             // trim(matname) // " has illegal shape ", shape(A)
-          write(error_unit,'("[ERROR]",1x,A)')  "Shape should be ", shap
+          write(error_unit,*)  "[ERROR] Shape should be ", shap
           stop
        end if
     end if
@@ -193,9 +194,9 @@ contains
 
     if(debug_mode) then
        if(any(shape(A) /= shap)) then
-          write(error_unit,'("[ERROR]",1x,A)')  "In routine " // trim(routine) // " matrix " &
+          write(error_unit,*)  "[ERROR] In routine " // trim(routine) // " matrix " &
             // trim(matname) // " has illegal shape ", shape(A)
-          write(error_unit,'("[ERROR]",1x,A)')  "Shape should be ", shap
+          write(error_unit,*)  "[ERROR] Shape should be ", shap
           stop
        end if
     endif
@@ -211,9 +212,9 @@ contains
     if(debug_mode)then
     
        if(any(shape(A) /= shap)) then
-          write(error_unit,'("[ERROR]",1x,A)')  "In routine " // trim(routine) // " matrix " &
+          write(error_unit,*)  "[ERROR] In routine " // trim(routine) // " matrix " &
             // trim(matname) // " has illegal shape ", shape(A)
-          write(error_unit,'("[ERROR]",1x,A)')  "Shape should be ", shap
+          write(error_unit,*)  "[ERROR] Shape should be ", shap
           stop
        end if
     end if
@@ -229,9 +230,9 @@ contains
 
     if(debug_mode) then
        if(any(shape(A) /= shap)) then
-          write(error_unit,'("[ERROR]",1x,A)')  "In routine " // trim(routine) // " matrix " &
+          write(error_unit,*)  "[ERROR] In routine " // trim(routine) // " matrix " &
             // trim(matname) // " has illegal shape ", shape(A)
-          write(error_unit,'("[ERROR]",1x,A)')  "Shape should be ", shap
+          write(error_unit,*)  "[ERROR] Shape should be ", shap
           stop
        end if
     endif
@@ -247,9 +248,9 @@ contains
     if(debug_mode)then
     
        if(any(shape(A) /= shap)) then
-          write(error_unit,'("[ERROR]",1x,A)')  "In routine " // trim(routine) // " matrix " &
+          write(error_unit,*)  "[ERROR] In routine " // trim(routine) // " matrix " &
             // trim(matname) // " has illegal shape ", shape(A)
-          write(error_unit,'("[ERROR]",1x,A)')  "Shape should be ", shap
+          write(error_unit,*)  "[ERROR] Shape should be ", shap
           stop
        end if
     end if
@@ -265,9 +266,9 @@ contains
 
     if(debug_mode) then
        if(any(shape(A) /= shap)) then
-          write(error_unit,'("[ERROR]",1x,A)')  "In routine " // trim(routine) // " matrix " &
+          write(error_unit,*)  "[ERROR] In routine " // trim(routine) // " matrix " &
             // trim(matname) // " has illegal shape ", shape(A)
-          write(error_unit,'("[ERROR]",1x,A)')  "Shape should be ", shap
+          write(error_unit,*)  "[ERROR] Shape should be ", shap
           stop
        end if
     endif

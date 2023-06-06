@@ -21,6 +21,7 @@ module wan_fft_ham
       integer                                    :: nx,ny,nz,nrpts
       integer                                    :: nkx,nky,nkz,nkpts,kdim
       integer,allocatable,dimension(:)           :: ndegen
+      real(dp),allocatable,dimension(:,:)        :: crvec
       complex(dp),allocatable,dimension(:,:,:)   :: ham_r
       complex(dp),allocatable,dimension(:,:,:,:) :: pos_r
       ! .. FFTW ..
@@ -28,10 +29,32 @@ module wan_fft_ham
    contains
       procedure, public   :: InitFromW90
       procedure, public   :: Clean
+      procedure, public   :: DressPhase
+      procedure, public   :: DressCrvec
       procedure, public   :: GetHam
+      procedure, public   :: GetGradHam
+      procedure, public   :: GetHam_Dressed
+      procedure, public   :: GetGradHam_Dressed
       procedure, private  :: GetHam_1d
       procedure, private  :: GetHam_2d
       procedure, private  :: GetHam_3d
+      procedure, private  :: GetGradHam_1d
+      procedure, private  :: GetGradHam_2d
+      procedure, private  :: GetGradHam_3d
+      procedure, private  :: GetHam_Dressed_1d
+      procedure, private  :: GetHam_Dressed_2d
+      procedure, private  :: GetHam_Dressed_3d
+      procedure, private  :: GetGradHam_Dressed_1d
+      procedure, private  :: GetGradHam_Dressed_2d
+      procedure, private  :: GetGradHam_Dressed_3d
+      procedure, public   :: GetDipole
+      procedure, public   :: GetDipole_Dressed
+      procedure, private  :: GetDipole_1d
+      procedure, private  :: GetDipole_2d
+      procedure, private  :: GetDipole_3d
+      procedure, private  :: GetDipole_Dressed_1d
+      procedure, private  :: GetDipole_Dressed_2d
+      procedure, private  :: GetDipole_Dressed_3d
    end type wann_fft_t
 !--------------------------------------------------------------------------------------
 contains
@@ -140,11 +163,13 @@ contains
       allocate(me%ndegen(me%nrpts)); me%ndegen = 1000000
       allocate(me%ham_r(me%nrpts,me%nwan,me%nwan)); me%ham_r = zero
       allocate(me%pos_r(me%nrpts,me%nwan,me%nwan,3)); me%pos_r = zero
+      allocate(me%crvec(me%nrpts,3)); me%crvec = 0.0_dp
 
       do ir=1,me%nrpts
          irw = w90_rindx(ir)
          if(irw == -999) cycle
          me%ndegen(ir) = w90%ndegen(irw)
+         me%crvec(ir,:) = w90%crvec(irw,:)
          do j=1,me%nwan
             do i=1,me%nwan
                me%ham_r(ir,i,j) = w90%ham_r(i,j,irw) / me%ndegen(ir)
@@ -162,8 +187,69 @@ contains
 
       if(allocated(me%ham_r)) deallocate(me%ham_r)
       if(allocated(me%pos_r)) deallocate(me%pos_r)
+      if(allocated(me%ndegen)) deallocate(me%ndegen)
+      if(allocated(me%crvec)) deallocate(me%crvec)
 
    end subroutine Clean
+!--------------------------------------------------------------------------------------
+   subroutine DressPhase(me,Ar,OO_R)
+      class(wann_fft_t),intent(in) :: me
+      real(dp),intent(in) :: Ar(3)
+      complex(dp),target,intent(inout) :: OO_R(:)
+      integer :: ix,iy,iz,kx,ky,kz
+      real(dp) :: adot,c,s
+      complex(dp),pointer :: OO_1d(:)
+      complex(dp),pointer :: OO_2d(:,:)
+      complex(dp),pointer :: OO_3d(:,:,:)
+
+      select case(me%kdim)
+      case(1)
+         OO_1d(1:me%nx) => OO_R
+         do ix=1,me%nx
+            kx = FFT_Freq(me%nx, ix)
+            adot = Ar(1) * kx
+            c = cos(DPI * adot)
+            s = sin(DPI * adot)
+            OO_1d(ix) = cmplx(c,-s,kind=dp) * OO_1d(ix)
+         end do
+      case(2)
+         OO_2d(1:me%nx, 1:me%ny) => OO_R
+         do concurrent(iy=1:me%ny, ix=1:me%nx)
+            kx = FFT_Freq(me%nx, ix)
+            ky = FFT_Freq(me%ny, iy)
+            adot = Ar(1) * kx + Ar(2) * ky
+            c = cos(DPI * adot)
+            s = sin(DPI * adot)
+            OO_2d(ix,iy) = cmplx(c,-s,kind=dp) * OO_2d(ix,iy)
+         end do         
+      case(3)
+         OO_3d(1:me%nx, 1:me%ny, 1:me%nz) => OO_R
+         do concurrent(iz=1:me%nz, iy=1:me%ny, ix=1:me%nx)
+            kx = FFT_Freq(me%nx, ix)
+            ky = FFT_Freq(me%ny, iy)
+            kz = FFT_Freq(me%nz, iz)
+            adot = Ar(1) * kx + Ar(2) * ky  + Ar(3) * kz
+            c = cos(DPI * adot)
+            s = sin(DPI * adot)
+            OO_3d(ix,iy,iz) = cmplx(c,-s,kind=dp) * OO_3d(ix,iy,iz)
+         end do                
+      end select
+
+   end subroutine DressPhase
+!--------------------------------------------------------------------------------------
+   subroutine DressCrvec(me,OO_R,vec_R)
+      class(wann_fft_t),intent(in) :: me
+      complex(dp),intent(in) :: OO_R(:)      
+      complex(dp),intent(inout) :: vec_R(:,:)
+      integer :: ir
+
+      do ir=1,me%nrpts
+         vec_R(ir,1) = iu * me%crvec(ir,1) * OO_R(ir)
+         vec_R(ir,2) = iu * me%crvec(ir,2) * OO_R(ir)
+         vec_R(ir,3) = iu * me%crvec(ir,3) * OO_R(ir)
+      end do
+   
+   end subroutine DressCrvec
 !--------------------------------------------------------------------------------------
    subroutine GetHam(me,Hk)
       class(wann_fft_t),intent(in) :: me
@@ -181,6 +267,94 @@ contains
       end select
 
    end subroutine GetHam
+!--------------------------------------------------------------------------------------
+   subroutine GetGradHam(me,GradHk)
+      class(wann_fft_t),intent(in) :: me
+      complex(dp),intent(inout) :: GradHk(:,:,:,:)
+
+      call assert_shape(GradHk, [me%nwan,me%nwan,3,me%nkpts], "GetGradHam", "GradHk")
+
+      select case(me%kdim)
+      case(1)
+         call me%GetGradHam_1d(GradHk)
+      case(2)
+         call me%GetGradHam_2d(GradHk)
+      case(3)
+         call me%GetGradHam_3d(GradHk)
+      end select
+
+   end subroutine GetGradHam
+!--------------------------------------------------------------------------------------
+   subroutine GetHam_Dressed(me,Ar,Hk)
+      class(wann_fft_t),intent(in) :: me
+      real(dp),intent(in) :: Ar(3)
+      complex(dp),intent(inout) :: Hk(:,:,:)
+
+      call assert_shape(Hk, [me%nwan,me%nwan,me%nkpts], "GetHam", "Hk")
+
+      select case(me%kdim)
+      case(1)
+         call me%GetHam_Dressed_1d(Ar,Hk)
+      case(2)
+         call me%GetHam_Dressed_2d(Ar,Hk)
+      case(3)
+         call me%GetHam_Dressed_3d(Ar,Hk)
+      end select
+
+   end subroutine GetHam_Dressed
+!--------------------------------------------------------------------------------------
+   subroutine GetGradHam_Dressed(me,Ar,GradHk)
+      class(wann_fft_t),intent(in) :: me
+      real(dp),intent(in) :: Ar(3)
+      complex(dp),intent(inout) :: GradHk(:,:,:,:)
+
+      call assert_shape(GradHk, [me%nwan,me%nwan,3,me%nkpts], "GetGradHam_Dressed", "GradHk")
+
+      select case(me%kdim)
+      case(1)
+         call me%GetGradHam_Dressed_1d(Ar,GradHk)
+      case(2)
+         call me%GetGradHam_Dressed_2d(Ar,GradHk)
+      case(3)
+         call me%GetGradHam_Dressed_3d(Ar,GradHk)
+      end select
+
+   end subroutine GetGradHam_Dressed
+!--------------------------------------------------------------------------------------
+   subroutine GetDipole(me,Dk)
+      class(wann_fft_t),intent(in) :: me
+      complex(dp),intent(inout) :: Dk(:,:,:,:)
+
+      call assert_shape(Dk, [me%nwan,me%nwan,3,me%nkpts], "GetDipole", "Dk")
+
+      select case(me%kdim)
+      case(1)
+         call me%GetDipole_1d(Dk)
+      case(2)
+         call me%GetDipole_2d(Dk)
+      case(3)
+         call me%GetDipole_3d(Dk)
+      end select
+
+   end subroutine GetDipole
+!--------------------------------------------------------------------------------------
+   subroutine GetDipole_Dressed(me,Ar,Dk)
+      class(wann_fft_t),intent(in) :: me
+      real(dp),intent(in) :: Ar(3)
+      complex(dp),intent(inout) :: Dk(:,:,:,:)
+
+      call assert_shape(Dk, [me%nwan,me%nwan,3,me%nkpts], "GetDipole", "Dk")
+
+      select case(me%kdim)
+      case(1)
+         call me%GetDipole_Dressed_1d(Ar,Dk)
+      case(2)
+         call me%GetDipole_Dressed_2d(Ar,Dk)
+      case(3)
+         call me%GetDipole_Dressed_3d(Ar,Dk)
+      end select
+
+   end subroutine GetDipole_Dressed
 !--------------------------------------------------------------------------------------
    subroutine GetHam_1d(me,Hk)
       class(wann_fft_t),intent(in) :: me
@@ -253,6 +427,464 @@ contains
       !$OMP END PARALLEL
 
    end subroutine GetHam_3d
+!--------------------------------------------------------------------------------------
+
+!--------------------------------------------------------------------------------------
+   subroutine GetGradHam_1d(me,GradHk)
+      class(wann_fft_t),intent(in) :: me
+      complex(dp),intent(inout) :: GradHk(:,:,:,:)
+      integer :: i,j,ik,idir
+      complex(dp),allocatable :: work_r(:),work_k(:)
+      complex(dp),allocatable :: gradH_R(:,:)
+
+      !$OMP PARALLEL PRIVATE(i,j,ik,idir,work_r,work_k,gradH_R)
+      allocate(work_r(me%nkx),work_k(me%nkx))
+      allocate(gradH_R(me%nrpts,3))
+      do j=1,me%nwan
+         do i=1,me%nwan
+            call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            do idir=1,3
+               call Smooth2Dense_1d(me%nx, me%nkx, gradH_R(:,idir), work_r)
+               call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+               do ik=1,me%nkx
+                  GradHk(i,j,idir,ik) = work_k(ik)
+               end do
+            end do
+         end do
+      end do
+      deallocate(work_r,work_k)
+      deallocate(gradH_R)
+      !$OMP END PARALLEL
+
+   end subroutine GetGradHam_1d
+!--------------------------------------------------------------------------------------
+   subroutine GetGradHam_2d(me,GradHk)
+      class(wann_fft_t),intent(in) :: me
+      complex(dp),intent(inout) :: GradHk(:,:,:,:)
+      integer :: i,j,ik,idir
+      complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
+      complex(dp),allocatable :: gradH_R(:,:)
+
+      !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k,work_1d,gradH_R)
+      allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
+      allocate(gradH_R(me%nrpts,3))
+      !$OMP DO COLLAPSE(2)
+      do j=1,me%nwan
+         do i=1,me%nwan
+            call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            do idir=1,3
+               call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, gradH_R(:,idir), work_r)
+               call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+               work_1d = reshape(work_k, [me%nkpts])
+               do ik=1,me%nkpts
+                  GradHk(i,j,idir,ik) = work_1d(ik)
+               end do
+            end do
+         end do
+      end do
+      !$OMP END DO
+      deallocate(work_r,work_k,work_1d)
+      deallocate(gradH_R)
+      !$OMP END PARALLEL
+
+   end subroutine GetGradHam_2d
+!--------------------------------------------------------------------------------------
+   subroutine GetGradHam_3d(me,GradHk)
+      class(wann_fft_t),intent(in) :: me
+      complex(dp),intent(inout) :: GradHk(:,:,:,:)
+      integer :: i,j,ik,idir
+      complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
+      complex(dp),allocatable :: gradH_R(:,:)
+
+      !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d,gradH_R)
+      allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
+      allocate(gradH_R(me%nrpts,3))
+      !$OMP DO COLLAPSE(2)
+      do j=1,me%nwan
+         do i=1,me%nwan
+            call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            do idir=1,3
+               call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, gradH_R(:,idir), work_r)
+               call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+               work_1d = reshape(work_k, [me%nkpts])
+               do ik=1,me%nkpts
+                  GradHk(i,j,idir,ik) = work_1d(ik)
+               end do
+            end do
+         end do
+      end do
+      !$OMP END DO
+      deallocate(work_r,work_k,work_1d)
+      deallocate(gradH_R)
+      !$OMP END PARALLEL
+
+   end subroutine GetGradHam_3d
+!--------------------------------------------------------------------------------------
+
+!--------------------------------------------------------------------------------------
+   subroutine GetGradHam_Dressed_1d(me,Ar,GradHk)
+      class(wann_fft_t),intent(in) :: me
+      real(dp),intent(in)       :: Ar(3)
+      complex(dp),intent(inout) :: GradHk(:,:,:,:)
+      integer :: i,j,ik,idir
+      complex(dp),allocatable :: work_r(:),work_k(:)
+      complex(dp),allocatable :: gradH_R(:,:)
+
+      !$OMP PARALLEL PRIVATE(i,j,ik,idir,work_r,work_k,gradH_R)
+      allocate(work_r(me%nkx),work_k(me%nkx))
+      allocate(gradH_R(me%nrpts,3))
+      do j=1,me%nwan
+         do i=1,me%nwan
+            call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            do idir=1,3
+               call me%DressPhase(Ar, gradH_R(:,idir))
+               call Smooth2Dense_1d(me%nx, me%nkx, gradH_R(:,idir), work_r)
+               call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+               do ik=1,me%nkx
+                  GradHk(i,j,idir,ik) = work_k(ik)
+               end do
+            end do
+         end do
+      end do
+      deallocate(work_r,work_k)
+      deallocate(gradH_R)
+      !$OMP END PARALLEL
+
+   end subroutine GetGradHam_Dressed_1d
+!--------------------------------------------------------------------------------------
+   subroutine GetGradHam_Dressed_2d(me,Ar,GradHk)
+      class(wann_fft_t),intent(in) :: me
+      real(dp),intent(in)       :: Ar(3)
+      complex(dp),intent(inout) :: GradHk(:,:,:,:)
+      integer :: i,j,ik,idir
+      complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
+      complex(dp),allocatable :: gradH_R(:,:)
+
+      !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k,work_1d,gradH_R)
+      allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
+      allocate(gradH_R(me%nrpts,3))
+      !$OMP DO COLLAPSE(2)
+      do j=1,me%nwan
+         do i=1,me%nwan
+            call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            do idir=1,3
+               call me%DressPhase(Ar, gradH_R(:,idir))
+               call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, gradH_R(:,idir), work_r)
+               call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+               work_1d = reshape(work_k, [me%nkpts])
+               do ik=1,me%nkpts
+                  GradHk(i,j,idir,ik) = work_1d(ik)
+               end do
+            end do
+         end do
+      end do
+      !$OMP END DO
+      deallocate(work_r,work_k,work_1d)
+      deallocate(gradH_R)
+      !$OMP END PARALLEL
+
+   end subroutine GetGradHam_Dressed_2d
+!--------------------------------------------------------------------------------------
+   subroutine GetGradHam_Dressed_3d(me,Ar,GradHk)
+      class(wann_fft_t),intent(in) :: me
+      real(dp),intent(in)       :: Ar(3)
+      complex(dp),intent(inout) :: GradHk(:,:,:,:)
+      integer :: i,j,ik,idir
+      complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
+      complex(dp),allocatable :: gradH_R(:,:)
+
+      !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d,gradH_R)
+      allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
+      allocate(gradH_R(me%nrpts,3))
+      !$OMP DO COLLAPSE(2)
+      do j=1,me%nwan
+         do i=1,me%nwan
+            call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            do idir=1,3
+               call me%DressPhase(Ar, gradH_R(:,idir))
+               call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, gradH_R(:,idir), work_r)
+               call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+               work_1d = reshape(work_k, [me%nkpts])
+               do ik=1,me%nkpts
+                  GradHk(i,j,idir,ik) = work_1d(ik)
+               end do
+            end do
+         end do
+      end do
+      !$OMP END DO
+      deallocate(work_r,work_k,work_1d)
+      deallocate(gradH_R)
+      !$OMP END PARALLEL
+
+   end subroutine GetGradHam_Dressed_3d
+!--------------------------------------------------------------------------------------
+
+
+!--------------------------------------------------------------------------------------
+   subroutine GetHam_Dressed_1d(me,Ar,Hk)
+      class(wann_fft_t),intent(in) :: me
+      real(dp),intent(in)       :: Ar(3)
+      complex(dp),intent(inout) :: Hk(:,:,:)
+      integer :: i,j,ik
+      complex(dp),allocatable :: HA_r(:),work_r(:),work_k(:)
+
+      !$OMP PARALLEL PRIVATE(i,j,ik,HA_r,work_r,work_k)
+      allocate(HA_r(me%nx),work_r(me%nkx),work_k(me%nkx))
+      do j=1,me%nwan
+         do i=1,me%nwan
+            HA_r = me%ham_r(:,i,j)
+            call me%DressPhase(Ar, HA_r)
+            call Smooth2Dense_1d(me%nx, me%nkx, HA_r, work_r)
+            call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+            do ik=1,me%nkx
+               Hk(i,j,ik) = work_k(ik)
+            end do
+         end do
+      end do
+      deallocate(HA_r,work_r,work_k)
+      !$OMP END PARALLEL
+
+   end subroutine GetHam_Dressed_1d
+!--------------------------------------------------------------------------------------
+   subroutine GetHam_Dressed_2d(me,Ar,Hk)
+      class(wann_fft_t),intent(in) :: me
+      real(dp),intent(in)       :: Ar(3)
+      complex(dp),intent(inout) :: Hk(:,:,:)
+      integer :: i,j,ik
+      complex(dp),allocatable :: HA_r(:)
+      complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
+
+      !$OMP PARALLEL PRIVATE(i,j,ik,HA_r,work_r,work_k,work_1d)
+      allocate(HA_r(me%nrpts))
+      allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
+      !$OMP DO COLLAPSE(2)
+      do j=1,me%nwan
+         do i=1,me%nwan
+            HA_r = me%ham_r(:,i,j)
+            call me%DressPhase(Ar, HA_r)
+            call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, HA_r, work_r)
+            call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+            work_1d = reshape(work_k, [me%nkpts])
+            do ik=1,me%nkpts
+               Hk(i,j,ik) = work_1d(ik)
+            end do
+         end do
+      end do
+      !$OMP END DO
+      deallocate(HA_r)
+      deallocate(work_r,work_k,work_1d)
+      !$OMP END PARALLEL
+
+   end subroutine GetHam_Dressed_2d
+!--------------------------------------------------------------------------------------
+   subroutine GetHam_Dressed_3d(me,Ar,Hk)
+      class(wann_fft_t),intent(in) :: me
+      real(dp),intent(in)       :: Ar(3)
+      complex(dp),intent(inout) :: Hk(:,:,:)
+      integer :: i,j,ik
+      complex(dp),allocatable :: HA_r(:)
+      complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
+
+      !$OMP PARALLEL PRIVATE(i,j,HA_r,work_r,work_k,work_1d)
+      allocate(HA_r(me%nrpts))
+      allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
+      !$OMP DO COLLAPSE(2)
+      do j=1,me%nwan
+         do i=1,me%nwan
+            HA_r = me%ham_r(:,i,j)
+            call me%DressPhase(Ar, HA_r)
+            call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, HA_r, work_r)
+            call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+            work_1d = reshape(work_k, [me%nkpts])
+            do ik=1,me%nkpts
+               Hk(i,j,ik) = work_1d(ik)
+            end do
+         end do
+      end do
+      !$OMP END DO
+      deallocate(work_r,work_k,work_1d)
+      !$OMP END PARALLEL
+
+   end subroutine GetHam_Dressed_3d
+!--------------------------------------------------------------------------------------
+   subroutine GetDipole_1d(me,Dk)
+      class(wann_fft_t),intent(in) :: me
+      complex(dp),intent(inout) :: Dk(:,:,:,:)
+      integer :: i,j,idir,ik
+      complex(dp),allocatable :: work_r(:),work_k(:)
+
+      !$OMP PARALLEL PRIVATE(i,j,idir,ik,work_r,work_k)
+      allocate(work_r(me%nkx),work_k(me%nkx))
+      !$OMP DO COLLAPSE(3)
+      do idir=1,3
+         do j=1,me%nwan
+            do i=1,me%nwan
+               call Smooth2Dense_1d(me%nx, me%nkx, me%pos_r(:,i,j,idir), work_r)
+               call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+               do ik=1,me%nkx
+                  Dk(i,j,idir,ik) = work_k(ik)
+               end do
+            end do
+         end do
+      end do
+      !$OMP END DO
+      deallocate(work_r,work_k)
+      !$OMP END PARALLEL
+
+   end subroutine GetDipole_1d
+!--------------------------------------------------------------------------------------
+   subroutine GetDipole_2d(me,Dk)
+      class(wann_fft_t),intent(in) :: me
+      complex(dp),intent(inout) :: Dk(:,:,:,:)
+      integer :: i,j,idir,ik
+      complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
+
+      !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k,work_1d)
+      allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
+      !$OMP DO COLLAPSE(3)
+      do idir=1,3
+         do j=1,me%nwan
+            do i=1,me%nwan
+               call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, me%pos_r(:,i,j,idir), work_r)
+               call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+               work_1d = reshape(work_k, [me%nkpts])
+               do ik=1,me%nkpts
+                  Dk(i,j,idir,ik) = work_1d(ik)
+               end do
+            end do
+         end do
+      end do
+      !$OMP END DO
+      deallocate(work_r,work_k,work_1d)
+      !$OMP END PARALLEL
+
+   end subroutine GetDipole_2d
+!--------------------------------------------------------------------------------------
+   subroutine GetDipole_3d(me,Dk)
+      class(wann_fft_t),intent(in) :: me
+      complex(dp),intent(inout) :: Dk(:,:,:,:)
+      integer :: i,j,idir,ik
+      complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
+
+      !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d)
+      allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
+      !$OMP DO COLLAPSE(3)
+      do idir=1,3
+         do j=1,me%nwan
+            do i=1,me%nwan
+               call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, me%pos_r(:,i,j,idir), work_r)
+               call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+               work_1d = reshape(work_k, [me%nkpts])
+               do ik=1,me%nkpts
+                  Dk(i,j,idir,ik) = work_1d(ik)
+               end do
+            end do
+         end do
+      end do
+      !$OMP END DO
+      deallocate(work_r,work_k,work_1d)
+      !$OMP END PARALLEL
+
+   end subroutine GetDipole_3d
+!--------------------------------------------------------------------------------------
+   subroutine GetDipole_Dressed_1d(me,Ar,Dk)
+      class(wann_fft_t),intent(in) :: me
+      real(dp),intent(in)       :: Ar(3)
+      complex(dp),intent(inout) :: Dk(:,:,:,:)
+      integer :: i,j,idir,ik
+      complex(dp),allocatable :: DA_r(:)
+      complex(dp),allocatable :: work_r(:),work_k(:)
+
+      !$OMP PARALLEL PRIVATE(i,j,idir,ik,DA_r,work_r,work_k)
+      allocate(DA_r(me%nrpts))
+      allocate(work_r(me%nkx),work_k(me%nkx))
+      !$OMP DO COLLAPSE(3)
+      do idir=1,3
+         do j=1,me%nwan
+            do i=1,me%nwan
+               DA_r = me%pos_r(:,i,j,idir)
+               call me%DressPhase(Ar,DA_r)
+               call Smooth2Dense_1d(me%nx, me%nkx, DA_r, work_r)
+               call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+               do ik=1,me%nkx
+                  Dk(i,j,idir,ik) = work_k(ik)
+               end do
+            end do
+         end do
+      end do
+      !$OMP END DO
+      deallocate(DA_r)
+      deallocate(work_r,work_k)
+      !$OMP END PARALLEL
+
+   end subroutine GetDipole_Dressed_1d
+!--------------------------------------------------------------------------------------
+   subroutine GetDipole_Dressed_2d(me,Ar,Dk)
+      class(wann_fft_t),intent(in) :: me
+      real(dp),intent(in)       :: Ar(3)
+      complex(dp),intent(inout) :: Dk(:,:,:,:)
+      integer :: i,j,idir,ik
+      complex(dp),allocatable :: DA_r(:)
+      complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
+
+      !$OMP PARALLEL PRIVATE(i,j,idir,ik,DA_r,work_r,work_k,work_1d)
+      allocate(DA_r(me%nrpts))
+      allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
+      !$OMP DO COLLAPSE(3)
+      do idir=1,3
+         do j=1,me%nwan
+            do i=1,me%nwan
+               DA_r = me%pos_r(:,i,j,idir)
+               call me%DressPhase(Ar,DA_r)
+               call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, DA_r, work_r)
+               call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+               work_1d = reshape(work_k, [me%nkpts])
+               do ik=1,me%nkpts
+                  Dk(i,j,idir,ik) = work_1d(ik)
+               end do
+            end do
+         end do
+      end do
+      !$OMP END DO
+      deallocate(DA_r)
+      deallocate(work_r,work_k,work_1d)
+      !$OMP END PARALLEL
+
+   end subroutine GetDipole_Dressed_2d
+!--------------------------------------------------------------------------------------
+   subroutine GetDipole_Dressed_3d(me,Ar,Dk)
+      class(wann_fft_t),intent(in) :: me
+      real(dp),intent(in)       :: Ar(3)
+      complex(dp),intent(inout) :: Dk(:,:,:,:)
+      integer :: i,j,idir,ik
+      complex(dp),allocatable :: DA_r(:)
+      complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
+
+      !$OMP PARALLEL PRIVATE(i,j,idir,ik,DA_r,work_r,work_k,work_1d)
+      allocate(DA_r(me%nrpts))
+      allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
+      !$OMP DO COLLAPSE(3)
+      do idir=1,3
+         do j=1,me%nwan
+            do i=1,me%nwan
+               DA_r = me%pos_r(:,i,j,idir)
+               call me%DressPhase(Ar,DA_r)
+               call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, DA_r, work_r)
+               call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+               work_1d = reshape(work_k, [me%nkpts])
+               do ik=1,me%nkpts
+                  Dk(i,j,idir,ik) = work_1d(ik)
+               end do
+            end do
+         end do
+      end do
+      !$OMP END DO
+      deallocate(DA_r)
+      deallocate(work_r,work_k,work_1d)
+      !$OMP END PARALLEL
+
+   end subroutine GetDipole_Dressed_3d
+
 !--------------------------------------------------------------------------------------
    subroutine Smooth2Dense_1d(nx,nkx,psi_s,psi_d)
       integer,intent(in) :: nx
@@ -338,7 +970,7 @@ contains
 
    end function GetFFTIndex   
 !--------------------------------------------------------------------------------------
-   pure elemental function FFT_index(n,i) result(k)
+   pure elemental function FFT_Freq(n,i) result(k)
       integer,intent(in) :: n, i
       integer :: k
 
@@ -348,7 +980,7 @@ contains
          k = -(n - i + 1)
       end if
 
-   end function FFT_index
+   end function FFT_Freq
 !--------------------------------------------------------------------------------------
    
 

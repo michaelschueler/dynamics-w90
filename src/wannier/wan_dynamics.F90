@@ -61,6 +61,7 @@ contains
                                                 !! dimension [nbnd,nbnd,Nk]
       integer :: ik  
 
+      !$OMP PARALLEL DO
       do ik=1,Nk
          Hk(:,:,ik) = w90%get_ham([kpts(ik,1),kpts(ik,2),kpts(ik,3)])   
       end do
@@ -91,12 +92,10 @@ contains
       real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
       complex(dp),intent(inout)    :: velok(:,:,:,:) !! velocity matrix elements \(\mathbf{v}_{\alpha\alpha^\prime}(\mathbf{k})\),
                                                      !! dimension [nbnd,nbnd,Nk,3]
-      complex(dp) :: vk(w90%num_wann,w90%num_wann,3)
       integer :: ik  
 
       do ik=1,Nk
-         vk = w90%get_velocity([kpts(ik,1),kpts(ik,2),kpts(ik,3)])
-         velok(:,:,ik,1:3) = vk(:,:,1:3)
+         velok(:,:,:,ik) = w90%get_velocity([kpts(ik,1),kpts(ik,2),kpts(ik,3)])
       end do
 
    end subroutine Wann_GenVelok
@@ -110,11 +109,9 @@ contains
       complex(dp),intent(inout)    :: Dipk(:,:,:,:) !! velocity matrix elements \(\mathbf{D}_{jj^\prime}(\mathbf{k})\),
                                                     !! dimension [nbnd,nbnd,Nk,3]
       integer :: ik  
-      complex(dp) :: Dk(w90%num_wann,w90%num_wann,3)
 
       do ik=1,Nk
-         Dk = w90%get_dipole([kpts(ik,1),kpts(ik,2),kpts(ik,3)])
-         Dipk(:,:,1:3,ik) = Dk(:,:,1:3)
+         Dipk(:,:,:,ik) = w90%get_dipole([kpts(ik,1),kpts(ik,2),kpts(ik,3)])
       end do
 
    end subroutine Wann_GenDipk
@@ -152,17 +149,25 @@ contains
 
       select case(method_)
       case(1)
+         !$OMP PARALLEL PRIVATE(ik,kpt)
+         !$OMP DO
          do ik=1,Nk
             kpt = kpts(ik,:)
             call RK4_TimeStep_Dip_k(w90,kpt,ik,tstp,dt,field,T1,T2,beta,mu,Rhok(:,:,ik),&
                empirical=empirical_)
          end do
+         !$OMP END DO
+         !$OMP END PARALLEL
       case(2)
+         !$OMP PARALLEL PRIVATE(ik,kpt)
+         !$OMP DO
          do ik=1,Nk
             kpt = kpts(ik,:)
             call RK5_TimeStep_Dip_k(w90,kpt,tstp,dt,field,T1,T2,beta,mu,Rhok(:,:,ik),&
                empirical=empirical_)
-         end do     
+         end do              
+         !$OMP END DO
+         !$OMP END PARALLEL
       case(3)
          call hybrid%Init(w90%num_wann,Beta,Mu,T1,T2)
          call hybrid%Prepare_Timestep(tstp,dt,field,w90=w90)
@@ -209,13 +214,21 @@ contains
 
       select case(method_)
       case(1)
+         !$OMP PARALLEL PRIVATE(ik)
+         !$OMP DO
          do ik=1,Nk
             call RK4_TimeStep_velo_k(ik,tstp,dt,field,T1,T2,beta,mu,Hk,vk,Rhok(:,:,ik))
          end do
+         !$OMP END DO
+         !$OMP END PARALLEL
       case(2)
+         !$OMP PARALLEL PRIVATE(ik)
+         !$OMP DO
          do ik=1,Nk
             call RK5_TimeStep_velo_k(ik,tstp,dt,field,T1,T2,beta,mu,Hk,vk,Rhok(:,:,ik))
-         end do        
+         end do     
+         !$OMP END DO
+         !$OMP END PARALLEL   
       case(3)
          call hybrid%Init(nbnd,Beta,Mu,T1,T2)
          call hybrid%Prepare_Timestep(tstp,dt,field)
@@ -250,6 +263,8 @@ contains
          call field((tstp + c2)*dt,AF_2,EF_2)
       end if
 
+      !$OMP PARALLEL PRIVATE(ik,H1,H2,Rho_old,Udt,vk)
+      !$OMP DO
       do ik=1,Nk
          Rho_old = Rhok(:,:,ik)
          H1 = w90%get_ham_diag([kpts(ik,1),kpts(ik,2),kpts(ik,3)])
@@ -260,6 +275,8 @@ contains
          call GenU_CF4(dt,H1,H2,Udt)
          call UnitaryStepFBW(w90%num_wann,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
       end do
+      !$OMP END DO
+      !$OMP END PARALLEL
 
    end subroutine Wann_Rhok_timestep_velo
 !--------------------------------------------------------------------------------------
@@ -285,13 +302,17 @@ contains
          call field((tstp + c2)*dt,AF_2,EF_2)
       end if
 
+      !$OMP PARALLEL PRIVATE(ik,H1,H2,Rho_old,Udt)
+      !$OMP DO
       do ik=1,Nk
          Rho_old = Rhok(:,:,ik)
-         H1 = Hk(:,:,ik) - qc*(AF_1(1)*vk(:,:,ik,1) + AF_1(2)*vk(:,:,ik,2) + AF_1(3)*vk(:,:,ik,3))
-         H2 = Hk(:,:,ik) - qc*(AF_2(1)*vk(:,:,ik,1) + AF_2(2)*vk(:,:,ik,2) + AF_1(3)*vk(:,:,ik,3))
+         H1 = Hk(:,:,ik) - qc*(AF_1(1)*vk(:,:,1,ik) + AF_1(2)*vk(:,:,2,ik) + AF_1(3)*vk(:,:,3,ik))
+         H2 = Hk(:,:,ik) - qc*(AF_2(1)*vk(:,:,1,ik) + AF_2(2)*vk(:,:,2,ik) + AF_1(3)*vk(:,:,3,ik))
          call GenU_CF4(dt,H1,H2,Udt)
          call UnitaryStepFBW(nbnd,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
       end do
+      !$OMP END DO
+      !$OMP END PARALLEL
 
    end subroutine Wann_Rhok_timestep_velo_calc
 !--------------------------------------------------------------------------------------
@@ -394,6 +415,8 @@ contains
       call field((tstp + c1)*dt,AF_1,EF_1)
       call field((tstp + c2)*dt,AF_2,EF_2)
 
+      !$OMP PARALLEL PRIVATE(ik,kpt,Rho_old,H1,H2,Udt)
+      !$OMP DO
       do ik=1,Nk
          kpt = kpts(ik,:)
          Rho_old = Rhok(:,:,ik)
@@ -404,6 +427,8 @@ contains
          call GenU_CF4(dt,H1,H2,Udt)
          call UnitaryStepFBW(w90%num_wann,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
       end do
+      !$OMP END DO
+      !$OMP END PARALLEL
 
    end subroutine Wann_Rhok_timestep_dip_field
 !--------------------------------------------------------------------------------------
@@ -417,16 +442,22 @@ contains
       complex(dp),intent(inout)    :: Rhok(:,:,:)
       logical :: large_size
       integer :: ik
+      real(dp) :: kpt(3)
       complex(dp),dimension(w90%num_wann,w90%num_wann) :: H1,Rho_old,Udt
       
       large_size = get_large_size(w90%num_wann)
 
+      !$OMP PARALLEL PRIVATE(ik,kpt,Rho_old,H1,Udt)
+      !$OMP DO
       do ik=1,Nk
+         kpt = kpts(ik,:)
          Rho_old = Rhok(:,:,ik)
-         H1 = Wann_GetHk_dip(w90,AF,[0.0_dp,0.0_dp,0.0_dp],kpts(ik,:),reducedA=.false.)
+         H1 = Wann_GetHk_dip(w90,AF,[0.0_dp,0.0_dp,0.0_dp],kpt,reducedA=.false.)
          call GenU_CF2(dt,H1,Udt)
          call UnitaryStepFBW(w90%num_wann,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
       end do
+      !$OMP END DO
+      !$OMP END PARALLEL
 
    end subroutine Wann_Rhok_timestep_dip_free
 !--------------------------------------------------------------------------------------
@@ -462,9 +493,9 @@ contains
       Jpara = 0.0_dp
 
       do ik=1,Nk
-         Jk(1) = qc * DTRAB(nbnd,vk(:,:,ik,1),Rhok(:,:,ik))/Nk
-         Jk(2) = qc * DTRAB(nbnd,vk(:,:,ik,2),Rhok(:,:,ik))/Nk
-         Jk(3) = qc * DTRAB(nbnd,vk(:,:,ik,3),Rhok(:,:,ik))/Nk
+         Jk(1) = qc * DTRAB(nbnd,vk(:,:,1,ik),Rhok(:,:,ik))/Nk
+         Jk(2) = qc * DTRAB(nbnd,vk(:,:,2,ik),Rhok(:,:,ik))/Nk
+         Jk(3) = qc * DTRAB(nbnd,vk(:,:,3,ik),Rhok(:,:,ik))/Nk
          Jpara = Jpara + Jk
       end do
 
@@ -601,9 +632,9 @@ contains
       do ik=1,Nk
          Jk = 0.0_dp
          do i=1,nbnd
-            Jk(1) = Jk(1) + qc * dble(vk(i,i,ik,1)*Rhok(i,i,ik))/Nk
-            Jk(2) = Jk(2) + qc * dble(vk(i,i,ik,2)*Rhok(i,i,ik))/Nk
-            Jk(3) = Jk(3) + qc * dble(vk(i,i,ik,3)*Rhok(i,i,ik))/Nk
+            Jk(1) = Jk(1) + qc * dble(vk(i,i,1,ik)*Rhok(i,i,ik))/Nk
+            Jk(2) = Jk(2) + qc * dble(vk(i,i,2,ik)*Rhok(i,i,ik))/Nk
+            Jk(3) = Jk(3) + qc * dble(vk(i,i,3,ik)*Rhok(i,i,ik))/Nk
          end do
          Jcurr = Jcurr + Jk
       end do
@@ -704,12 +735,16 @@ contains
  
       dipole = 0.0_dp
 
+      !$OMP PARALLEL PRIVATE(ik,Dipk)
+      !$OMP DO REDUCTION(+:dipole)
       do ik=1,Nk
          Dipk(1) = qc * DTRAB(nbnd,Dk(:,:,ik,1),Rhok(:,:,ik))/Nk
          Dipk(2) = qc * DTRAB(nbnd,Dk(:,:,ik,2),Rhok(:,:,ik))/Nk
          Dipk(3) = qc * DTRAB(nbnd,Dk(:,:,ik,3),Rhok(:,:,ik))/Nk
          dipole = dipole + Dipk
       end do
+      !$OMP END DO
+      !$OMP END PARALLEL
     
 
    end function Wann_Pol_dip_calc
@@ -742,6 +777,8 @@ contains
 
       Ared = Cart_to_red(w90,Avec)
 
+      !$OMP PARALLEL PRIVATE(ik,kAred,grad_Hk,Dk,DRhok_dt)
+      !$OMP DO
       do ik=1,Nk
          kAred = kpts(ik,:) - Ared
          grad_Hk = w90%get_gradk_ham(kAred) 
@@ -754,6 +791,8 @@ contains
          Jk(2,ik) = Jk(2,ik) + qc * DTRAB(w90%num_wann,Dk(:,:,2),DRhok_dt)/Nk
          Jk(3,ik) = Jk(3,ik) + qc * DTRAB(w90%num_wann,Dk(:,:,3),DRhok_dt)/Nk
       end do
+      !$OMP END DO
+      !$OMP END PARALLEL
 
    end subroutine Wann_Current_dip_kpt
 !--------------------------------------------------------------------------------------
@@ -793,6 +832,8 @@ contains
       Jcurr = 0.0_dp
 
       if(present(rot_mat)) then
+         !$OMP PARALLEL PRIVATE(ik,kAred,grad_Hk,Dk,DRhok_dt,Jk)
+         !$OMP DO REDUCTION(+:Jcurr)
          do ik=1,Nk
             kAred = kpts(ik,:) - Ared
             grad_Hk = w90%get_gradk_ham(kAred) 
@@ -812,7 +853,11 @@ contains
                Jcurr = Jcurr + Jk
             end if
          end do
+         !$OMP END DO
+         !$OMP END PARALLEL
       else
+         !$OMP PARALLEL PRIVATE(ik,kAred,grad_Hk,Dk,DRhok_dt,Jk)
+         !$OMP DO REDUCTION(+:Jcurr)
          do ik=1,Nk
             kAred = kpts(ik,:) - Ared
             grad_Hk = w90%get_gradk_ham(kAred) 
@@ -829,6 +874,8 @@ contains
                Jcurr = Jcurr + Jk
             end if
          end do
+         !$OMP END DO
+         !$OMP END PARALLEL
       end if
 
    end function Wann_Current_dip
@@ -922,18 +969,18 @@ contains
       Jcurr = 0.0_dp
 
       do ik=1,Nk
-         Jk(1) = qc * DTRAB(nbnd,grad_Hk(:,:,ik,1),Rhok(:,:,ik))/Nk
-         Jk(2) = qc * DTRAB(nbnd,grad_Hk(:,:,ik,2),Rhok(:,:,ik))/Nk
-         Jk(3) = qc * DTRAB(nbnd,grad_Hk(:,:,ik,3),Rhok(:,:,ik))/Nk
+         Jk(1) = qc * DTRAB(nbnd,grad_Hk(:,:,1,ik),Rhok(:,:,ik))/Nk
+         Jk(2) = qc * DTRAB(nbnd,grad_Hk(:,:,2,ik),Rhok(:,:,ik))/Nk
+         Jk(3) = qc * DTRAB(nbnd,grad_Hk(:,:,3,ik),Rhok(:,:,ik))/Nk
          Jcurr = Jcurr + Jk
          if(dip_curr) then
             ! DRhok_dt = -iu*(matmul(Hk(:,:,ik),Rhok(:,:,ik)) - matmul(Rhok(:,:,ik),Hk(:,:,ik)))
             call util_matmul(Hk(:,:,ik),Rhok(:,:,ik),H_Rho,large_size=large_size)
             call util_matmul(Rhok(:,:,ik),Hk(:,:,ik),Rho_H,large_size=large_size)
             DRhok_dt = -iu * (H_Rho - Rho_H)
-            Jk(1) = qc * DTRAB(nbnd,Dk(:,:,ik,1),DRhok_dt)/Nk
-            Jk(2) = qc * DTRAB(nbnd,Dk(:,:,ik,2),DRhok_dt)/Nk
-            Jk(3) = qc * DTRAB(nbnd,Dk(:,:,ik,3),DRhok_dt)/Nk
+            Jk(1) = qc * DTRAB(nbnd,Dk(:,:,1,ik),DRhok_dt)/Nk
+            Jk(2) = qc * DTRAB(nbnd,Dk(:,:,2,ik),DRhok_dt)/Nk
+            Jk(3) = qc * DTRAB(nbnd,Dk(:,:,3,ik),DRhok_dt)/Nk
             Jcurr = Jcurr + Jk
          end if
       end do
@@ -961,11 +1008,11 @@ contains
       logical :: dip_curr
       logical :: large_size
       integer :: ik,idir
-      complex(dp),dimension(nbnd,nbnd)   :: DRhok_dt,H_Rho,Rho_H
+      complex(dp),dimension(nbnd,nbnd)   :: DRhok_dt
 
       call assert_shape(Hk, [nbnd,nbnd,Nk], proc_name, "Hk")
-      call assert_shape(grad_Hk, [nbnd,nbnd,Nk,3], proc_name, "grad_Hk")
-      call assert_shape(Dk, [nbnd,nbnd,Nk,3], proc_name, "Dk")
+      call assert_shape(grad_Hk, [nbnd,nbnd,3,Nk], proc_name, "grad_Hk")
+      call assert_shape(Dk, [nbnd,nbnd,3,Nk], proc_name, "Dk")
       call assert_shape(Rhok, [nbnd,nbnd,Nk], proc_name, "Rhok")
 
       dip_curr = .true.
@@ -974,18 +1021,20 @@ contains
       large_size = get_large_size(nbnd)
 
       Jspin = 0.0_dp
+      DRhok_dt = zero
 
       do ik=1,Nk
          do idir=1,3
-            Jspin(:,idir) = Jspin(:,idir) + Wann_DTRAB_spin(nbnd,Rhok(:,:,ik),grad_Hk(:,:,ik,idir))
+            Jspin(:,idir) = Jspin(:,idir) + Wann_DTRAB_spin(nbnd,Rhok(:,:,ik),grad_Hk(:,:,idir,ik))
          end do
          if(dip_curr) then
             ! DRhok_dt = -iu*(matmul(Hk(:,:,ik),Rhok(:,:,ik)) - matmul(Rhok(:,:,ik),Hk(:,:,ik)))
-            call util_matmul(Hk(:,:,ik),Rhok(:,:,ik),H_Rho,large_size=large_size)
-            call util_matmul(Rhok(:,:,ik),Hk(:,:,ik),Rho_H,large_size=large_size)
-            DRhok_dt = -iu * (H_Rho - Rho_H)
+
+            call util_matmul(Hk(:,:,ik),Rhok(:,:,ik),DRhok_dt,alpha=-iu,large_size=large_size)
+            call util_matmul(Rhok(:,:,ik),Hk(:,:,ik),DRhok_dt,alpha=iu,beta=one,large_size=large_size)
+            ! DRhok_dt = -iu * (H_Rho - Rho_H)
             do idir=1,3
-               Jspin(:,idir) = Jspin(:,idir) + Wann_DTRAB_spin(nbnd,DRhok_dt,Dk(:,:,ik,idir))
+               Jspin(:,idir) = Jspin(:,idir) + Wann_DTRAB_spin(nbnd,DRhok_dt,Dk(:,:,idir,ik))
             end do
          end if
       end do
@@ -1006,7 +1055,7 @@ contains
       complex(dp),intent(in),optional :: rot_mat(:,:) !! rotation matrix for the option to change basis
       complex(dp),dimension(w90%num_wann,w90%num_wann) :: DRhok_dt
       logical :: large_size
-      complex(dp),dimension(w90%num_wann,w90%num_wann) :: Hk,H_Rho, Rho_H
+      complex(dp),dimension(w90%num_wann,w90%num_wann) :: Hk
 
       large_size = get_large_size(w90%num_wann)
 
@@ -1015,9 +1064,13 @@ contains
          Hk = util_rotate(w90%num_wann,rot_mat,Hk,large_size=large_size)
       end if
 
-      call util_matmul(Hk,Rhok,H_Rho,large_size=large_size)
-      call util_matmul(Rhok,Hk,Rho_H,large_size=large_size)
-      DRhok_dt = -iu * (H_Rho - Rho_H)
+      DRhok_dt = zero
+      call util_matmul(Hk,Rhok,DRhok_dt,alpha=-iu,large_size=large_size)
+      call util_matmul(Rhok,Hk,DRhok_dt,alpha=iu,beta=one,large_size=large_size)
+
+      ! call util_matmul(Hk,Rhok,H_Rho,large_size=large_size)
+      ! call util_matmul(Rhok,Hk,Rho_H,large_size=large_size)
+      ! DRhok_dt = -iu * (H_Rho - Rho_H)
 
       ! DRhok_dt = -iu*(matmul(Hk,Rhok) - matmul(Rhok,Hk))
       
@@ -1044,6 +1097,8 @@ contains
       complex(dp),dimension(w90%num_wann,w90%num_wann,3) :: vk
 
       Etot = 0.0_dp
+      !$OMP PARALLEL PRIVATE(ik,Ek,Hk,vk)
+      !$OMP DO REDUCTION(+:Etot)
       do ik=1,Nk
          Hk = w90%get_ham_diag([kpts(ik,1),kpts(ik,2),kpts(ik,3)])
          vk = w90%get_velocity([kpts(ik,1),kpts(ik,2),kpts(ik,3)])
@@ -1052,6 +1107,8 @@ contains
          Etot = Etot + Ek/Nk
          Etot = Etot + 0.5_dp*qc**2*norm2(Avec)**2*trace(Rhok(:,:,ik))/Nk
       end do
+      !$OMP END DO
+      !$OMP END PARALLEL
 
    end function Wann_TotalEn_velo
 !--------------------------------------------------------------------------------------
@@ -1076,11 +1133,15 @@ contains
       real(dp) :: Ek
 
       Etot = 0.0_dp
+      !$OMP PARALLEL PRIVATE(ik,Ek)
+      !$OMP DO REDUCTION(+:Etot)
       do ik=1,Nk
          Ek = DTRAB(nbnd,Hk(:,:,ik),Rhok(:,:,ik))
          Etot = Etot + Ek/Nk
          Etot = Etot + 0.5_dp*qc**2*norm2(Avec)**2*trace(Rhok(:,:,ik))/Nk
       end do
+      !$OMP END DO
+      !$OMP END PARALLEL
 
    end function Wann_TotalEn_velo_calc
 !--------------------------------------------------------------------------------------
@@ -1106,17 +1167,25 @@ contains
       Ekin = 0.0_dp
 
       if(bands_) then
+         !$OMP PARALLEL PRIVATE(ik,Ek,Hk)
+         !$OMP DO REDUCTION(+:Ekin)
          do ik=1,Nk
             Hk = w90%get_ham_diag([kpts(ik,1),kpts(ik,2),kpts(ik,3)]) 
             Ek = DTRAB(w90%num_wann,Hk,Rhok(:,:,ik))
             Ekin = Ekin + Ek/Nk
          end do
+         !$OMP END DO
+         !$OMP END PARALLEL
       else
+         !$OMP PARALLEL PRIVATE(ik,Ek,Hk)
+         !$OMP DO REDUCTION(+:Ekin)
          do ik=1,Nk
             Hk = w90%get_ham([kpts(ik,1),kpts(ik,2),kpts(ik,3)]) 
             Ek = DTRAB(w90%num_wann,Hk,Rhok(:,:,ik))
             Ekin = Ekin + Ek/Nk
          end do
+         !$OMP END DO
+         !$OMP END PARALLEL
       end if
 
    end function Wann_KineticEn
@@ -1134,10 +1203,14 @@ contains
       real(dp) :: Ek
 
       Ekin = 0.0_dp
+      !$OMP PARALLEL PRIVATE(ik,Ek)
+      !$OMP DO REDUCTION(+:Ekin)
       do ik=1,Nk
          Ek = DTRAB(nbnd,Hk(:,:,ik),Rhok(:,:,ik))
          Ekin = Ekin + Ek/Nk
       end do
+      !$OMP END DO
+      !$OMP END PARALLEL
 
    end function Wann_KineticEn_calc
 !--------------------------------------------------------------------------------------
@@ -1160,6 +1233,9 @@ contains
       Ared = Cart_to_red(w90,Avec)
 
       Etot = 0.0_dp
+
+      !$OMP PARALLEL PRIVATE(ik,kAred,Hk,Dk,Ek)
+      !$OMP DO REDUCTION(+:Etot)
       do ik=1,Nk
          kAred = kpts(ik,:) - Ared
          Hk = w90%get_ham(kAred) 
@@ -1168,6 +1244,8 @@ contains
          Ek = DTRAB(w90%num_wann,Hk,Rhok(:,:,ik))
          Etot = Etot + Ek/Nk
       end do
+      !$OMP END DO
+      !$OMP END PARALLEL
 
    end function Wann_TotalEn_dip
 !--------------------------------------------------------------------------------------

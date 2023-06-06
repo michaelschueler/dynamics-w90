@@ -133,15 +133,15 @@ contains
       call me%batch_diag%Diagonalize(me%Hkt)
       me%Rho_tmp = zero
       do i=1,me%nbnd
-         me%Rho_tmp(i,i) = nfermi(me%Beta, me%batch_diag%eps(i) - me%Mu)
+         me%Rho_tmp(i,i) = nfermi(me%Beta, me%batch_diag%eps(i,0) - me%Mu)
       end do
-      me%Rho_eq = util_rotate_cc(me%nbnd,me%batch_diag%vect,me%Rho_tmp,large_size=me%large_size)
+      me%Rho_eq = util_rotate_cc(me%nbnd,me%batch_diag%vect(:,:,0),me%Rho_tmp,large_size=me%large_size)
 
-      me%Rho_tmp = util_rotate(me%nbnd,me%batch_diag%vect,Rhok,large_size=me%large_size)
+      me%Rho_tmp = util_rotate(me%nbnd,me%batch_diag%vect(:,:,0),Rhok,large_size=me%large_size)
       do i=1,me%nbnd
          me%Rho_tmp(i,i) = zero
       end do
-      me%Rho_off = util_rotate_cc(me%nbnd,me%batch_diag%vect,me%Rho_tmp,large_size=me%large_size)      
+      me%Rho_off = util_rotate_cc(me%nbnd,me%batch_diag%vect(:,:,0),me%Rho_tmp,large_size=me%large_size)      
 
       me%Dscatt = -me%Gmm(1) * (Rhok - me%Rho_eq) + me%Gmm(3) * me%Rho_off
 
@@ -191,15 +191,15 @@ contains
       call me%batch_diag%Diagonalize(me%Hkt)
       me%Rho_tmp = zero
       do i=1,me%nbnd
-         me%Rho_tmp(i,i) = nfermi(me%Beta, me%batch_diag%eps(i) - me%Mu)
+         me%Rho_tmp(i,i) = nfermi(me%Beta, me%batch_diag%eps(i,0) - me%Mu)
       end do
-      me%Rho_eq = util_rotate_cc(me%nbnd,me%batch_diag%vect,me%Rho_tmp,large_size=me%large_size)
+      me%Rho_eq = util_rotate_cc(me%nbnd,me%batch_diag%vect(:,:,0),me%Rho_tmp,large_size=me%large_size)
 
-      me%Rho_tmp = util_rotate(me%nbnd,me%batch_diag%vect,Rhok,large_size=me%large_size)
+      me%Rho_tmp = util_rotate(me%nbnd,me%batch_diag%vect(:,:,0),Rhok,large_size=me%large_size)
       do i=1,me%nbnd
          me%Rho_tmp(i,i) = zero
       end do
-      me%Rho_off = util_rotate_cc(me%nbnd,me%batch_diag%vect,me%Rho_tmp,large_size=me%large_size)      
+      me%Rho_off = util_rotate_cc(me%nbnd,me%batch_diag%vect(:,:,0),me%Rho_tmp,large_size=me%large_size)      
 
       me%Dscatt = -me%Gmm(1) * (Rhok - me%Rho_eq) + me%Gmm(3) * me%Rho_off
 

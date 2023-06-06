@@ -1,6 +1,7 @@
 module Mwannier_calc
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
+   use omp_lib
    use Mdebug
    use scitools_def,only: dp,iu,zero,gauss
    use scitools_utils,only: str, linspace
@@ -68,7 +69,8 @@ contains
       logical :: use_fft
       complex(dp),allocatable  :: Hk_fft(:,:,:)
       !......................................
-
+      integer :: nthreads,tid
+      !......................................
 
       call ReadHamiltonian(par_ham%file_ham,ham_tmp,file_xyz=par_ham%file_xyz)
       if(par_ham%energy_thresh > 0.0_dp) then
@@ -144,9 +146,16 @@ contains
       me%Nk = size(me%kpts,1)
       allocate(me%epsk(me%nbnd,me%Nk),me%vectk(me%nbnd,me%nbnd,me%Nk))
 
-      call batch_diag%Init(me%nbnd)
 
-      allocate(Hk(me%nbnd,me%nbnd))
+      !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
+      tid = omp_get_thread_num()
+      if(tid == 0) then 
+         nthreads = omp_get_num_threads()
+      end if
+      !$OMP END PARALLEL      
+
+      call batch_diag%Init(me%nbnd,nthreads=nthreads)
+
       if(par_ham%apply_field) then
          write(output_unit,fmt_info) "E-field: ["//str(par_ham%Efield(1))//" , "//str(par_ham%Efield(2)) &
             // " , "//str(par_ham%Efield(3))//"]"
@@ -158,29 +167,60 @@ contains
          case(field_mode_berry)
             write(output_unit,fmt_info) "field couples to Berry connection"
          end select 
+         !$OMP PARALLEL PRIVATE(tid,Hk)
+         tid = omp_get_thread_num()
+         allocate(Hk(me%nbnd,me%nbnd))
+         !$OMP DO
          do ik=1,me%Nk
             Hk = me%Ham%get_ham_field(me%kpts(ik,:),par_ham%Efield,par_ham%field_mode)
-            call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik))
+            call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik),tid=tid)
          end do
+         !$OMP END DO
+         deallocate(Hk)
+         !$OMP END PARALLEL
       elseif(me%static_potential) then
+         !$OMP PARALLEL PRIVATE(tid,Hk)
+         tid = omp_get_thread_num()
+         allocate(Hk(me%nbnd,me%nbnd))
+         !$OMP DO
          do ik=1,me%Nk
             Hk = me%Ham%get_ham_elpot(me%kpts(ik,:),elpot_func)
-            call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik))
+            call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik),tid=tid)
          end do
+         !$OMP END DO
+         deallocate(Hk)
+         !$OMP END PARALLEL         
       else
          if(use_fft) then
+            allocate(Hk_fft(me%nbnd,me%nbnd,me%Nk))
             call me%ham_fft%GetHam(Hk_fft)
+
+            !$OMP PARALLEL PRIVATE(tid)
+            tid = omp_get_thread_num()
+            !$OMP DO
             do ik=1,me%Nk
-               call batch_diag%Diagonalize(Hk_fft(:,:,ik),epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik))
+               call batch_diag%Diagonalize(Hk_fft(:,:,ik),epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik),&
+                  tid=tid)
             end do
+            !$OMP END DO
+            !$OMP END PARALLEL
+
+            deallocate(Hk_fft)
          else
+            !$OMP PARALLEL PRIVATE(tid,Hk)
+            tid = omp_get_thread_num()
+            allocate(Hk(me%nbnd,me%nbnd))
+            !$OMP DO
             do ik=1,me%Nk
                Hk = me%Ham%get_ham(me%kpts(ik,:))
-               call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik))
+               call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik),&
+                  tid=tid)
             end do
+            !$OMP END DO
+            deallocate(Hk)
+            !$OMP END PARALLEL
          end if
       end if
-      deallocate(Hk)
 
       call batch_diag%Clean()
 
@@ -231,7 +271,9 @@ contains
       allocate(spin(me%nbnd,3,me%Nk)); spin = 0.0_dp
       if(.not.me%soc_mode) return
 
+      !$OMP PARALLEL PRIVATE(vectk_up,vectk_dn)
       allocate(vectk_up(me%nwan),vectk_dn(me%nwan))
+      !$OMP DO
       do ik=1,me%Nk
          do ibnd=1,me%nbnd
             do iorb=1,me%nwan
@@ -243,6 +285,8 @@ contains
             spin(ibnd,3,ik) = sum(abs(vectk_up)**2) - sum(abs(vectk_dn)**2) 
          end do
       end do
+      !$OMP END DO
+      !$OMP END PARALLEL
      
    end subroutine GetSpin
 !--------------------------------------------------------------------------------------
@@ -262,6 +306,7 @@ contains
       select case(gauge_)
       case(velocity_gauge)
          if(me%berry_valence) then
+            !$OMP PARALLEL DO
             do ik=1,me%Nk
                berry(:,:,ik) = me%Ham%get_berrycurv(me%kpts(ik,:),muchem=me%muchem,&
                   orbs_excl=me%orbs_excl)
@@ -275,12 +320,14 @@ contains
       case(dipole_gauge)
          allocate(berry_disp(me%nbnd,3),berry_dip(me%nbnd,3))
          if(me%berry_valence) then
+            !$OMP PARALLEL DO
             do ik=1,me%Nk
                call me%Ham%get_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip,&
                   muchem=me%muchem,orbs_excl=me%orbs_excl)
                berry(:,:,ik) = berry_disp + berry_dip
             end do
          else
+            !$OMP PARALLEL DO
             do ik=1,me%Nk
                call me%Ham%get_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip,&
                   orbs_excl=me%orbs_excl)
@@ -311,6 +358,7 @@ contains
       select case(gauge_)
       case(velocity_gauge) 
          if(me%berry_valence) then
+            !$OMP PARALLEL DO
             do ik=1,me%Nk
                spin_berry(:,:,:,ik) = me%Ham%get_spin_berrycurv(me%kpts(ik,:),muchem=me%muchem,&
                   orbs_excl=me%orbs_excl)
@@ -324,12 +372,14 @@ contains
       case(dipole_gauge)
          allocate(berry_disp(me%nbnd,3,3),berry_dip(me%nbnd,3,3))
          if(me%berry_valence) then
+            !$OMP PARALLEL DO
             do ik=1,me%Nk
                call me%Ham%get_spin_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip,&
                   muchem=me%muchem,orbs_excl=me%orbs_excl)
                spin_berry(:,:,:,ik) = berry_disp + berry_dip
             end do
          else
+            !$OMP PARALLEL DO
             do ik=1,me%Nk
                call me%Ham%get_spin_berrycurv_dip(me%kpts(ik,:),berry_disp,berry_dip,&
                   orbs_excl=me%orbs_excl)
@@ -358,11 +408,13 @@ contains
 
       select case(gauge_)
       case(velocity_gauge) 
+         !$OMP PARALLEL DO
          do ik=1,me%Nk
             oam(:,:,ik) = me%Ham%get_oam(me%kpts(ik,:),&
                   orbs_excl=me%orbs_excl)
          end do
       case(dipole_gauge)
+         !$OMP PARALLEL DO
          do ik=1,me%Nk
             oam(:,:,ik) = me%Ham%get_oam_dip(me%kpts(ik,:),&
                   orbs_excl=me%orbs_excl)
@@ -381,11 +433,13 @@ contains
 
       allocate(metric(me%nbnd,3,3,me%Nk))
       if(me%berry_valence) then
+         !$OMP PARALLEL DO
          do ik=1,me%Nk
             metric(:,:,:,ik) = me%Ham%get_metric(me%kpts(ik,:),muchem=me%muchem,&
                   orbs_excl=me%orbs_excl)
          end do
       else
+         !$OMP PARALLEL DO
          do ik=1,me%Nk
             metric(:,:,:,ik) = me%Ham%get_metric(me%kpts(ik,:),&
                   orbs_excl=me%orbs_excl)
@@ -400,6 +454,7 @@ contains
       integer :: ik      
 
       allocate(velok(me%nbnd,me%nbnd,3,me%Nk))
+      !$OMP PARALLEL DO
       do ik=1,me%Nk
          velok(:,:,:,ik) = me%Ham%get_velocity(me%kpts(ik,:),&
                   orbs_excl=me%orbs_excl)

@@ -1,15 +1,21 @@
 module Mwann_evol
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
+   use omp_lib
    use Mdebug
    use scitools_def,only: dp,iu,one,zero,nfermi
    use scitools_utils,only: stop_error
    use scitools_linalg,only: get_large_size,util_matmul,util_rotate,util_rotate_cc
    use wan_latt_kpts,only: kpoints_t
+   use wan_utils,only: Batch_Diagonalize_t
    use wan_hamiltonian,only: wann90_tb_t
    use wan_equilibrium,only: GetChemicalPotential, Wann_GenRhok_eq
    use wan_rungekutta,only: Init_RungeKutta
    use wan_dynamics
+#ifdef WITHFFTW
+   use wan_fft_ham,only: wann_fft_t
+   use wan_fft_propagation,only: Wann_FFT_UnitaryTimestep_dip, Wann_FFT_RelaxTimestep_dip
+#endif
    implicit none
    include '../formats.h'
    include '../units_inc.f90'
@@ -18,14 +24,16 @@ module Mwann_evol
    procedure(vecpot_efield_func),pointer :: field => null()
 !--------------------------------------------------------------------------------------
    logical :: large_size
+   character(len=*),parameter :: fmt_info='(" Info: ",a)'
    integer,parameter :: velocity_gauge=0,dipole_gauge=1,velo_emp_gauge=2,dip_emp_gauge=3
+   integer,parameter :: kp_list=0, kp_path=1, kp_grid=2, kp_fft_grid_2d=3, kp_fft_grid_3d=4
    integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2, prop_hybrid=3
 !--------------------------------------------------------------------------------------
    private
    public :: wann_evol_t
 !--------------------------------------------------------------------------------------
    type wann_evol_t
-      logical  :: free_evol=.false., spin_current=.false.
+      logical  :: free_evol=.false., spin_current=.false., fft_mode=.false.
       integer  :: gauge
       integer  :: propagator=prop_unitary
       integer  :: Nk,nbnd
@@ -37,6 +45,9 @@ module Mwann_evol
       real(dp),pointer,dimension(:,:) :: kcoord
       ! .. Hamiltonian class ..
       type(wann90_tb_t) :: Ham
+#ifdef WITHFFTW
+      type(wann_fft_t)  :: ham_fft
+#endif
       ! .. density matrix ..
       complex(dp),allocatable,dimension(:,:,:)   :: Rhok,Rhok_eq
    contains
@@ -102,11 +113,25 @@ contains
       if(present(propagator)) me%propagator = propagator
 
       select case(me%propagator)
-      case(prop_rk4)
-         call Init_RungeKutta(me%nbnd,Nk=me%Nk)
       case(prop_rk5)
          call Init_RungeKutta(me%nbnd)
+      case(prop_rk4)
+         call Init_RungeKutta(me%nbnd,Nk=me%Nk)
       end select
+
+#ifdef WITHFFTW
+      if(kp%kpoints_type == kp_fft_grid_2d) then
+         write(output_unit,fmt_info) "Fourier transform: 2D FFT"
+         call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2])
+         me%fft_mode = .true.
+      elseif(kp%kpoints_type == kp_fft_grid_3d) then
+         write(output_unit,fmt_info) "Fourier transform: 3D FFT"
+         call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2, kp%nk3])   
+         me%fft_mode = .true.   
+      else
+         write(output_unit,fmt_info) "Fourier transform: DFT"
+      end if
+#endif
 
    end subroutine Init
 !--------------------------------------------------------------------------------------
@@ -128,27 +153,46 @@ contains
       integer :: ik,j
       real(dp) :: kpt(3)
       real(dp),allocatable :: Ek(:,:)
-      complex(dp),allocatable :: Hk(:,:,:)
+      type(Batch_Diagonalize_t) :: batch_diag
+      integer :: nthreads,tid
 
       calc_mu = present(filling)
 
-      allocate(Hk(me%nbnd,me%nbnd,me%Nk),Ek(me%nbnd,me%Nk))
+      allocate(Ek(me%nbnd,me%Nk))
+      allocate(me%Hk(me%nbnd,me%nbnd,me%Nk))
       allocate(me%wan_rot(me%nbnd,me%nbnd,me%Nk))
       allocate(me%Rhok_eq(me%nbnd,me%nbnd,me%Nk))
 
-      call Wann_GenHk(me%ham,me%Nk,me%kcoord,Hk)
+      !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
+      tid = omp_get_thread_num()
+      if(tid == 0) then 
+         nthreads = omp_get_num_threads()
+      end if
+      !$OMP END PARALLEL      
+
+      call batch_diag%Init(me%nbnd,nthreads=nthreads)      
+
+      if(me%fft_mode) then
+         call me%ham_fft%GetHam(me%Hk)
+      else
+         call Wann_GenHk(me%ham,me%Nk,me%kcoord,me%Hk)
+      end if
+
+      !$OMP PARALLEL PRIVATE(tid)
+      tid = omp_get_thread_num()
+      !$OMP DO
       do ik=1,me%Nk
-         call EigH(Hk(:,:,ik),Ek(:,ik),me%wan_rot(:,:,ik))
-         Ek(:,ik) = me%ham%get_eig(me%kcoord(ik,:))
+         call batch_diag%Diagonalize(me%Hk(:,:,ik),epsk=Ek(:,ik),vectk=me%wan_rot(:,:,ik),tid=tid)
       end do
+      !$OMP END DO
+      !$OMP END PARALLEL
 
       if(calc_mu) then
          me%MuChem = GetChemicalPotential(me%Nk,Ek,me%Beta,filling)
       end if
 
-      allocate(me%Hk(me%nbnd,me%nbnd,me%Nk))
       if(me%gauge == velocity_gauge .or. me%gauge == velo_emp_gauge) then
-         allocate(me%velok(me%nbnd,me%nbnd,me%Nk,3))
+         allocate(me%velok(me%nbnd,me%nbnd,3,me%Nk))
       end if
 
       select case(me%gauge)
@@ -156,19 +200,27 @@ contains
          call Wann_GenRhok_eq(me%ham,me%Nk,me%kcoord,me%MuChem,me%Beta,me%Rhok,&
             band_basis=.true.)
          
+         !$OMP PARALLEL PRIVATE(kpt)
+         !$OMP DO
          do ik=1,me%Nk
             kpt = me%kcoord(ik,:)
             me%Hk(:,:,ik) = me%ham%get_ham_diag(kpt)
-            me%velok(:,:,ik,1:3) = me%ham%get_velocity(kpt)
+            me%velok(:,:,:,ik) = me%ham%get_velocity(kpt)
          end do
+         !$OMP END DO
+         !$OMP END PARALLEL
       case(velo_emp_gauge)
          call Wann_GenRhok_eq(me%ham,me%Nk,me%kcoord,me%MuChem,me%Beta,me%Rhok,&
             band_basis=.true.)   
+         !$OMP PARALLEL PRIVATE(kpt)
+         !$OMP DO
          do ik=1,me%Nk
             kpt = me%kcoord(ik,:)
             me%Hk(:,:,ik) = me%ham%get_ham_diag(kpt)
-            me%velok(:,:,ik,1:3) = me%ham%get_emp_velocity(kpt)
+            me%velok(:,:,:,ik) = me%ham%get_emp_velocity(kpt)
          end do
+         !$OMP END DO
+         !$OMP END PARALLEL
       case(dipole_gauge, dip_emp_gauge)
          call Wann_GenRhok_eq(me%ham,me%Nk,me%kcoord,me%MuChem,me%Beta,me%Rhok,&
             band_basis=.false.)
@@ -177,7 +229,7 @@ contains
       me%Rhok_eq = me%Rhok
       me%nelec = sum(nfermi(me%Beta,Ek - me%MuChem)) / me%Nk
 
-      deallocate(Ek,Hk)
+      deallocate(Ek)
 
    end subroutine SolveEquilibrium
 !--------------------------------------------------------------------------------------
@@ -190,11 +242,21 @@ contains
       case(dipole_gauge)
          ! call Wann_timestep_RelaxTime(me%ham,me%Nk,me%kcoord,tstp,dt,field,T1,T2,&
             ! me%Rhok_Eq,me%Rhok)
-         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk,me%kcoord,tstp,dt,field,me%T1,me%T2,&
-            me%Beta,me%MuChem,me%Rhok,method=me%propagator)
+         if(me%fft_mode) then
+            call Wann_FFT_RelaxTimestep_dip(me%ham,me%ham_fft,tstp,dt,field,me%T1,me%T2,&
+               me%Beta,me%MuChem,me%Rhok,method=me%propagator)
+         else
+            call Wann_timestep_RelaxTime_dip(me%ham,me%Nk,me%kcoord,tstp,dt,field,me%T1,me%T2,&
+               me%Beta,me%MuChem,me%Rhok,method=me%propagator)
+         end if
       case(dip_emp_gauge)
-         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk,me%kcoord,tstp,dt,field,me%T1,me%T2,&
-            me%Beta,me%MuChem,me%Rhok,empirical=.true.,method=me%propagator)        
+         if(me%fft_mode) then
+            call Wann_FFT_RelaxTimestep_dip(me%ham,me%ham_fft,tstp,dt,field,me%T1,me%T2,&
+               me%Beta,me%MuChem,me%Rhok,Peierls_only=.true.,method=me%propagator)         
+         else
+            call Wann_timestep_RelaxTime_dip(me%ham,me%Nk,me%kcoord,tstp,dt,field,me%T1,me%T2,&
+               me%Beta,me%MuChem,me%Rhok,empirical=.true.,method=me%propagator)      
+         end if  
       case(velocity_gauge,velo_emp_gauge)
          call Wann_timestep_RelaxTime_velo_calc(me%nbnd,me%Nk,me%Hk,me%velok,tstp,dt,field,&
             me%T1,me%T2,me%Beta,me%MuChem,me%Rhok,method=me%propagator)
@@ -221,11 +283,20 @@ contains
       if((tstp * dt < field_Tmax_) .or. tstp == 0) then
          select case(me%gauge)
          case(dipole_gauge)
-            call Wann_Rhok_timestep_dip(me%ham,me%Nk,me%kcoord,tstp,dt,&
-               field,me%Rhok)
+            if(me%fft_mode) then
+               call Wann_FFT_UnitaryTimestep_dip(me%ham,me%ham_fft,tstp,dt,field,me%Rhok)
+            else
+               call Wann_Rhok_timestep_dip(me%ham,me%Nk,me%kcoord,tstp,dt,&
+                  field,me%Rhok)
+            end if
          case(dip_emp_gauge)
-            call Wann_Rhok_timestep_dip(me%ham,me%Nk,me%kcoord,tstp,dt,&
-               field,me%Rhok,Peierls_only=.true.)
+            if(me%fft_mode) then
+               call Wann_FFT_UnitaryTimestep_dip(me%ham,me%ham_fft,tstp,dt,field,me%Rhok,&
+                  Peierls_only=.true.)
+            else
+               call Wann_Rhok_timestep_dip(me%ham,me%Nk,me%kcoord,tstp,dt,&
+                  field,me%Rhok,Peierls_only=.true.)
+            end if
          case(velocity_gauge,velo_emp_gauge)
             call Wann_Rhok_timestep_velo_calc(me%nbnd,me%Nk,me%Hk,me%velok,tstp,dt,&
                field,me%Rhok)
@@ -238,41 +309,49 @@ contains
             write(output_unit,*) "---> Switching to free evolution"
 
             allocate(me%Udt(me%nbnd,me%nbnd,me%Nk))
-            allocate(me%Dk(me%nbnd,me%nbnd,me%Nk,3)); me%Dk = zero
-            allocate(me%grad_Hk(me%nbnd,me%nbnd,me%Nk,3))
+            allocate(me%Dk(me%nbnd,me%nbnd,3,me%Nk)); me%Dk = zero
+            allocate(me%grad_Hk(me%nbnd,me%nbnd,3,me%Nk))
 
             call field(field_Tmax_,AF,EF)
+            !$OMP PARALLEL PRIVATE(kpt,Hk)
+            !$OMP DO
             do ik=1,me%Nk
                kpt = me%kcoord(ik,:)
                select case(me%gauge)
                case(dipole_gauge)
                   me%Hk(:,:,ik) = Wann_GetHk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
-                  me%Dk(:,:,ik,:) = Wann_GetDk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
-                  me%grad_Hk(:,:,ik,:) = Wann_GetGradHk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
+                  me%Dk(:,:,:,ik) = Wann_GetDk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
+                  me%grad_Hk(:,:,:,ik) = Wann_GetGradHk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
                   call GenU_CF2(dt,me%Hk(:,:,ik),me%Udt(:,:,ik))
                case(dip_emp_gauge)
                   me%Hk(:,:,ik) = Wann_GetHk_dip(me%ham,AF,EF,kpt,reducedA=.false.,Peierls_only=.true.)
-                  me%Dk(:,:,ik,:) = Wann_GetDk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
-                  me%grad_Hk(:,:,ik,:) = Wann_GetGradHk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
+                  me%Dk(:,:,:,ik) = Wann_GetDk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
+                  me%grad_Hk(:,:,:,ik) = Wann_GetGradHk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
                   call GenU_CF2(dt,me%Hk(:,:,ik),me%Udt(:,:,ik))
                case(velocity_gauge, velo_emp_gauge)
                   Hk = me%Hk(:,:,ik)
                   do idir=1,3
-                     Hk = Hk - qc * AF(idir) * me%velok(:,:,ik,idir)
+                     Hk = Hk - qc * AF(idir) * me%velok(:,:,idir,ik)
                   end do
-                  me%Dk(:,:,ik,:) = me%ham%get_dipole(kpt,band_basis=.true.) 
+                  me%Dk(:,:,:,ik) = me%ham%get_dipole(kpt,band_basis=.true.) 
                   call GenU_CF2(dt,Hk,me%Udt(:,:,ik))
                end select
             end do
+            !$OMP END DO
+            !$OMP END PARALLEL
 
             me%free_evol = .true.
          end if
 
          if(me%free_evol) then
+            !$OMP PARALLEL PRIVATE(Rho_old)
+            !$OMP DO
             do ik=1,me%Nk
                Rho_old = me%Rhok(:,:,ik)
                call UnitaryStepFBW(me%nbnd,me%Udt(:,:,ik),Rho_old,me%Rhok(:,:,ik),large_size=large_size)
             end do
+            !$OMP END DO
+            !$OMP END PARALLEL            
          end if
       end if
 
@@ -428,13 +507,18 @@ contains
 
       select case(me%gauge)
          case(dipole_gauge, dip_emp_gauge)
+            !$OMP PARALLEL PRIVATE(Rhok_bnd)
             allocate(Rhok_bnd(me%nbnd,me%nbnd))
+            !$OMP DO
             do ik=1,me%Nk
                rhok_bnd = util_rotate(me%nbnd,me%wan_rot(:,:,ik),me%Rhok(:,:,ik),large_size=large_size)
                Occk(:,ik) = dble(GetDiag(me%nbnd,rhok_bnd))
             end do
+            !$OMP END DO
             deallocate(Rhok_bnd)
+            !$OMP END PARALLEL
          case(velocity_gauge,velo_emp_gauge)
+            !$OMP PARALLEL DO
             do ik=1,me%Nk
                Occk(:,ik) = dble(GetDiag(me%nbnd,me%Rhok(:,:,ik)))
             end do

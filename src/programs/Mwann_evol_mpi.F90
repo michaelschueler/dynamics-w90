@@ -125,10 +125,10 @@ contains
       if(present(propagator)) me%propagator = propagator
 
       select case(me%propagator)
-      case(prop_rk4)
-         call Init_RungeKutta(me%nbnd,Nk=me%Nk_loc)
       case(prop_rk5)
          call Init_RungeKutta(me%nbnd)
+      case(prop_rk4)
+         call Init_RungeKutta(me%nbnd,Nk=me%Nk)
       end select
 
    end subroutine Init
@@ -174,7 +174,7 @@ contains
 
       allocate(me%Hk(me%nbnd,me%nbnd,me%Nk_loc))
       if(me%gauge == velocity_gauge .or. me%gauge == velo_emp_gauge) then
-         allocate(me%velok(me%nbnd,me%nbnd,me%Nk_loc,3))
+         allocate(me%velok(me%nbnd,me%nbnd,3,me%Nk_loc))
       end if
 
       select case(me%gauge)
@@ -184,7 +184,7 @@ contains
          do ik=1,me%Nk_loc
             kpt = me%kcoord_loc(ik,:)
             me%Hk(:,:,ik) = me%ham%get_ham_diag(kpt)
-            me%velok(:,:,ik,1:3) = me%ham%get_velocity(kpt)
+            me%velok(:,:,:,ik) = me%ham%get_velocity(kpt)
          end do
       case(velo_emp_gauge)
          call Wann_GenRhok_eq(me%ham,me%Nk_loc,me%kcoord_loc,me%MuChem,me%Beta,me%Rhok,&
@@ -192,7 +192,7 @@ contains
          do ik=1,me%Nk_loc
             kpt = me%kcoord_loc(ik,:)
             me%Hk(:,:,ik) = me%ham%get_ham_diag(kpt)
-            me%velok(:,:,ik,1:3) = me%ham%get_emp_velocity(kpt)
+            me%velok(:,:,:,ik) = me%ham%get_emp_velocity(kpt)
          end do
       case(dipole_gauge, dip_emp_gauge)
          call Wann_GenRhok_eq(me%ham,me%Nk_loc,me%kcoord_loc,me%MuChem,me%Beta,me%Rhok,&
@@ -270,8 +270,8 @@ contains
             end if
 
             allocate(me%Udt(me%nbnd,me%nbnd,me%Nk_loc))
-            allocate(me%Dk(me%nbnd,me%nbnd,me%Nk_loc,3)); me%Dk = zero
-            allocate(me%grad_Hk(me%nbnd,me%nbnd,me%Nk_loc,3))
+            allocate(me%Dk(me%nbnd,me%nbnd,3,me%Nk_loc)); me%Dk = zero
+            allocate(me%grad_Hk(me%nbnd,me%nbnd,3,me%Nk_loc))
 
             call field(field_Tmax_,AF,EF)
             do ik=1,me%Nk_loc
@@ -279,20 +279,20 @@ contains
                select case(me%gauge)
                case(dipole_gauge)
                   me%Hk(:,:,ik) = Wann_GetHk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
-                  me%Dk(:,:,ik,:) = Wann_GetDk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
-                  me%grad_Hk(:,:,ik,:) = Wann_GetGradHk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
+                  me%Dk(:,:,:,ik) = Wann_GetDk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
+                  me%grad_Hk(:,:,:,ik) = Wann_GetGradHk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
                   call GenU_CF2(dt,me%Hk(:,:,ik),me%Udt(:,:,ik))
                case(dip_emp_gauge)
                   me%Hk(:,:,ik) = Wann_GetHk_dip(me%ham,AF,EF,kpt,reducedA=.false.,Peierls_only=.true.)
-                  me%Dk(:,:,ik,:) = Wann_GetDk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
-                  me%grad_Hk(:,:,ik,:) = Wann_GetGradHk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
+                  me%Dk(:,:,:,ik) = Wann_GetDk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
+                  me%grad_Hk(:,:,:,ik) = Wann_GetGradHk_dip(me%ham,AF,EF,kpt,reducedA=.false.)
                   call GenU_CF2(dt,me%Hk(:,:,ik),me%Udt(:,:,ik))
                case(velocity_gauge, velo_emp_gauge)
                   Hk = me%Hk(:,:,ik)
                   do idir=1,3
-                     Hk = Hk - qc * AF(idir) * me%velok(:,:,ik,idir)
+                     Hk = Hk - qc * AF(idir) * me%velok(:,:,idir,ik)
                   end do
-                  me%Dk(:,:,ik,:) = me%ham%get_dipole(kpt,band_basis=.true.) 
+                  me%Dk(:,:,:,ik) = me%ham%get_dipole(kpt,band_basis=.true.) 
                   call GenU_CF2(dt,Hk,me%Udt(:,:,ik))
                end select
             end do

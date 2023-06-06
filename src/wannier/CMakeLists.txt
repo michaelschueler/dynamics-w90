@@ -18,7 +18,10 @@ set(OBJECT_FILES
 )
 
 if(fftw)
-    list(APPEND OBJECT_FILES wan_fft_ham.F90)
+    list(APPEND OBJECT_FILES 
+        wan_fft_ham.F90
+        wan_fft_propagation.F90
+    )
 endif(fftw)
 
 # ~~ Installation targets ~~

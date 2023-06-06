@@ -115,6 +115,9 @@ contains
       large_size = get_large_size(w90%num_wann)
 
       if(present(band_basis)) bands_ = band_basis
+
+      !$OMP PARALLEL PRIVATE(rhod,Hk,En,Qk)
+      !$OMP DO
       do ik=1,Nk
          rhod = zero
          Hk = w90%get_ham([kpts(ik,1),kpts(ik,2),kpts(ik,3)])
@@ -128,6 +131,8 @@ contains
             Rhok(:,:,ik) =  util_rotate_cc(w90%num_wann,Qk,RhoD,large_size=large_size)
          end if
       end do
+      !$OMP END DO
+      !$OMP END PARALLEL
 
    end subroutine Wann_GenRhok_eq
 !--------------------------------------------------------------------------------------
@@ -153,6 +158,8 @@ contains
       large_size = get_large_size(nbnd)
 
       if(present(band_basis)) bands_ = band_basis
+      !$OMP PARALLEL PRIVATE(rhod,En,Qk)
+      !$OMP DO
       do ik=1,Nk
          rhod = zero
          call eigh(Hk(:,:,ik),En,Qk)
@@ -165,6 +172,8 @@ contains
             Rhok(:,:,ik) =  util_rotate_cc(nbnd,Qk,RhoD,large_size=large_size)
          end if
       end do
+      !$OMP END DO
+      !$OMP END PARALLEL
 
    end subroutine Wann_GenRhok_eq_calc
 !--------------------------------------------------------------------------------------

@@ -14,12 +14,13 @@ module wan_utils
    public :: Batch_Diagonalize_t
 !--------------------------------------------------------------------------------------   
    type :: Batch_Diagonalize_t
+      integer :: nthreads
       integer :: nbnd
-      real(dp),allocatable,dimension(:)             :: eps
-      complex(dp),allocatable,dimension(:,:)        :: vect
-      integer,allocatable,dimension(:)              :: iwork,ifail
-      real(dp),allocatable,dimension(:)             :: rwork
-      complex(dp),allocatable,dimension(:)          :: mat_pack, cwork
+      real(dp),allocatable,dimension(:,:)             :: eps
+      complex(dp),allocatable,dimension(:,:,:)        :: vect
+      integer,allocatable,dimension(:,:)              :: iwork,ifail
+      real(dp),allocatable,dimension(:,:)             :: rwork
+      complex(dp),allocatable,dimension(:,:)          :: mat_pack, cwork
    contains
       procedure, public :: Init => Batch_Diag_Init
       procedure, public :: Clean => Batch_Diag_Clean
@@ -28,18 +29,23 @@ module wan_utils
 !-------------------------------------------------------------------------------------- 
 contains
 !-------------------------------------------------------------------------------------- 
-   subroutine Batch_Diag_Init(me,nbnd)
+   subroutine Batch_Diag_Init(me,nbnd,nthreads)
       class(Batch_Diagonalize_t) :: me
       integer,intent(in) :: nbnd
+      integer,intent(in),optional :: nthreads
 
       me%nbnd = nbnd
-      allocate(me%eps(me%nbnd))
-      allocate(me%vect(me%nbnd,me%nbnd))
-      allocate(me%iwork(5*me%nbnd))
-      allocate(me%ifail(me%nbnd))
-      allocate(me%rwork(7*me%nbnd))
-      allocate(me%cwork(5*me%nbnd))   
-      allocate(me%mat_pack((me%nbnd*(me%nbnd + 1))/2))   
+
+      me%nthreads = 1
+      if(present(nthreads)) me%nthreads = nthreads
+
+      allocate(me%eps(me%nbnd,0:me%nthreads-1))
+      allocate(me%vect(me%nbnd,me%nbnd,0:me%nthreads-1))
+      allocate(me%iwork(5*me%nbnd,0:me%nthreads-1))
+      allocate(me%ifail(me%nbnd,0:me%nthreads-1))
+      allocate(me%rwork(7*me%nbnd,0:me%nthreads-1))
+      allocate(me%cwork(5*me%nbnd,0:me%nthreads-1))   
+      allocate(me%mat_pack((me%nbnd*(me%nbnd + 1))/2,0:me%nthreads-1))   
 
    end subroutine Batch_Diag_Init
 !-------------------------------------------------------------------------------------- 
@@ -56,23 +62,30 @@ contains
 
    end subroutine Batch_Diag_Clean
 !-------------------------------------------------------------------------------------- 
-   subroutine Batch_Diag_Diagonalize(me,Hk,epsk,vectk,info)
+   subroutine Batch_Diag_Diagonalize(me,Hk,epsk,vectk,info,tid)
       class(Batch_Diagonalize_t) :: me
       complex(dp),intent(in)     :: Hk(:,:)
       real(dp),intent(inout),optional :: epsk(:)
       complex(dp),intent(inout),optional :: vectk(:,:)
       integer,intent(out),optional :: info
+      integer,intent(in),optional  :: tid
       integer :: i,j
       integer :: info_,nfound
+      integer :: tid_
+
+      tid_ = 0
+      if(present(tid)) tid_ = tid
 
       do j = 1, me%nbnd
          do i = 1, j
-            me%mat_pack(i + ((j - 1)*j)/2) = Hk(i, j)
+            me%mat_pack(i + ((j - 1)*j)/2, tid_) = Hk(i, j)
          end do
       end do
-      me%vect = zero; me%eps = 0.0_dp; me%cwork = zero; me%rwork = 0.0_dp; me%iwork = 0
-      call ZHPEVX('V', 'A', 'U', me%nbnd, me%mat_pack, 0.0_dp, 0.0_dp, 0, 0, -1.0_dp, &
-         nfound, me%eps(1), me%vect, me%nbnd, me%cwork, me%rwork, me%iwork, me%ifail, info_)
+      me%vect(:,:,tid_) = zero; me%eps(:,tid_) = 0.0_dp
+      me%cwork(:,tid_) = zero; me%rwork(:,tid_) = 0.0_dp; me%iwork(:,tid_) = 0
+      call ZHPEVX('V', 'A', 'U', me%nbnd, me%mat_pack(1,tid_), 0.0_dp, 0.0_dp, 0, 0, -1.0_dp, &
+         nfound, me%eps(1,tid_), me%vect(1,1,tid_), me%nbnd, me%cwork(1,tid_), me%rwork(1,tid_), &
+         me%iwork(1,tid_), me%ifail(1,tid_), info_)
       if (info_ < 0) then
          write(output_unit, '(a,i3,a)') 'THE ', -info_, &
          ' ARGUMENT OF ZHPEVX HAD AN ILLEGAL VALUE'
@@ -83,8 +96,8 @@ contains
          write(error_unit,*) 'Error in utility_diagonalize'
       end if
 
-      if(present(epsk)) epsk = me%eps
-      if(present(vectk)) vectk = me%vect
+      if(present(epsk)) epsk = me%eps(:,tid_)
+      if(present(vectk)) vectk = me%vect(:,:,tid_)
       if(present(info)) info = info_
 
    end subroutine Batch_Diag_Diagonalize
