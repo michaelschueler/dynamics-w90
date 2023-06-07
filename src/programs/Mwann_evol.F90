@@ -100,8 +100,6 @@ contains
       me%Nk = kp%nk
       me%kcoord => kp%kpts
 
-      stop
-
       call me%Ham%Set(Ham)
 
       me%nbnd = me%ham%num_wann
@@ -124,12 +122,16 @@ contains
 
       if(present(propagator)) me%propagator = propagator
 
+      print*, nthreads
+
       select case(me%propagator)
       case(prop_rk5)
          call Init_RungeKutta(me%nbnd,nthreads=nthreads)
       case(prop_rk4)
          call Init_RungeKutta(me%nbnd,Nk=me%Nk,nthreads=nthreads)
       end select
+
+      stop
 
 #ifdef WITHFFTW
       if(kp%kpoints_type == kp_fft_grid_2d) then
