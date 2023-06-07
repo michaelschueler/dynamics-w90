@@ -151,7 +151,6 @@ contains
          call DFFTW_PLAN_DFT_3D(me%plan_bw,me%nkx,me%nky,me%nkz,zr_3d,zk_3d,FFTW_BACKWARD,FFTW_MEASURE)
          deallocate(zr_3d,zk_3d)
 
-         stop
       end select
 
       me%nrpts = me%nx * me%ny * me%nz
@@ -185,6 +184,8 @@ contains
          w90_rindx = reshape(indx_3d, [me%nrpts])   
          deallocate(indx_3d)              
       end select
+
+      stop
 
       allocate(me%ndegen(me%nrpts)); me%ndegen = 1000000
       allocate(me%ham_r(me%nrpts,me%nwan,me%nwan)); me%ham_r = zero
