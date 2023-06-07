@@ -185,8 +185,6 @@ contains
          deallocate(indx_3d)              
       end select
 
-      stop
-
       allocate(me%ndegen(me%nrpts)); me%ndegen = 1000000
       allocate(me%ham_r(me%nrpts,me%nwan,me%nwan)); me%ham_r = zero
       allocate(me%pos_r(me%nrpts,me%nwan,me%nwan,3)); me%pos_r = zero
@@ -206,6 +204,8 @@ contains
       end do
 
       deallocate(w90_rindx)
+
+      stop
 
    end subroutine InitFromW90
 !--------------------------------------------------------------------------------------
