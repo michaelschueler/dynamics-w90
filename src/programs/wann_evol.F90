@@ -200,8 +200,6 @@ program wann_evol
 
    call lattsys%SetLaserPulse(external_field)
 
-   stop
-
    call print_header(output_unit,"Equilibrium","*")
    call Timer_Tic('equilibrium', 2)
 
