@@ -441,12 +441,12 @@ contains
       !$OMP DO COLLAPSE(2)
       do j=1,me%nwan
          do i=1,me%nwan
-            ! call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, me%ham_r(:,i,j), work_r)
-            ! call dfftw_execute_dft(me%plan_bw,work_r,work_k)
-            ! work_1d = reshape(work_k, [me%nkpts])
-            ! do ik=1,me%nkpts
-            !    Hk(i,j,ik) = work_1d(ik)
-            ! end do
+            call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, me%ham_r(:,i,j), work_r)
+            call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+            work_1d = reshape(work_k, [me%nkpts])
+            do ik=1,me%nkpts
+               Hk(i,j,ik) = work_1d(ik)
+            end do
          end do
       end do
       !$OMP END DO
@@ -718,14 +718,14 @@ contains
       !$OMP DO COLLAPSE(2)
       do j=1,me%nwan
          do i=1,me%nwan
-            HA_r = me%ham_r(:,i,j)
-            call me%DressPhase(Ar, HA_r)
-            call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, HA_r, work_r)
-            call dfftw_execute_dft(me%plan_bw,work_r,work_k)
-            work_1d = reshape(work_k, [me%nkpts])
-            do ik=1,me%nkpts
-               Hk(i,j,ik) = work_1d(ik)
-            end do
+            ! HA_r = me%ham_r(:,i,j)
+            ! call me%DressPhase(Ar, HA_r)
+            ! call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, HA_r, work_r)
+            ! call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+            ! work_1d = reshape(work_k, [me%nkpts])
+            ! do ik=1,me%nkpts
+            !    Hk(i,j,ik) = work_1d(ik)
+            ! end do
          end do
       end do
       !$OMP END DO
