@@ -192,6 +192,7 @@ contains
          !$OMP END PARALLEL         
       else
          if(use_fft) then
+#ifdef WITHFFTW
             allocate(Hk_fft(me%nbnd,me%nbnd,me%Nk))
             call me%ham_fft%GetHam(Hk_fft)
 
@@ -206,6 +207,7 @@ contains
             !$OMP END PARALLEL
 
             deallocate(Hk_fft)
+#endif
          else
             !$OMP PARALLEL PRIVATE(tid,Hk)
             tid = omp_get_thread_num()
