@@ -45,14 +45,16 @@ endif(wannier_lib)
 set(COMMON_LIBS "")
 
 # ~~ OpenMP + SIMD ~~
-find_package(OpenMP REQUIRED)
 option(omp "Build with OpenMP support" ON)
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
-option(simd "Build with OpenMP SIMD support" OFF)
-if (simd)
-   message(STATUS "Building with SIMD support")
-   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DOMPSIMD")
-endif (simd)
+if(omp)
+    find_package(OpenMP REQUIRED)
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
+    option(simd "Build with OpenMP SIMD support" OFF)
+    if (simd)
+       message(STATUS "Building with SIMD support")
+       set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DOMPSIMD")
+    endif (simd)
+endif(omp)
 
 # Require MPI for this project:
 if(mpi)
