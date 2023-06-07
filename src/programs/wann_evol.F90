@@ -198,6 +198,8 @@ program wann_evol
    call lattsys%Init(par_ham%Beta,par_ham%MuChem,ham,kp,par_ham%lm_gauge,&
       T1=par_time%T1_relax,T2=par_time%T2_relax,propagator=par_time%propagator)
 
+   stop
+
    call lattsys%SetLaserPulse(external_field)
 
    call print_header(output_unit,"Equilibrium","*")

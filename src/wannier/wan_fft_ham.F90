@@ -205,8 +205,6 @@ contains
 
       deallocate(w90_rindx)
 
-      stop
-
    end subroutine InitFromW90
 !--------------------------------------------------------------------------------------
    subroutine Clean(me)
