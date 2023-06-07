@@ -216,7 +216,7 @@ contains
    end subroutine Clean
 !--------------------------------------------------------------------------------------
    subroutine GetHam(me,Hk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       complex(dp),intent(inout) :: Hk(:,:,:)
 
       call assert_shape(Hk, [me%nwan,me%nwan,me%nkpts], "GetHam", "Hk")
@@ -233,7 +233,7 @@ contains
    end subroutine GetHam
 !--------------------------------------------------------------------------------------
    subroutine GetGradHam(me,GradHk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       complex(dp),intent(inout) :: GradHk(:,:,:,:)
 
       call assert_shape(GradHk, [me%nwan,me%nwan,3,me%nkpts], "GetGradHam", "GradHk")
@@ -250,7 +250,7 @@ contains
    end subroutine GetGradHam
 !--------------------------------------------------------------------------------------
    subroutine GetHam_Dressed(me,Ar,Hk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       real(dp),intent(in) :: Ar(3)
       complex(dp),intent(inout) :: Hk(:,:,:)
 
@@ -268,7 +268,7 @@ contains
    end subroutine GetHam_Dressed
 !--------------------------------------------------------------------------------------
    subroutine GetGradHam_Dressed(me,Ar,GradHk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       real(dp),intent(in) :: Ar(3)
       complex(dp),intent(inout) :: GradHk(:,:,:,:)
 
@@ -286,7 +286,7 @@ contains
    end subroutine GetGradHam_Dressed
 !--------------------------------------------------------------------------------------
    subroutine GetDipole(me,Dk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       complex(dp),intent(inout) :: Dk(:,:,:,:)
 
       call assert_shape(Dk, [me%nwan,me%nwan,3,me%nkpts], "GetDipole", "Dk")
@@ -303,7 +303,7 @@ contains
    end subroutine GetDipole
 !--------------------------------------------------------------------------------------
    subroutine GetDipole_Dressed(me,Ar,Dk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       real(dp),intent(in) :: Ar(3)
       complex(dp),intent(inout) :: Dk(:,:,:,:)
 
@@ -321,7 +321,7 @@ contains
    end subroutine GetDipole_Dressed
 !--------------------------------------------------------------------------------------
    subroutine GetHam_1d(me,Hk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       complex(dp),intent(inout) :: Hk(:,:,:)
       integer :: i,j,ik
       complex(dp),allocatable :: work_r(:),work_k(:)
@@ -343,7 +343,7 @@ contains
    end subroutine GetHam_1d
 !--------------------------------------------------------------------------------------
    subroutine GetHam_2d(me,Hk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       complex(dp),intent(inout) :: Hk(:,:,:)
       integer :: i,j,ik
       complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
@@ -368,12 +368,10 @@ contains
    end subroutine GetHam_2d
 !--------------------------------------------------------------------------------------
    subroutine GetHam_3d(me,Hk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       complex(dp),intent(inout) :: Hk(:,:,:)
       integer :: i,j,ik
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
-
-      print*, shape(Hk)
 
       !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d)
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
@@ -397,7 +395,7 @@ contains
 
 !--------------------------------------------------------------------------------------
    subroutine GetGradHam_1d(me,GradHk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       complex(dp),intent(inout) :: GradHk(:,:,:,:)
       integer :: i,j,ik,idir
       complex(dp),allocatable :: work_r(:),work_k(:)
@@ -426,7 +424,7 @@ contains
    end subroutine GetGradHam_1d
 !--------------------------------------------------------------------------------------
    subroutine GetGradHam_2d(me,GradHk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       complex(dp),intent(inout) :: GradHk(:,:,:,:)
       integer :: i,j,ik,idir
       complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
@@ -458,7 +456,7 @@ contains
    end subroutine GetGradHam_2d
 !--------------------------------------------------------------------------------------
    subroutine GetGradHam_3d(me,GradHk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       complex(dp),intent(inout) :: GradHk(:,:,:,:)
       integer :: i,j,ik,idir
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
@@ -492,7 +490,7 @@ contains
 
 !--------------------------------------------------------------------------------------
    subroutine GetGradHam_Dressed_1d(me,Ar,GradHk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: GradHk(:,:,:,:)
       integer :: i,j,ik,idir
@@ -524,7 +522,7 @@ contains
    end subroutine GetGradHam_Dressed_1d
 !--------------------------------------------------------------------------------------
    subroutine GetGradHam_Dressed_2d(me,Ar,GradHk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: GradHk(:,:,:,:)
       integer :: i,j,ik,idir
@@ -559,7 +557,7 @@ contains
    end subroutine GetGradHam_Dressed_2d
 !--------------------------------------------------------------------------------------
    subroutine GetGradHam_Dressed_3d(me,Ar,GradHk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: GradHk(:,:,:,:)
       integer :: i,j,ik,idir
@@ -597,7 +595,7 @@ contains
 
 !--------------------------------------------------------------------------------------
    subroutine GetHam_Dressed_1d(me,Ar,Hk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: Hk(:,:,:)
       integer :: i,j,ik
@@ -623,7 +621,7 @@ contains
    end subroutine GetHam_Dressed_1d
 !--------------------------------------------------------------------------------------
    subroutine GetHam_Dressed_2d(me,Ar,Hk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: Hk(:,:,:)
       integer :: i,j,ik
@@ -655,7 +653,7 @@ contains
    end subroutine GetHam_Dressed_2d
 !--------------------------------------------------------------------------------------
    subroutine GetHam_Dressed_3d(me,Ar,Hk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: Hk(:,:,:)
       integer :: i,j,ik
@@ -685,7 +683,7 @@ contains
    end subroutine GetHam_Dressed_3d
 !--------------------------------------------------------------------------------------
    subroutine GetDipole_1d(me,Dk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       complex(dp),intent(inout) :: Dk(:,:,:,:)
       integer :: i,j,idir,ik
       complex(dp),allocatable :: work_r(:),work_k(:)
@@ -711,7 +709,7 @@ contains
    end subroutine GetDipole_1d
 !--------------------------------------------------------------------------------------
    subroutine GetDipole_2d(me,Dk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       complex(dp),intent(inout) :: Dk(:,:,:,:)
       integer :: i,j,idir,ik
       complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
@@ -738,7 +736,7 @@ contains
    end subroutine GetDipole_2d
 !--------------------------------------------------------------------------------------
    subroutine GetDipole_3d(me,Dk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       complex(dp),intent(inout) :: Dk(:,:,:,:)
       integer :: i,j,idir,ik
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
@@ -765,7 +763,7 @@ contains
    end subroutine GetDipole_3d
 !--------------------------------------------------------------------------------------
    subroutine GetDipole_Dressed_1d(me,Ar,Dk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: Dk(:,:,:,:)
       integer :: i,j,idir,ik
@@ -798,7 +796,7 @@ contains
    end subroutine GetDipole_Dressed_1d
 !--------------------------------------------------------------------------------------
    subroutine GetDipole_Dressed_2d(me,Ar,Dk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: Dk(:,:,:,:)
       integer :: i,j,idir,ik
@@ -832,7 +830,7 @@ contains
    end subroutine GetDipole_Dressed_2d
 !--------------------------------------------------------------------------------------
    subroutine GetDipole_Dressed_3d(me,Ar,Dk)
-      class(wann_fft_t),intent(in) :: me
+      class(wann_fft_t) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: Dk(:,:,:,:)
       integer :: i,j,idir,ik
