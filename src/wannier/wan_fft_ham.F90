@@ -506,7 +506,7 @@ contains
             call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
                ! call me%DressPhase(Ar, gradH_R(:,idir))
-               call ApplyPhaseFactor([me%nkx], Ar, gradH_R(:,idir))
+               call ApplyPhaseFactor([me%nx], Ar, gradH_R(:,idir))
                call Smooth2Dense_1d(me%nx, me%nkx, gradH_R(:,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                do ik=1,me%nkx
@@ -539,7 +539,7 @@ contains
             call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
                ! call me%DressPhase(Ar, gradH_R(:,idir))
-               call ApplyPhaseFactor([me%nkx,me%nky], Ar, gradH_R(:,idir))
+               call ApplyPhaseFactor([me%nx,me%ny], Ar, gradH_R(:,idir))
                call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, gradH_R(:,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                work_1d = reshape(work_k, [me%nkpts])
@@ -574,7 +574,7 @@ contains
             call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
                ! call me%DressPhase(Ar, gradH_R(:,idir))
-               call ApplyPhaseFactor([me%nkx,me%nky,me%nkz], Ar, gradH_R(:,idir))
+               call ApplyPhaseFactor([me%nx,me%ny,me%nz], Ar, gradH_R(:,idir))
                call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, gradH_R(:,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                work_1d = reshape(work_k, [me%nkpts])
@@ -607,7 +607,7 @@ contains
          do i=1,me%nwan
             HA_r = me%ham_r(:,i,j)
             ! call me%DressPhase(Ar, HA_r)
-            call ApplyPhaseFactor([me%nkx], Ar, HA_r)
+            call ApplyPhaseFactor([me%nx], Ar, HA_r)
             call Smooth2Dense_1d(me%nx, me%nkx, HA_r, work_r)
             call dfftw_execute_dft(me%plan_bw,work_r,work_k)
             do ik=1,me%nkx
@@ -636,7 +636,7 @@ contains
          do i=1,me%nwan
             HA_r = me%ham_r(:,i,j)
             ! call me%DressPhase(Ar, HA_r)
-            call ApplyPhaseFactor([me%nkx,me%nky], Ar, HA_r)
+            call ApplyPhaseFactor([me%nx,me%ny], Ar, HA_r)
             call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, HA_r, work_r)
             call dfftw_execute_dft(me%plan_bw,work_r,work_k)
             work_1d = reshape(work_k, [me%nkpts])
@@ -670,13 +670,13 @@ contains
       do j=1,me%nwan
          do i=1,me%nwan
             HA_r = me%ham_r(:,i,j)
-            call ApplyPhaseFactor([me%nkx,me%nky,me%nkz], Ar, HA_r)
-      !       call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, HA_r, work_r)
-      !       call dfftw_execute_dft(me%plan_bw,work_r,work_k)
-      !       work_1d = reshape(work_k, [me%nkpts])
-      !       do ik=1,me%nkpts
-      !          Hk(i,j,ik) = work_1d(ik)
-      !       end do
+            call ApplyPhaseFactor([me%nx,me%ny,me%nz], Ar, HA_r)
+            call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, HA_r, work_r)
+            call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+            work_1d = reshape(work_k, [me%nkpts])
+            do ik=1,me%nkpts
+               Hk(i,j,ik) = work_1d(ik)
+            end do
          end do
       end do
       !$OMP END DO
@@ -784,7 +784,7 @@ contains
          do j=1,me%nwan
             do i=1,me%nwan
                DA_r = me%pos_r(:,i,j,idir)
-               call ApplyPhaseFactor([me%nkx], Ar, DA_r)
+               call ApplyPhaseFactor([me%nx], Ar, DA_r)
                ! call me%DressPhase(Ar,DA_r)
                call Smooth2Dense_1d(me%nx, me%nkx, DA_r, work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
@@ -817,7 +817,7 @@ contains
          do j=1,me%nwan
             do i=1,me%nwan
                DA_r = me%pos_r(:,i,j,idir)
-               call ApplyPhaseFactor([me%nkx,me%nky], Ar, DA_r)
+               call ApplyPhaseFactor([me%nx,me%ny], Ar, DA_r)
                ! call me%DressPhase(Ar,DA_r)
                call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, DA_r, work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
@@ -851,7 +851,7 @@ contains
          do j=1,me%nwan
             do i=1,me%nwan
                DA_r = me%pos_r(:,i,j,idir)
-               call ApplyPhaseFactor([me%nkx,me%nky,me%nkz], Ar, DA_r)
+               call ApplyPhaseFactor([me%nx,me%ny,me%nz], Ar, DA_r)
                ! call me%DressPhase(Ar,DA_r)
                call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, DA_r, work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
