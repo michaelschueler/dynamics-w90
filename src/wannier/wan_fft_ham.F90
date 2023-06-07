@@ -1002,8 +1002,8 @@ contains
          end do         
       case(3)
          nx = nk(1); ny = nk(2); nz = nk(3)
-         print*, nx, ny, nz
-         ! OO_3d(1:nx, 1:ny, 1:nz) => OO_R
+         print*, size(OO_R)
+         OO_3d(1:nx, 1:ny, 1:nz) => OO_R
          ! do concurrent(iz=1:nz, iy=1:ny, ix=1:nx)
          !    kx = FFT_Freq(nx, ix)
          !    ky = FFT_Freq(ny, iy)
