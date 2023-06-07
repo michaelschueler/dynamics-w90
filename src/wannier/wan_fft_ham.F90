@@ -660,6 +660,8 @@ contains
       complex(dp),allocatable :: HA_r(:)
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
 
+      print*, "GetHam_Dressed_3d"
+
       !$OMP PARALLEL PRIVATE(i,j,HA_r,work_r,work_k,work_1d)
       allocate(HA_r(me%nrpts))
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
@@ -679,6 +681,8 @@ contains
       !$OMP END DO
       deallocate(work_r,work_k,work_1d)
       !$OMP END PARALLEL
+
+      print*, "Done: GetHam_Dressed_3d"
 
    end subroutine GetHam_Dressed_3d
 !--------------------------------------------------------------------------------------
