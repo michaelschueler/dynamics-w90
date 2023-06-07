@@ -48,8 +48,6 @@ contains
       complex(dp),allocatable,dimension(:,:,:) :: Hk_1,Hk_2
       complex(dp),allocatable,dimension(:,:,:,:) :: Dk_1,Dk_2
 
-      print*, "Wann_FFT_UnitaryTimestep_dip"
-
       peierls_ = .false.
       if(present(Peierls_only)) peierls_ = Peierls_only
 

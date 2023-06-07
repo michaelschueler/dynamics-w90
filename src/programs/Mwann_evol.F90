@@ -285,8 +285,6 @@ contains
       field_Tmax_ = HUGE(1.0_dp)
       if(present(field_Tmax)) field_Tmax_ = field_Tmax
 
-      print*, "Timestep"
-
       if((tstp * dt < field_Tmax_) .or. tstp == 0) then
          select case(me%gauge)
          case(dipole_gauge)
@@ -455,7 +453,6 @@ contains
          Ekin = Etot
       elseif(me%fft_mode) then
          if(me%gauge == dipole_gauge) then
-            print*, "CalcObservables_dip"
             call Wann_FFT_Observables_dip(me%ham,me%ham_fft,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
                dipole_current=.true.)
          else
