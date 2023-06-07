@@ -49,6 +49,8 @@ contains
 
       Ared = ham%get_kreduced(AF)
 
+      stop
+
       allocate(Hk(nbnd,nbnd,Nk))
       call ham_fft%GetHam_Dressed(Ared, Hk)
 
