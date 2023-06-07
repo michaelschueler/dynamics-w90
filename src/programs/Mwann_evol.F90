@@ -178,6 +178,7 @@ contains
       call batch_diag%Init(me%nbnd,nthreads=nthreads)      
 
       if(me%fft_mode) then
+         print*, shape(me%Hk)
          call me%ham_fft%GetHam(me%Hk)
       else
          call Wann_GenHk(me%ham,me%Nk,me%kcoord,me%Hk)
