@@ -217,10 +217,10 @@ contains
 
    end subroutine Clean
 !--------------------------------------------------------------------------------------
-   subroutine DressPhase(me,Ar,OO_R)
+   subroutine DressPhase(me)
       class(wann_fft_t) :: me
-      real(dp),intent(in) :: Ar(3)
-      complex(dp),intent(inout) :: OO_R(:)
+      ! real(dp),intent(in) :: Ar(3)
+      ! complex(dp),intent(inout) :: OO_R(:)
       ! complex(dp),target,intent(inout) :: OO_R(:)
    !    integer :: ix,iy,iz,kx,ky,kz
    !    real(dp) :: adot,c,s
@@ -569,7 +569,7 @@ contains
          do i=1,me%nwan
             call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
             do idir=1,3
-               call me%DressPhase(Ar, gradH_R(:,idir))
+               ! call me%DressPhase(Ar, gradH_R(:,idir))
                call Smooth2Dense_1d(me%nx, me%nkx, gradH_R(:,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                do ik=1,me%nkx
@@ -600,7 +600,7 @@ contains
          do i=1,me%nwan
             call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
             do idir=1,3
-               call me%DressPhase(Ar, gradH_R(:,idir))
+               ! call me%DressPhase(Ar, gradH_R(:,idir))
                call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, gradH_R(:,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                work_1d = reshape(work_k, [me%nkpts])
@@ -633,7 +633,7 @@ contains
          do i=1,me%nwan
             call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
             do idir=1,3
-               call me%DressPhase(Ar, gradH_R(:,idir))
+               ! call me%DressPhase(Ar, gradH_R(:,idir))
                call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, gradH_R(:,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                work_1d = reshape(work_k, [me%nkpts])
@@ -665,7 +665,7 @@ contains
       do j=1,me%nwan
          do i=1,me%nwan
             HA_r = me%ham_r(:,i,j)
-            call me%DressPhase(Ar, HA_r)
+            ! call me%DressPhase(Ar, HA_r)
             call Smooth2Dense_1d(me%nx, me%nkx, HA_r, work_r)
             call dfftw_execute_dft(me%plan_bw,work_r,work_k)
             do ik=1,me%nkx
@@ -693,7 +693,7 @@ contains
       do j=1,me%nwan
          do i=1,me%nwan
             HA_r = me%ham_r(:,i,j)
-            call me%DressPhase(Ar, HA_r)
+            ! call me%DressPhase(Ar, HA_r)
             call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, HA_r, work_r)
             call dfftw_execute_dft(me%plan_bw,work_r,work_k)
             work_1d = reshape(work_k, [me%nkpts])
@@ -725,7 +725,7 @@ contains
          do i=1,me%nwan
             HA_r = me%ham_r(:,i,j)
             print*, "entering DressPhase"
-            call me%DressPhase(Ar, HA_r)
+            call me%DressPhase()
             ! call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, HA_r, work_r)
             ! call dfftw_execute_dft(me%plan_bw,work_r,work_k)
             ! work_1d = reshape(work_k, [me%nkpts])
@@ -836,7 +836,7 @@ contains
          do j=1,me%nwan
             do i=1,me%nwan
                DA_r = me%pos_r(:,i,j,idir)
-               call me%DressPhase(Ar,DA_r)
+               ! call me%DressPhase(Ar,DA_r)
                call Smooth2Dense_1d(me%nx, me%nkx, DA_r, work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                do ik=1,me%nkx
@@ -868,7 +868,7 @@ contains
          do j=1,me%nwan
             do i=1,me%nwan
                DA_r = me%pos_r(:,i,j,idir)
-               call me%DressPhase(Ar,DA_r)
+               ! call me%DressPhase(Ar,DA_r)
                call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, DA_r, work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                work_1d = reshape(work_k, [me%nkpts])
@@ -901,7 +901,7 @@ contains
          do j=1,me%nwan
             do i=1,me%nwan
                DA_r = me%pos_r(:,i,j,idir)
-               call me%DressPhase(Ar,DA_r)
+               ! call me%DressPhase(Ar,DA_r)
                call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, DA_r, work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                work_1d = reshape(work_k, [me%nkpts])
