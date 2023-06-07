@@ -679,6 +679,7 @@ contains
          end do
       end do
       !$OMP END DO
+      deallocate(HA_r)
       deallocate(work_r,work_k,work_1d)
       !$OMP END PARALLEL
 
