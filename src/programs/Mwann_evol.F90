@@ -455,6 +455,7 @@ contains
          Ekin = Etot
       elseif(me%fft_mode) then
          if(me%gauge == dipole_gauge) then
+            print*, "CalcObservables_dip"
             call Wann_FFT_Observables_dip(me%ham,me%ham_fft,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
                dipole_current=.true.)
          else

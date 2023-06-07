@@ -45,6 +45,8 @@ contains
 
       call assert_shape(Rhok, [nbnd,nbnd,Nk], "Wann_FFT_Observables_dip", "Rhok")
 
+      print*, "Wann_FFT_Observables_dip"
+
       Ared = ham%get_kreduced(AF)
 
       allocate(Hk(nbnd,nbnd,Nk))
