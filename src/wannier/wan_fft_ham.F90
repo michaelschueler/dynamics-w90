@@ -670,7 +670,7 @@ contains
       do j=1,me%nwan
          do i=1,me%nwan
             HA_r = me%ham_r(:,i,j)
-      !       call ApplyPhaseFactor([me%nkx,me%nky,me%nkz], Ar, HA_r)
+            call ApplyPhaseFactor([me%nkx,me%nky,me%nkz], Ar, HA_r)
       !       call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, HA_r, work_r)
       !       call dfftw_execute_dft(me%plan_bw,work_r,work_k)
       !       work_1d = reshape(work_k, [me%nkpts])
