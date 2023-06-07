@@ -52,8 +52,6 @@ contains
       allocate(Hk(nbnd,nbnd,Nk))
       call ham_fft%GetHam_Dressed(Ared, Hk)
 
-      stop
-
       allocate(grad_Hk(nbnd,nbnd,3,Nk))
       call ham_fft%GetGradHam_Dressed(Ared, grad_Hk)
 
