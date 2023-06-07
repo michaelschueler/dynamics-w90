@@ -661,10 +661,11 @@ contains
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
 
       print*, "GetHam_Dressed_3d"
+      print*, me%nkx,me%nky,me%nkz, me%nkpts
 
-      ! !$OMP PARALLEL PRIVATE(i,j,HA_r,work_r,work_k,work_1d)
-      ! allocate(HA_r(me%nrpts))
-      ! allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
+      !$OMP PARALLEL PRIVATE(i,j,HA_r,work_r,work_k,work_1d)
+      allocate(HA_r(me%nrpts))
+      allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
       ! !$OMP DO COLLAPSE(2)
       ! do j=1,me%nwan
       !    do i=1,me%nwan
@@ -679,9 +680,9 @@ contains
       !    end do
       ! end do
       ! !$OMP END DO
-      ! deallocate(HA_r)
-      ! deallocate(work_r,work_k,work_1d)
-      ! !$OMP END PARALLEL
+      deallocate(HA_r)
+      deallocate(work_r,work_k,work_1d)
+      !$OMP END PARALLEL
 
       print*, "Done: GetHam_Dressed_3d"
 
