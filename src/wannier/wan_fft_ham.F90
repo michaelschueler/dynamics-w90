@@ -248,6 +248,7 @@ contains
             OO_2d(ix,iy) = cmplx(c,-s,kind=dp) * OO_2d(ix,iy)
          end do         
       case(3)
+         print*, "DressPhase"
          OO_3d(1:me%nx, 1:me%ny, 1:me%nz) => OO_R
          do concurrent(iz=1:me%nz, iy=1:me%ny, ix=1:me%nx)
             kx = FFT_Freq(me%nx, ix)
@@ -257,7 +258,8 @@ contains
             c = cos(DPI * adot)
             s = sin(DPI * adot)
             OO_3d(ix,iy,iz) = cmplx(c,-s,kind=dp) * OO_3d(ix,iy,iz)
-         end do                
+         end do   
+         print*, "Done: DressPhase"             
       end select
 
    end subroutine DressPhase
