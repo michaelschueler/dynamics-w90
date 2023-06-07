@@ -100,6 +100,8 @@ contains
       me%Nk = kp%nk
       me%kcoord => kp%kpts
 
+      stop
+
       call me%Ham%Set(Ham)
 
       me%nbnd = me%ham%num_wann
