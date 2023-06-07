@@ -227,6 +227,8 @@ contains
       complex(dp),pointer :: OO_2d(:,:)
       complex(dp),pointer :: OO_3d(:,:,:)
 
+      print*, "Now in DressPhase"
+
       select case(me%kdim)
       case(1)
          OO_1d(1:me%nx) => OO_R
