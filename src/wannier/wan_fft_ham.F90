@@ -978,41 +978,42 @@ contains
 
       kdim = size(nk)
 
-      ! select case(kdim)
-      ! case(1)
-      !    nx = nk(1)
-      !    OO_1d(1:nx) => OO_R
-      !    do ix=1,nx
-      !       kx = FFT_Freq(nx, ix)
-      !       adot = Ar(1) * kx
-      !       c = cos(DPI * adot)
-      !       s = sin(DPI * adot)
-      !       OO_1d(ix) = cmplx(c,-s,kind=dp) * OO_1d(ix)
-      !    end do
-      ! case(2)
-      !    nx = nk(1); ny = nk(2)
-      !    OO_2d(1:nx, 1:ny) => OO_R
-      !    do concurrent(iy=1:ny, ix=1:nx)
-      !       kx = FFT_Freq(nx, ix)
-      !       ky = FFT_Freq(ny, iy)
-      !       adot = Ar(1) * kx + Ar(2) * ky
-      !       c = cos(DPI * adot)
-      !       s = sin(DPI * adot)
-      !       OO_2d(ix,iy) = cmplx(c,-s,kind=dp) * OO_2d(ix,iy)
-      !    end do         
-      ! case(3)
-      !    nx = nk(1); ny = nk(2); nz = nk(3)
-      !    OO_3d(1:nx, 1:ny, 1:nz) => OO_R
-      !    do concurrent(iz=1:nz, iy=1:ny, ix=1:nx)
-      !       kx = FFT_Freq(nx, ix)
-      !       ky = FFT_Freq(ny, iy)
-      !       kz = FFT_Freq(nz, iz)
-      !       adot = Ar(1) * kx + Ar(2) * ky  + Ar(3) * kz
-      !       c = cos(DPI * adot)
-      !       s = sin(DPI * adot)
-      !       OO_3d(ix,iy,iz) = cmplx(c,-s,kind=dp) * OO_3d(ix,iy,iz)
-      !    end do   
-      ! end select
+      select case(kdim)
+      case(1)
+         nx = nk(1)
+         OO_1d(1:nx) => OO_R
+         do ix=1,nx
+            kx = FFT_Freq(nx, ix)
+            adot = Ar(1) * kx
+            c = cos(DPI * adot)
+            s = sin(DPI * adot)
+            OO_1d(ix) = cmplx(c,-s,kind=dp) * OO_1d(ix)
+         end do
+      case(2)
+         nx = nk(1); ny = nk(2)
+         OO_2d(1:nx, 1:ny) => OO_R
+         do concurrent(iy=1:ny, ix=1:nx)
+            kx = FFT_Freq(nx, ix)
+            ky = FFT_Freq(ny, iy)
+            adot = Ar(1) * kx + Ar(2) * ky
+            c = cos(DPI * adot)
+            s = sin(DPI * adot)
+            OO_2d(ix,iy) = cmplx(c,-s,kind=dp) * OO_2d(ix,iy)
+         end do         
+      case(3)
+         nx = nk(1); ny = nk(2); nz = nk(3)
+         print*, nx, ny, nz
+         ! OO_3d(1:nx, 1:ny, 1:nz) => OO_R
+         ! do concurrent(iz=1:nz, iy=1:ny, ix=1:nx)
+         !    kx = FFT_Freq(nx, ix)
+         !    ky = FFT_Freq(ny, iy)
+         !    kz = FFT_Freq(nz, iz)
+         !    adot = Ar(1) * kx + Ar(2) * ky  + Ar(3) * kz
+         !    c = cos(DPI * adot)
+         !    s = sin(DPI * adot)
+         !    OO_3d(ix,iy,iz) = cmplx(c,-s,kind=dp) * OO_3d(ix,iy,iz)
+         ! end do   
+      end select
 
    end subroutine ApplyPhaseFactor
 !--------------------------------------------------------------------------------------
