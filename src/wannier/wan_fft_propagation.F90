@@ -16,6 +16,15 @@ module wan_fft_propagation
    integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2, prop_hybrid=3
    real(dp),parameter :: c1=0.5_dp-sqrt(3.0_dp)/6.0_dp
    real(dp),parameter :: c2=0.5_dp+sqrt(3.0_dp)/6.0_dp
+
+   abstract interface
+      subroutine vecpot_efield_func(t,A,E)
+         import :: dp
+         implicit none
+         real(dp),intent(in) :: t
+         real(dp),intent(out) :: A(3),E(3)
+      end subroutine vecpot_efield_func
+   end interface
 !--------------------------------------------------------------------------------------
    private
    public :: Wann_FFT_UnitaryTimestep_dip, Wann_FFT_RelaxTimestep_dip
@@ -27,16 +36,9 @@ contains
       type(wann_fft_t),intent(in)  :: ham_fft
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
+      procedure(vecpot_efield_func),pointer :: field
       complex(dp),intent(inout)    :: Rhok(:,:,:)
       logical,intent(in),optional  :: Peierls_only
-      interface
-         subroutine field(t,A,E)
-            import :: dp
-            implicit none
-            real(dp),intent(in) :: t
-            real(dp),intent(out) :: A(3),E(3)
-         end subroutine field
-      end interface
       logical :: peierls_
       logical :: large_size
       integer :: nbnd,Nk,ik,idir
@@ -110,6 +112,7 @@ contains
       type(wann_fft_t),intent(in)  :: ham_fft
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
+      procedure(vecpot_efield_func),pointer :: field
       real(dp),intent(in)          :: T1
       real(dp),intent(in)          :: T2
       real(dp),intent(in)          :: Beta
@@ -118,14 +121,6 @@ contains
       logical,intent(in),optional  :: Peierls_only
       integer,intent(in),optional  :: method
       integer,intent(in),optional  :: comm_order
-      interface
-         subroutine field(t,A,E)
-            import :: dp
-            implicit none
-            real(dp),intent(in) :: t
-            real(dp),intent(out) :: A(3),E(3)
-         end subroutine field
-      end interface
       logical :: peierls_
       integer :: method_, comm_order_
 
@@ -156,20 +151,13 @@ contains
       type(wann_fft_t),intent(in)  :: ham_fft
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
+      procedure(vecpot_efield_func),pointer :: field
       real(dp),intent(in)          :: T1
       real(dp),intent(in)          :: T2
       real(dp),intent(in)          :: Beta
       real(dp),intent(in)          :: Mu
       complex(dp),intent(inout)    :: Rhok(:,:,:)
       logical,intent(in)           :: Peierls_only
-      interface
-         subroutine field(t,A,E)
-            import :: dp
-            implicit none
-            real(dp),intent(in) :: t
-            real(dp),intent(out) :: A(3),E(3)
-         end subroutine field
-      end interface
       logical :: large_size
       integer :: nbnd,Nk,ik,idir
       real(dp) :: tn
@@ -291,6 +279,7 @@ contains
       type(wann_fft_t),intent(in)  :: ham_fft
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
+      procedure(vecpot_efield_func),pointer :: field
       real(dp),intent(in)          :: T1
       real(dp),intent(in)          :: T2
       real(dp),intent(in)          :: Beta
@@ -298,14 +287,6 @@ contains
       complex(dp),intent(inout)    :: Rhok(:,:,:)
       logical,intent(in)           :: Peierls_only
       integer,intent(in)           :: comm_order
-      interface
-         subroutine field(t,A,E)
-            import :: dp
-            implicit none
-            real(dp),intent(in) :: t
-            real(dp),intent(out) :: A(3),E(3)
-         end subroutine field
-      end interface
       logical :: large_size
       integer :: nbnd,Nk,ik,icomm,idir
       real(dp) :: tn
