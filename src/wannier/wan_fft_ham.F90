@@ -373,6 +373,8 @@ contains
       integer :: i,j,ik
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
 
+      print*, shape(Hk)
+
       !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d)
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(2)
