@@ -76,7 +76,6 @@ contains
       me%nwan = w90%num_wann
       me%kdim = size(nk)
 
-
       ix_bound(1) = minval(w90%irvec(:,1))
       ix_bound(2) = maxval(w90%irvec(:,1))
       iy_bound(1) = minval(w90%irvec(:,2))
@@ -152,6 +151,8 @@ contains
          call DFFTW_PLAN_DFT_3D(me%plan_bw,me%nkx,me%nky,me%nkz,zr_3d,zk_3d,FFTW_BACKWARD,FFTW_MEASURE)
          deallocate(zr_3d,zk_3d)
       end select
+
+      stop
 
       me%nrpts = me%nx * me%ny * me%nz
       me%nkpts = me%nkx * me%nky * me%nkz
