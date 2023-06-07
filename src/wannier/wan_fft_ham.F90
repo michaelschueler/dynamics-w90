@@ -220,7 +220,8 @@ contains
    subroutine DressPhase(me,Ar,OO_R)
       class(wann_fft_t) :: me
       real(dp),intent(in) :: Ar(3)
-      complex(dp),target,intent(inout) :: OO_R(:)
+      complex(dp),intent(inout) :: OO_R(:)
+      ! complex(dp),target,intent(inout) :: OO_R(:)
    !    integer :: ix,iy,iz,kx,ky,kz
    !    real(dp) :: adot,c,s
    !    complex(dp),pointer :: OO_1d(:)
