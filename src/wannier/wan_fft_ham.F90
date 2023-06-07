@@ -146,6 +146,8 @@ contains
             stop
          end if
 
+         stop
+
          allocate(zr_3d(me%nkx,me%nky,me%nz),zk_3d(me%nkx,me%nky,me%nz))
          call DFFTW_PLAN_DFT_3D(me%plan_fw,me%nkx,me%nky,me%nkz,zk_3d,zr_3d,FFTW_FORWARD,FFTW_MEASURE)
          call DFFTW_PLAN_DFT_3D(me%plan_bw,me%nkx,me%nky,me%nkz,zr_3d,zk_3d,FFTW_BACKWARD,FFTW_MEASURE)
