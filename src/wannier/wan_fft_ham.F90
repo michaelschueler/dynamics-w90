@@ -474,7 +474,8 @@ contains
       allocate(gradH_R(me%nrpts,3))
       do j=1,me%nwan
          do i=1,me%nwan
-            call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            ! call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
                call Smooth2Dense_1d(me%nx, me%nkx, gradH_R(:,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
@@ -503,7 +504,8 @@ contains
       !$OMP DO COLLAPSE(2)
       do j=1,me%nwan
          do i=1,me%nwan
-            call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            ! call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
                call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, gradH_R(:,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
@@ -534,7 +536,8 @@ contains
       !$OMP DO COLLAPSE(2)
       do j=1,me%nwan
          do i=1,me%nwan
-            call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            ! call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
                call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, gradH_R(:,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
@@ -567,9 +570,11 @@ contains
       allocate(gradH_R(me%nrpts,3))
       do j=1,me%nwan
          do i=1,me%nwan
-            call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            ! call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
                ! call me%DressPhase(Ar, gradH_R(:,idir))
+               call ApplyPhaseFactor([me%nkx], Ar, gradH_R(:,idir))
                call Smooth2Dense_1d(me%nx, me%nkx, gradH_R(:,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                do ik=1,me%nkx
@@ -598,9 +603,11 @@ contains
       !$OMP DO COLLAPSE(2)
       do j=1,me%nwan
          do i=1,me%nwan
-            call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            ! call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
                ! call me%DressPhase(Ar, gradH_R(:,idir))
+               call ApplyPhaseFactor([me%nkx,me%nky], Ar, gradH_R(:,idir))
                call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, gradH_R(:,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                work_1d = reshape(work_k, [me%nkpts])
@@ -631,9 +638,11 @@ contains
       !$OMP DO COLLAPSE(2)
       do j=1,me%nwan
          do i=1,me%nwan
-            call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            ! call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
+            call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
                ! call me%DressPhase(Ar, gradH_R(:,idir))
+               call ApplyPhaseFactor([me%nkx,me%nky,me%nkz], Ar, gradH_R(:,idir))
                call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, gradH_R(:,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                work_1d = reshape(work_k, [me%nkpts])
@@ -666,6 +675,7 @@ contains
          do i=1,me%nwan
             HA_r = me%ham_r(:,i,j)
             ! call me%DressPhase(Ar, HA_r)
+            call ApplyPhaseFactor([me%nkx], Ar, HA_r)
             call Smooth2Dense_1d(me%nx, me%nkx, HA_r, work_r)
             call dfftw_execute_dft(me%plan_bw,work_r,work_k)
             do ik=1,me%nkx
@@ -694,6 +704,7 @@ contains
          do i=1,me%nwan
             HA_r = me%ham_r(:,i,j)
             ! call me%DressPhase(Ar, HA_r)
+            call ApplyPhaseFactor([me%nkx,me%nky], Ar, HA_r)
             call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, HA_r, work_r)
             call dfftw_execute_dft(me%plan_bw,work_r,work_k)
             work_1d = reshape(work_k, [me%nkpts])
@@ -724,15 +735,13 @@ contains
       do j=1,me%nwan
          do i=1,me%nwan
             HA_r = me%ham_r(:,i,j)
-            print*, "entering DressPhase"
             call ApplyPhaseFactor([me%nkx,me%nky,me%nkz], Ar, HA_r)
-            ! call me%DressPhase()
-            ! call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, HA_r, work_r)
-            ! call dfftw_execute_dft(me%plan_bw,work_r,work_k)
-            ! work_1d = reshape(work_k, [me%nkpts])
-            ! do ik=1,me%nkpts
-            !    Hk(i,j,ik) = work_1d(ik)
-            ! end do
+            call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, HA_r, work_r)
+            call dfftw_execute_dft(me%plan_bw,work_r,work_k)
+            work_1d = reshape(work_k, [me%nkpts])
+            do ik=1,me%nkpts
+               Hk(i,j,ik) = work_1d(ik)
+            end do
          end do
       end do
       !$OMP END DO
@@ -837,6 +846,7 @@ contains
          do j=1,me%nwan
             do i=1,me%nwan
                DA_r = me%pos_r(:,i,j,idir)
+               call ApplyPhaseFactor([me%nkx], Ar, DA_r)
                ! call me%DressPhase(Ar,DA_r)
                call Smooth2Dense_1d(me%nx, me%nkx, DA_r, work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
@@ -869,6 +879,7 @@ contains
          do j=1,me%nwan
             do i=1,me%nwan
                DA_r = me%pos_r(:,i,j,idir)
+               call ApplyPhaseFactor([me%nkx,me%nky], Ar, DA_r)
                ! call me%DressPhase(Ar,DA_r)
                call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, DA_r, work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
@@ -902,6 +913,7 @@ contains
          do j=1,me%nwan
             do i=1,me%nwan
                DA_r = me%pos_r(:,i,j,idir)
+               call ApplyPhaseFactor([me%nkx,me%nky,me%nkz], Ar, DA_r)
                ! call me%DressPhase(Ar,DA_r)
                call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, DA_r, work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
@@ -1069,6 +1081,22 @@ contains
       end select
 
    end subroutine ApplyPhaseFactor
+!--------------------------------------------------------------------------------------
+   subroutine GetGradiant(crvec,OO_R,vec_R)
+      real(dp),intent(in) :: crvec(:,:)
+      complex(dp),intent(in) :: OO_R(:)      
+      complex(dp),intent(inout) :: vec_R(:,:)
+      integer :: nrpts,ir
+
+      nrpts = size(crvec, dim=1)
+
+      do ir=1,nrpts
+         vec_R(ir,1) = iu * crvec(ir,1) * OO_R(ir)
+         vec_R(ir,2) = iu * crvec(ir,2) * OO_R(ir)
+         vec_R(ir,3) = iu * crvec(ir,3) * OO_R(ir)
+      end do
+   
+   end subroutine GetGradiant
 !--------------------------------------------------------------------------------------
 
 !======================================================================================
