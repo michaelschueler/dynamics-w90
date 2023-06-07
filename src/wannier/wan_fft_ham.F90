@@ -317,6 +317,8 @@ contains
 
       call assert_shape(Hk, [me%nwan,me%nwan,me%nkpts], "GetHam", "Hk")
 
+      print*, "GetHam_Dressed"
+
       select case(me%kdim)
       case(1)
          call me%GetHam_Dressed_1d(Ar,Hk)
