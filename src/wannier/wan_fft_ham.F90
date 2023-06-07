@@ -30,8 +30,6 @@ module wan_fft_ham
    contains
       procedure, public   :: InitFromW90
       procedure, public   :: Clean
-      procedure, public   :: DressPhase
-      procedure, public   :: DressCrvec
       procedure, public   :: GetHam
       procedure, public   :: GetGradHam
       procedure, public   :: GetHam_Dressed
@@ -217,70 +215,6 @@ contains
 
    end subroutine Clean
 !--------------------------------------------------------------------------------------
-   subroutine DressPhase(me)
-      class(wann_fft_t) :: me
-      ! real(dp),intent(in) :: Ar(3)
-      ! complex(dp),intent(inout) :: OO_R(:)
-      ! complex(dp),target,intent(inout) :: OO_R(:)
-   !    integer :: ix,iy,iz,kx,ky,kz
-   !    real(dp) :: adot,c,s
-   !    complex(dp),pointer :: OO_1d(:)
-   !    complex(dp),pointer :: OO_2d(:,:)
-   !    complex(dp),pointer :: OO_3d(:,:,:)
-
-      print*, "Now in DressPhase"
-
-      ! select case(me%kdim)
-      ! case(1)
-      !    OO_1d(1:me%nx) => OO_R
-      !    do ix=1,me%nx
-      !       kx = FFT_Freq(me%nx, ix)
-      !       adot = Ar(1) * kx
-      !       c = cos(DPI * adot)
-      !       s = sin(DPI * adot)
-      !       OO_1d(ix) = cmplx(c,-s,kind=dp) * OO_1d(ix)
-      !    end do
-      ! case(2)
-      !    OO_2d(1:me%nx, 1:me%ny) => OO_R
-      !    do concurrent(iy=1:me%ny, ix=1:me%nx)
-      !       kx = FFT_Freq(me%nx, ix)
-      !       ky = FFT_Freq(me%ny, iy)
-      !       adot = Ar(1) * kx + Ar(2) * ky
-      !       c = cos(DPI * adot)
-      !       s = sin(DPI * adot)
-      !       OO_2d(ix,iy) = cmplx(c,-s,kind=dp) * OO_2d(ix,iy)
-      !    end do         
-      ! case(3)
-      !    print*, "DressPhase"
-      !    OO_3d(1:me%nx, 1:me%ny, 1:me%nz) => OO_R
-      !    do concurrent(iz=1:me%nz, iy=1:me%ny, ix=1:me%nx)
-      !       kx = FFT_Freq(me%nx, ix)
-      !       ky = FFT_Freq(me%ny, iy)
-      !       kz = FFT_Freq(me%nz, iz)
-      !       adot = Ar(1) * kx + Ar(2) * ky  + Ar(3) * kz
-      !       c = cos(DPI * adot)
-      !       s = sin(DPI * adot)
-      !       OO_3d(ix,iy,iz) = cmplx(c,-s,kind=dp) * OO_3d(ix,iy,iz)
-      !    end do   
-      !    print*, "Done: DressPhase"             
-      ! end select
-
-   end subroutine DressPhase
-!--------------------------------------------------------------------------------------
-   subroutine DressCrvec(me,OO_R,vec_R)
-      class(wann_fft_t),intent(in) :: me
-      complex(dp),intent(in) :: OO_R(:)      
-      complex(dp),intent(inout) :: vec_R(:,:)
-      integer :: ir
-
-      do ir=1,me%nrpts
-         vec_R(ir,1) = iu * me%crvec(ir,1) * OO_R(ir)
-         vec_R(ir,2) = iu * me%crvec(ir,2) * OO_R(ir)
-         vec_R(ir,3) = iu * me%crvec(ir,3) * OO_R(ir)
-      end do
-   
-   end subroutine DressCrvec
-!--------------------------------------------------------------------------------------
    subroutine GetHam(me,Hk)
       class(wann_fft_t),intent(in) :: me
       complex(dp),intent(inout) :: Hk(:,:,:)
@@ -321,8 +255,6 @@ contains
       complex(dp),intent(inout) :: Hk(:,:,:)
 
       call assert_shape(Hk, [me%nwan,me%nwan,me%nkpts], "GetHam", "Hk")
-
-      print*, "GetHam_Dressed"
 
       select case(me%kdim)
       case(1)
@@ -1038,8 +970,6 @@ contains
       complex(dp),pointer :: OO_2d(:,:)
       complex(dp),pointer :: OO_3d(:,:,:)
 
-      print*, "Now in DressPhase"
-
       kdim = size(nk)
 
       select case(kdim)
@@ -1065,7 +995,6 @@ contains
             OO_2d(ix,iy) = cmplx(c,-s,kind=dp) * OO_2d(ix,iy)
          end do         
       case(3)
-         print*, "DressPhase"
          nx = nk(1); ny = nk(2); nz = nk(3)
          OO_3d(1:nx, 1:ny, 1:nz) => OO_R
          do concurrent(iz=1:nz, iy=1:ny, ix=1:nx)
@@ -1077,7 +1006,6 @@ contains
             s = sin(DPI * adot)
             OO_3d(ix,iy,iz) = cmplx(c,-s,kind=dp) * OO_3d(ix,iy,iz)
          end do   
-         print*, "Done: DressPhase"             
       end select
 
    end subroutine ApplyPhaseFactor
