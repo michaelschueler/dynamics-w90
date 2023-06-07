@@ -1018,12 +1018,9 @@ contains
       integer :: nrpts,ir
 
       nrpts = size(crvec, dim=1)
-
-      do ir=1,nrpts
-         vec_R(ir,1) = iu * crvec(ir,1) * OO_R(ir)
-         vec_R(ir,2) = iu * crvec(ir,2) * OO_R(ir)
-         vec_R(ir,3) = iu * crvec(ir,3) * OO_R(ir)
-      end do
+      vec_R(1:nrpts,1) = iu * crvec(1:nrpts,1) * OO_R(1:nrpts)
+      vec_R(1:nrpts,2) = iu * crvec(1:nrpts,2) * OO_R(1:nrpts)
+      vec_R(1:nrpts,3) = iu * crvec(1:nrpts,3) * OO_R(1:nrpts)
    
    end subroutine GetGradiant
 !--------------------------------------------------------------------------------------

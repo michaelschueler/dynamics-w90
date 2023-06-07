@@ -178,7 +178,9 @@ contains
       call batch_diag%Init(me%nbnd,nthreads=nthreads)      
 
       if(me%fft_mode) then
+#ifdef WITHFFTW
          call me%ham_fft%GetHam(me%Hk)
+#endif
       else
          call Wann_GenHk(me%ham,me%Nk,me%kcoord,me%Hk)
       end if
@@ -248,16 +250,20 @@ contains
          ! call Wann_timestep_RelaxTime(me%ham,me%Nk,me%kcoord,tstp,dt,field,T1,T2,&
             ! me%Rhok_Eq,me%Rhok)
          if(me%fft_mode) then
+#ifdef WITHFFTW
             call Wann_FFT_RelaxTimestep_dip(me%ham,me%ham_fft,tstp,dt,field,me%T1,me%T2,&
                me%Beta,me%MuChem,me%Rhok,method=me%propagator)
+#endif
          else
             call Wann_timestep_RelaxTime_dip(me%ham,me%Nk,me%kcoord,tstp,dt,field,me%T1,me%T2,&
                me%Beta,me%MuChem,me%Rhok,method=me%propagator)
          end if
       case(dip_emp_gauge)
          if(me%fft_mode) then
+#ifdef WITHFFTW
             call Wann_FFT_RelaxTimestep_dip(me%ham,me%ham_fft,tstp,dt,field,me%T1,me%T2,&
-               me%Beta,me%MuChem,me%Rhok,Peierls_only=.true.,method=me%propagator)         
+               me%Beta,me%MuChem,me%Rhok,Peierls_only=.true.,method=me%propagator)       
+#endif  
          else
             call Wann_timestep_RelaxTime_dip(me%ham,me%Nk,me%kcoord,tstp,dt,field,me%T1,me%T2,&
                me%Beta,me%MuChem,me%Rhok,empirical=.true.,method=me%propagator)      
@@ -289,15 +295,19 @@ contains
          select case(me%gauge)
          case(dipole_gauge)
             if(me%fft_mode) then
+#ifdef WITHFFTW
                call Wann_FFT_UnitaryTimestep_dip(me%ham,me%ham_fft,tstp,dt,field,me%Rhok)
+#endif
             else
                call Wann_Rhok_timestep_dip(me%ham,me%Nk,me%kcoord,tstp,dt,&
                   field,me%Rhok)
             end if
          case(dip_emp_gauge)
             if(me%fft_mode) then
+#ifdef WITHFFTW
                call Wann_FFT_UnitaryTimestep_dip(me%ham,me%ham_fft,tstp,dt,field,me%Rhok,&
                   Peierls_only=.true.)
+#endif
             else
                call Wann_Rhok_timestep_dip(me%ham,me%Nk,me%kcoord,tstp,dt,&
                   field,me%Rhok,Peierls_only=.true.)
@@ -452,6 +462,7 @@ contains
 
          Ekin = Etot
       elseif(me%fft_mode) then
+#ifdef WITHFFTW
          if(me%gauge == dipole_gauge) then
             call Wann_FFT_Observables_dip(me%ham,me%ham_fft,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
                dipole_current=.true.)
@@ -459,6 +470,7 @@ contains
             call Wann_FFT_Observables_dip(me%ham,me%ham_fft,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
                dipole_current=.false.)            
          end if
+#endif
       else
          Etot = Wann_TotalEn_dip(me%ham,me%Nk,me%kcoord,AF,EF,me%Rhok)
 
