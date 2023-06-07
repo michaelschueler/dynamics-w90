@@ -725,7 +725,8 @@ contains
          do i=1,me%nwan
             HA_r = me%ham_r(:,i,j)
             print*, "entering DressPhase"
-            call me%DressPhase()
+            call ApplyPhaseFactor([me%nkx,me%nky,me%nkz], Ar, HA_r)
+            ! call me%DressPhase()
             ! call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, HA_r, work_r)
             ! call dfftw_execute_dft(me%plan_bw,work_r,work_k)
             ! work_1d = reshape(work_k, [me%nkpts])
@@ -1015,9 +1016,60 @@ contains
 
    end function FFT_Freq
 !--------------------------------------------------------------------------------------
-   
+   subroutine ApplyPhaseFactor(nk,Ar,OO_R)
+      integer,intent(in)  :: nk(:)
+      real(dp),intent(in) :: Ar(3)
+      complex(dp),target,intent(inout) :: OO_R(:)
+      integer :: kdim,nx,ny,nz,ix,iy,iz,kx,ky,kz
+      real(dp) :: adot,c,s
+      complex(dp),pointer :: OO_1d(:)
+      complex(dp),pointer :: OO_2d(:,:)
+      complex(dp),pointer :: OO_3d(:,:,:)
 
+      print*, "Now in DressPhase"
 
+      kdim = size(nk)
+
+      select case(kdim)
+      case(1)
+         nx = nk(1)
+         OO_1d(1:nx) => OO_R
+         do ix=1,nx
+            kx = FFT_Freq(nx, ix)
+            adot = Ar(1) * kx
+            c = cos(DPI * adot)
+            s = sin(DPI * adot)
+            OO_1d(ix) = cmplx(c,-s,kind=dp) * OO_1d(ix)
+         end do
+      case(2)
+         nx = nk(1); ny = nk(2)
+         OO_2d(1:nx, 1:ny) => OO_R
+         do concurrent(iy=1:ny, ix=1:nx)
+            kx = FFT_Freq(nx, ix)
+            ky = FFT_Freq(ny, iy)
+            adot = Ar(1) * kx + Ar(2) * ky
+            c = cos(DPI * adot)
+            s = sin(DPI * adot)
+            OO_2d(ix,iy) = cmplx(c,-s,kind=dp) * OO_2d(ix,iy)
+         end do         
+      case(3)
+         print*, "DressPhase"
+         nx = nk(1); ny = nk(2); nz = nk(3)
+         OO_3d(1:nx, 1:ny, 1:nz) => OO_R
+         do concurrent(iz=1:nz, iy=1:ny, ix=1:nx)
+            kx = FFT_Freq(nx, ix)
+            ky = FFT_Freq(ny, iy)
+            kz = FFT_Freq(nz, iz)
+            adot = Ar(1) * kx + Ar(2) * ky  + Ar(3) * kz
+            c = cos(DPI * adot)
+            s = sin(DPI * adot)
+            OO_3d(ix,iy,iz) = cmplx(c,-s,kind=dp) * OO_3d(ix,iy,iz)
+         end do   
+         print*, "Done: DressPhase"             
+      end select
+
+   end subroutine ApplyPhaseFactor
+!--------------------------------------------------------------------------------------
 
 !======================================================================================
 
