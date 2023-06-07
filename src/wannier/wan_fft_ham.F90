@@ -666,10 +666,10 @@ contains
       !$OMP PARALLEL PRIVATE(i,j,HA_r,work_r,work_k,work_1d)
       allocate(HA_r(me%nrpts))
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
-      ! !$OMP DO COLLAPSE(2)
-      ! do j=1,me%nwan
-      !    do i=1,me%nwan
-      !       HA_r = me%ham_r(:,i,j)
+      !$OMP DO COLLAPSE(2)
+      do j=1,me%nwan
+         do i=1,me%nwan
+            HA_r = me%ham_r(:,i,j)
       !       call ApplyPhaseFactor([me%nkx,me%nky,me%nkz], Ar, HA_r)
       !       call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, HA_r, work_r)
       !       call dfftw_execute_dft(me%plan_bw,work_r,work_k)
@@ -677,9 +677,9 @@ contains
       !       do ik=1,me%nkpts
       !          Hk(i,j,ik) = work_1d(ik)
       !       end do
-      !    end do
-      ! end do
-      ! !$OMP END DO
+         end do
+      end do
+      !$OMP END DO
       deallocate(HA_r)
       deallocate(work_r,work_k,work_1d)
       !$OMP END PARALLEL
