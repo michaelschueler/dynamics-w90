@@ -1,5 +1,6 @@
 module wan_dynamics
 !======================================================================================
+   use omp_lib
    use Mdebug
    use scitools_def,only: dp, zero, one, iu, nfermi
    use scitools_linalg,only: Eigh,util_matmul,util_rotate,util_rotate_cc,get_large_size
@@ -137,6 +138,7 @@ contains
       integer,intent(in),optional  :: method
       logical :: empirical_
       integer :: method_
+      integer :: tid
       integer :: ik
       real(dp) :: kpt(3)
       type(hybrid_propagator_t) :: hybrid
@@ -149,22 +151,24 @@ contains
 
       select case(method_)
       case(1)
-         !$OMP PARALLEL PRIVATE(ik,kpt)
+         !$OMP PARALLEL PRIVATE(ik,kpt,tid)
+         tid = omp_get_thread_num()
          !$OMP DO
          do ik=1,Nk
             kpt = kpts(ik,:)
             call RK4_TimeStep_Dip_k(w90,kpt,ik,tstp,dt,field,T1,T2,beta,mu,Rhok(:,:,ik),&
-               empirical=empirical_)
+               empirical=empirical_,tid=tid)
          end do
          !$OMP END DO
          !$OMP END PARALLEL
       case(2)
-         !$OMP PARALLEL PRIVATE(ik,kpt)
+         !$OMP PARALLEL PRIVATE(ik,kpt,tid)
+         tid = omp_get_thread_num()
          !$OMP DO
          do ik=1,Nk
             kpt = kpts(ik,:)
             call RK5_TimeStep_Dip_k(w90,kpt,tstp,dt,field,T1,T2,beta,mu,Rhok(:,:,ik),&
-               empirical=empirical_)
+               empirical=empirical_,tid=tid)
          end do              
          !$OMP END DO
          !$OMP END PARALLEL
@@ -202,6 +206,7 @@ contains
       integer,intent(in),optional  :: method
       logical :: empirical_
       integer :: method_
+      integer :: tid
       integer :: ik
       type(hybrid_propagator_t) :: hybrid
 
@@ -214,18 +219,20 @@ contains
 
       select case(method_)
       case(1)
-         !$OMP PARALLEL PRIVATE(ik)
+         !$OMP PARALLEL PRIVATE(ik,tid)
+         tid = omp_get_thread_num()
          !$OMP DO
          do ik=1,Nk
-            call RK4_TimeStep_velo_k(ik,tstp,dt,field,T1,T2,beta,mu,Hk,vk,Rhok(:,:,ik))
+            call RK4_TimeStep_velo_k(ik,tstp,dt,field,T1,T2,beta,mu,Hk,vk,Rhok(:,:,ik),tid=tid)
          end do
          !$OMP END DO
          !$OMP END PARALLEL
       case(2)
-         !$OMP PARALLEL PRIVATE(ik)
+         !$OMP PARALLEL PRIVATE(ik,tid)
+         tid = omp_get_thread_num()
          !$OMP DO
          do ik=1,Nk
-            call RK5_TimeStep_velo_k(ik,tstp,dt,field,T1,T2,beta,mu,Hk,vk,Rhok(:,:,ik))
+            call RK5_TimeStep_velo_k(ik,tstp,dt,field,T1,T2,beta,mu,Hk,vk,Rhok(:,:,ik),tid=tid)
          end do     
          !$OMP END DO
          !$OMP END PARALLEL   

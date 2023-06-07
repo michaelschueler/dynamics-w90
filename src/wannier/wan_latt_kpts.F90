@@ -95,6 +95,7 @@ contains
          kp%kpoints_type = kp_fft_grid_3d
          kp%nk1 = nk1
          kp%nk2 = nk2
+         kp%nk3 = nk3
          call GenKgrid(kp%kpts,nk1,nk2,nk3,center_bz=.false.)
       else
          write(error_unit,fmt900) "invalid k-points format"

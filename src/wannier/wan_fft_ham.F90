@@ -5,6 +5,7 @@ module wan_fft_ham
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
    use scitools_def,only: dp,iu,zero,one
+   use scitools_utils,only: str
    use wan_hamiltonian,only: wann90_tb_t
    implicit none
    include '../units_inc.f90'
@@ -94,6 +95,14 @@ contains
          me%ny = 1
          me%nz = 1
          me%nkx = nk(1)
+
+         if(me%nkx < me%nx) then
+            write(error_unit,fmt900) "Less k-points than R-points."
+            write(output_unit,'(A)') " ---> real-space grid: "//str(me%nx)
+            write(output_unit,'(A)') " ---> k-space grid: "//str(me%nkx)
+            stop
+         end if
+
          allocate(zr_1d(me%nkx),zk_1d(me%nkx))
          call DFFTW_PLAN_DFT_1D(me%plan_fw,me%nkx,zk_1d,zr_1d,FFTW_FORWARD,FFTW_MEASURE)
          call DFFTW_PLAN_DFT_1D(me%plan_bw,me%nkx,zr_1d,zk_1d,FFTW_BACKWARD,FFTW_MEASURE)
@@ -107,6 +116,14 @@ contains
 
          me%nkx = nk(1)
          me%nky = nk(2)
+
+         if(me%nkx < me%nx .or. me%nky < me%ny) then
+            write(error_unit,fmt900) "Less k-points than R-points."
+            write(output_unit,'(A)') " ---> real-space grid: "//str(me%nx)//"x"//str(me%ny)
+            write(output_unit,'(A)') " ---> k-space grid: "//str(me%nkx)//"x"//str(me%nky)
+            stop
+         end if
+
          allocate(zr_2d(me%nkx,me%nky),zk_2d(me%nkx,me%nky))
          call DFFTW_PLAN_DFT_2D(me%plan_fw,me%nkx,me%nky,zk_2d,zr_2d,FFTW_FORWARD,FFTW_MEASURE)
          call DFFTW_PLAN_DFT_2D(me%plan_bw,me%nkx,me%nky,zr_2d,zk_2d,FFTW_BACKWARD,FFTW_MEASURE)
@@ -116,12 +133,20 @@ contains
          me%ny = iy_bound(2) - iy_bound(1) + 1
          me%nz = iz_bound(2) - iz_bound(1) + 1
          if(mod(me%nx,2) /= 0) me%nx = me%nx + 1
-         if(mod(me%nx,2) /= 0) me%nx = me%nx + 1
          if(mod(me%ny,2) /= 0) me%ny = me%ny + 1
+         if(mod(me%nz,2) /= 0) me%nz = me%nz + 1
 
          me%nkx = nk(1)
          me%nky = nk(2)
          me%nkz = nk(3)
+
+         if(me%nkx < me%nx .or. me%nky < me%ny .or. me%nkz < me%nz) then
+            write(error_unit,fmt900) "Less k-points than R-points."
+            write(output_unit,'(A)') " ---> real-space grid: "//str(me%nx)//"x"//str(me%ny)//"x"//str(me%nz)
+            write(output_unit,'(A)') " ---> k-space grid: "//str(me%nkx)//"x"//str(me%nky)//"x"//str(me%nkz)
+            stop
+         end if
+
          allocate(zr_3d(me%nkx,me%nky,me%nz),zk_3d(me%nkx,me%nky,me%nz))
          call DFFTW_PLAN_DFT_3D(me%plan_fw,me%nkx,me%nky,me%nkz,zk_3d,zr_3d,FFTW_FORWARD,FFTW_MEASURE)
          call DFFTW_PLAN_DFT_3D(me%plan_bw,me%nkx,me%nky,me%nkz,zr_3d,zk_3d,FFTW_BACKWARD,FFTW_MEASURE)
@@ -149,7 +174,7 @@ contains
          w90_rindx = reshape(indx_2d, [me%nrpts])  
          deallocate(indx_2d)
       case(3)
-         allocate(indx_3d(me%nx,me%ny,me%nz)); indx_2d = -999
+         allocate(indx_3d(me%nx,me%ny,me%nz)); indx_3d = -999
          do ir=1,w90%nrpts
             ix = GetFFTIndex(me%nx, w90%irvec(ir,1))
             iy = GetFFTIndex(me%ny, w90%irvec(ir,2))
@@ -944,15 +969,15 @@ contains
       psi_d( nkx - nx/2 + 1:nkx, nky - ny/2 + 1:nky, 1:nz/2) = &
          work( nx/2 + 1:nx, ny/2 + 1:ny, 1:nz/2   )         
 
-      psi_d( 1:nx/2 , 1:ny/2, 1:nz/2) = work( 1:nx/2 , 1:ny/2, nz/2 + 1 : nz)
+      psi_d( 1:nx/2 , 1:ny/2, nkz - nz/2 + 1:nkz) = work( 1:nx/2 , 1:ny/2, nz/2 + 1 : nz)
 
-      psi_d( nkx - nx/2 + 1:nkx, 1:ny/2, nz/2 + 1 : nz ) = &
+      psi_d( nkx - nx/2 + 1:nkx, 1:ny/2, nkz - nz/2 + 1:nkz ) = &
          work( nx/2 + 1:nx, 1:ny/2, nz/2 + 1 : nz  )
 
-      psi_d( 1:nx/2, nky - ny/2 + 1:nky, 1:nz/2) = &
+      psi_d( 1:nx/2, nky - ny/2 + 1:nky, nkz - nz/2 + 1:nkz) = &
          work( 1:nx/2, ny/2 + 1:ny, nz/2 + 1 : nz  )
 
-      psi_d( nkx - nx/2 + 1:nkx, nky - ny/2 + 1:nky, 1:nz/2) = &
+      psi_d( nkx - nx/2 + 1:nkx, nky - ny/2 + 1:nky, nkz - nz/2 + 1:nkz) = &
          work( nx/2 + 1:nx, ny/2 + 1:ny, nz/2 + 1 : nz   )   
 
    end subroutine Smooth2Dense_3d

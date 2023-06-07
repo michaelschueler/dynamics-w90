@@ -25,6 +25,7 @@ module Mwann_evol
    procedure(vecpot_efield_func),pointer :: field => null()
 !--------------------------------------------------------------------------------------
    logical :: large_size
+   integer :: nthreads
    character(len=*),parameter :: fmt_info='(" Info: ",a)'
    integer,parameter :: velocity_gauge=0,dipole_gauge=1,velo_emp_gauge=2,dip_emp_gauge=3
    integer,parameter :: kp_list=0, kp_path=1, kp_grid=2, kp_fft_grid_2d=3, kp_fft_grid_3d=4
@@ -86,6 +87,14 @@ contains
       real(dp),intent(in),optional      :: T2
       logical,intent(in),optional       :: spin_current
       integer,intent(in),optional       :: propagator
+      integer :: tid
+
+      !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
+      tid = omp_get_thread_num()
+      if(tid == 0) then 
+         nthreads = omp_get_num_threads()
+      end if
+      !$OMP END PARALLEL   
 
       me%gauge = gauge
       me%Nk = kp%nk
@@ -115,9 +124,9 @@ contains
 
       select case(me%propagator)
       case(prop_rk5)
-         call Init_RungeKutta(me%nbnd)
+         call Init_RungeKutta(me%nbnd,nthreads=nthreads)
       case(prop_rk4)
-         call Init_RungeKutta(me%nbnd,Nk=me%Nk)
+         call Init_RungeKutta(me%nbnd,Nk=me%Nk,nthreads=nthreads)
       end select
 
 #ifdef WITHFFTW
@@ -155,7 +164,7 @@ contains
       real(dp) :: kpt(3)
       real(dp),allocatable :: Ek(:,:)
       type(Batch_Diagonalize_t) :: batch_diag
-      integer :: nthreads,tid
+      integer :: tid
 
       calc_mu = present(filling)
 
@@ -163,13 +172,6 @@ contains
       allocate(me%Hk(me%nbnd,me%nbnd,me%Nk))
       allocate(me%wan_rot(me%nbnd,me%nbnd,me%Nk))
       allocate(me%Rhok_eq(me%nbnd,me%nbnd,me%Nk))
-
-      !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
-      tid = omp_get_thread_num()
-      if(tid == 0) then 
-         nthreads = omp_get_num_threads()
-      end if
-      !$OMP END PARALLEL      
 
       call batch_diag%Init(me%nbnd,nthreads=nthreads)      
 
