@@ -274,6 +274,8 @@ program wann_evol
       allocate(Jpara(3,0:Nsteps),Jdia(3,0:Nsteps),Jintra(3,0:Nsteps))
    end if
 
+   print*, "test"
+
    if(spin_current) then
       allocate(Jspin(3,3,0:Nsteps))
    end if
@@ -291,8 +293,6 @@ program wann_evol
          Jintra(:,0),Dip(:,0),BandOcc(:,0))
       if(spin_current) call lattsys%CalcSpinCurrent_velo(tstp,dt,Jspin(:,:,0))
    end if
-
-   print*, "test"
 
    if(Output_Occ_KPTS) then
       call lattsys%GetOccupationKPTS(Occk(:,:,0))
