@@ -106,7 +106,7 @@ contains
 
 #ifdef WITHFFTWOMP
       ierr = fftw_init_threads()
-      if(ierr /= 0) call stop_error("Error in fftw_init_threads")
+      if(ierr == 0) call stop_error("Error in fftw_init_threads")
 
       if(present(nthreads_fft)) me%nthreads_fft = nthreads_fft
       if(present(nthreads_orb)) me%nthreads_orb = nthreads_orb
