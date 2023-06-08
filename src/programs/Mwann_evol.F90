@@ -487,16 +487,10 @@ contains
       real(dp) :: AF(3),EF(3)
       complex(dp),dimension(me%nbnd,me%nbnd) :: rhok_bnd
 
-      print*, "CalcObservables_dip"
-
       AF = 0.0_dp; EF = 0.0_dp
       call field(tstp*dt + me%tstart,AF,EF)
 
-      print*, "CalcObservables_dip", 1
-
       call omp_set_num_threads(me%max_threads)
-
-      print*, "CalcObservables_dip", 2
 
       if(me%free_evol) then
          Etot = Wann_DTRAB_kpts(me%nbnd,me%Nk,me%Hk,me%Rhok)

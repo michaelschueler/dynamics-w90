@@ -36,9 +36,6 @@ contains
       complex(dp),allocatable,dimension(:,:,:,:) :: grad_Hk,Dk
       integer :: nthreads,tid
 
-      print*, "Wann_FFT_Observables_dip"
-
-
       dipole_current_ = .false.
       if(present(dipole_current)) dipole_current_ = dipole_current
 
