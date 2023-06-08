@@ -15,7 +15,7 @@ module wan_prop_hybrid
    type :: hybrid_propagator_t
       logical :: large_size
       integer :: nbnd
-      integer :: comm_order=3
+      integer :: comm_order=8
       real(dp) :: Beta,Mu
       real(dp) :: Gmm(3),AF(3),Ared(3),EF(3)
       type(Batch_Diagonalize_t) :: batch_diag

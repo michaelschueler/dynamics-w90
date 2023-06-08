@@ -110,7 +110,7 @@ contains
    end subroutine Wann_FFT_UnitaryTimestep_dip
 !--------------------------------------------------------------------------------------
    subroutine Wann_FFT_RelaxTimestep_dip(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,&
-      Peierls_only,method,comm_order)
+      Peierls_only,method)
       type(wann90_tb_t),intent(in) :: ham
       type(wann_fft_t),intent(in)  :: ham_fft
       integer,intent(in)           :: tstp
@@ -124,9 +124,8 @@ contains
       complex(dp),intent(inout)    :: Rhok(:,:,:)
       logical,intent(in),optional  :: Peierls_only
       integer,intent(in),optional  :: method
-      integer,intent(in),optional  :: comm_order
       logical :: peierls_
-      integer :: method_, comm_order_
+      integer :: method_
 
       peierls_ = .false.
       if(present(Peierls_only)) peierls_ = Peierls_only
@@ -134,15 +133,11 @@ contains
       method_ = prop_rk4
       if(present(method)) method_ = method
 
-      comm_order_ = 3
-      if(present(comm_order)) comm_order_ = comm_order
-
       select case(method_)
       case(prop_rk4)
          call RelaxTimestep_RK4(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,peierls_)
       case(prop_hybrid)
-         call RelaxTimestep_Hyb(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,peierls_,&
-            comm_order_)
+         call RelaxTimestep_Hyb(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,peierls_)
       case default
          write(output_unit,fmt700) "Other propagators not implemented. Switching back to Runge-Kutta-4"
          call RelaxTimestep_RK4(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,peierls_)
@@ -168,7 +163,8 @@ contains
       real(dp) :: tn
       real(dp),dimension(3) :: Gmm
       real(dp),dimension(3,3) :: AF,EF,Ared
-      complex(dp),allocatable,dimension(:,:) :: Rho_old,Dscatt
+      real(dp),allocatable,dimension(:) :: Ek(:)
+      complex(dp),allocatable,dimension(:,:) :: Rho_old,Dscatt,rotk
       complex(dp),allocatable,dimension(:,:,:) :: DRhok_step
       complex(dp),allocatable,dimension(:,:,:) :: Hk_1,Hk_2,Hk_3
       complex(dp),allocatable,dimension(:,:,:,:) :: Dk_1,Dk_2,Dk_3
@@ -225,6 +221,7 @@ contains
       tid = omp_get_thread_num()
       allocate(Rho_old(nbnd,nbnd),Dscatt(nbnd,nbnd))
       allocate(DRhok_step(nbnd,nbnd,4)); DRhok_step=zero
+      allocate(Ek(nbnd),rotk(nbnd,nbnd))
 
       Dscatt = zero
 
@@ -234,25 +231,28 @@ contains
 
          DRhok_step = zero
 
-         call GetScattTerm(nbnd,large_size,Gmm,Beta,Mu,Hk_1(:,:,ik),Rho_old,batch_diag,tid,Dscatt)
+         call batch_diag%Diagonalize(Hk_1(:,:,ik), epsk=Ek, vectk=rotk, tid=tid)
+         call GetScattTerm(nbnd,large_size,Gmm,Beta,Mu,Ek,rotk,Rho_old,batch_diag,tid,Dscatt)
          call util_matmul(Hk_1(:,:,ik), Rho_old, DRhok_step(:,:,1), alpha=-iu, large_size=large_size)
          call util_matmul(Rho_old, Hk_1(:,:,ik), DRhok_step(:,:,1), alpha=iu, beta=one, large_size=large_size)         
          DRhok_step(:,:,1) = DRhok_step(:,:,1) + Dscatt
 
          Rhok(:,:,ik) = Rho_old + 0.5_dp * dt * DRhok_step(:,:,1)
-         call GetScattTerm(nbnd,large_size,Gmm,Beta,Mu,Hk_2(:,:,ik),Rhok(:,:,ik),batch_diag,tid,Dscatt)
+         call batch_diag%Diagonalize(Hk_2(:,:,ik), epsk=Ek, vectk=rotk, tid=tid)
+         call GetScattTerm(nbnd,large_size,Gmm,Beta,Mu,Ek,rotk,Rhok(:,:,ik),batch_diag,tid,Dscatt)
          call util_matmul(Hk_2(:,:,ik), Rhok(:,:,ik), DRhok_step(:,:,2), alpha=-iu, large_size=large_size)
          call util_matmul(Rhok(:,:,ik), Hk_2(:,:,ik), DRhok_step(:,:,2), alpha=iu, beta=one, large_size=large_size)         
          DRhok_step(:,:,2) = DRhok_step(:,:,2) + Dscatt         
 
          Rhok(:,:,ik) = Rho_old + 0.5_dp * dt * DRhok_step(:,:,2)
-         call GetScattTerm(nbnd,large_size,Gmm,Beta,Mu,Hk_2(:,:,ik),Rhok(:,:,ik),batch_diag,tid,Dscatt)
+         call GetScattTerm(nbnd,large_size,Gmm,Beta,Mu,Ek,rotk,Rhok(:,:,ik),batch_diag,tid,Dscatt)
          call util_matmul(Hk_2(:,:,ik), Rhok(:,:,ik), DRhok_step(:,:,3), alpha=-iu, large_size=large_size)
          call util_matmul(Rhok(:,:,ik), Hk_2(:,:,ik), DRhok_step(:,:,3), alpha=iu, beta=one, large_size=large_size)         
          DRhok_step(:,:,3) = DRhok_step(:,:,3) + Dscatt        
 
          Rhok(:,:,ik) = Rho_old + dt * DRhok_step(:,:,3)
-         call GetScattTerm(nbnd,large_size,Gmm,Beta,Mu,Hk_3(:,:,ik),Rhok(:,:,ik),batch_diag,tid,Dscatt)
+         call batch_diag%Diagonalize(Hk_3(:,:,ik), epsk=Ek, vectk=rotk, tid=tid)
+         call GetScattTerm(nbnd,large_size,Gmm,Beta,Mu,Ek,rotk,Rhok(:,:,ik),batch_diag,tid,Dscatt)
          call util_matmul(Hk_3(:,:,ik), Rhok(:,:,ik), DRhok_step(:,:,4), alpha=-iu, large_size=large_size)
          call util_matmul(Rhok(:,:,ik), Hk_3(:,:,ik), DRhok_step(:,:,4), alpha=iu, beta=one, large_size=large_size)         
          DRhok_step(:,:,4) = DRhok_step(:,:,4) + Dscatt     
@@ -265,6 +265,7 @@ contains
 
       deallocate(Rho_old,Dscatt)
       deallocate(DRhok_step)
+      deallocate(Ek,rotk)
       !$OMP END PARALLEL
 
       deallocate(Hk_1,Hk_2,Hk_3)
@@ -273,7 +274,7 @@ contains
 
    end subroutine RelaxTimestep_RK4
 !--------------------------------------------------------------------------------------
-  subroutine RelaxTimestep_Hyb(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,Peierls_only,comm_order)
+  subroutine RelaxTimestep_Hyb(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,Peierls_only)
       type(wann90_tb_t),intent(in) :: ham
       type(wann_fft_t),intent(in)  :: ham_fft
       integer,intent(in)           :: tstp
@@ -286,15 +287,14 @@ contains
       real(dp),intent(in)          :: Mu
       complex(dp),intent(inout)    :: Rhok(:,:,:)
       logical,intent(in)           :: Peierls_only
-      integer,intent(in)           :: comm_order
       logical :: large_size
-      integer :: nbnd,Nk,ik,icomm,idir
-      real(dp) :: tn
+      integer :: nbnd,Nk,ik,idir
+      real(dp) :: tn,dt2,dt6,dt23
       real(dp),dimension(3) :: Gmm
       real(dp),dimension(3) :: AF,EF,Ared
-      complex(dp),dimension(comm_order) :: zh,mzh
-      complex(dp),allocatable,dimension(:,:) :: Rho_old,Dscatt,Udt
-      complex(dp),allocatable,dimension(:,:,:) :: Hk_12,Ckt
+      real(dp),allocatable,dimension(:) :: Ek(:)
+      complex(dp),allocatable,dimension(:,:) :: Rho_old,Dscatt,Udt,Udt2,Ddt,UDdtUh,rotk
+      complex(dp),allocatable,dimension(:,:,:) :: Hk_12
       complex(dp),allocatable,dimension(:,:,:,:) :: Dk_12
       type(Batch_Diagonalize_t) :: batch_diag
       integer :: nthreads,tid
@@ -309,15 +309,12 @@ contains
       Gmm(1) = 1.0_dp / T1
       Gmm(2) = 1.0_dp / T2
       Gmm(3) = Gmm(1) - Gmm(2)
-
+      dt2 = 0.5_dp * dt
+      dt6 = dt / 6.0_dp
+      dt23 = 2.0_dp / 3.0_dp * dt
 
       tn = (tstp + 0.5_dp) * dt + tstart
       call field(tn, AF, EF)
-
-      do icomm=1,comm_order
-         zh(icomm) = iu * dt / (icomm + 1.0_dp)
-         mzh(icomm) = -zh(icomm)
-      end do
 
       Ared = ham%get_kreduced(AF)
 
@@ -339,37 +336,41 @@ contains
 
       call omp_set_num_threads(ham_fft%nthreads)
 
-      !$OMP PARALLEL PRIVATE(tid,Rho_old,Dscatt,Ckt,Udt)
+      !$OMP PARALLEL PRIVATE(tid,Rho_old,Dscatt,Udt,Udt2,Ddt,UDdtUh,Ek,rotk)
       tid = omp_get_thread_num()
-      allocate(Rho_old(nbnd,nbnd),Dscatt(nbnd,nbnd),Udt(nbnd,nbnd))
-      allocate(Ckt(nbnd,nbnd,comm_order)); Ckt=zero
+      allocate(Rho_old(nbnd,nbnd),Dscatt(nbnd,nbnd))
+      allocate(Udt(nbnd,nbnd),Udt2(nbnd,nbnd))
+      allocate(Ddt(nbnd,nbnd),UDdtUh(nbnd,nbnd))
+      allocate(Ek(nbnd),rotk(nbnd,nbnd))
 
       !$OMP DO
       do ik=1,Nk
 
-         call GetScattTerm(nbnd,large_size,Gmm,Beta,Mu,Hk_12(:,:,ik),Rhok(:,:,ik),batch_diag,tid,Dscatt)
-
-         Ckt(:,:,1) = -iu * dt * Dscatt
-         do icomm=1,comm_order-1
-            call ZGEMM('N','N',nbnd,nbnd,nbnd,zh(icomm),Hk_12(1,1,ik),nbnd,Ckt(1,1,icomm),&
-               nbnd,zero,Ckt(1,1,icomm+1),nbnd)
-            call ZGEMM('N','N',nbnd,nbnd,nbnd,mzh,Ckt(1,1,icomm),nbnd,Hk_12(1,1,ik),&
-               nbnd,one,Ckt(1,1,icomm+1),nbnd)                 
-         end do
+         call batch_diag%Diagonalize(Hk_12(:,:,ik), epsk=Ek, vectk=rotk, tid=tid)
+         call GetScattTerm(nbnd,large_size,Gmm,Beta,Mu,Ek,rotk,Rhok(:,:,ik),batch_diag,tid,Dscatt)
 
          Rho_old = Rhok(:,:,ik)
-         do icomm=1,comm_order
-            Rho_old = Rho_old + iu * Ckt(:,:,icomm)
-         end do
 
-         call GenU_CF2(dt,Hk_12(:,:,ik),Udt)
+         ! call GenU_CF2(dt,Hk_12(:,:,ik),Udt)
+         ! call GenU_CF2(dt2,Hk_12(:,:,ik),Udt2)
+         call GenU_Eig(dt,Ek,rotk,large_size,Ddt,Udt)
+         call GenU_Eig(dt2,Ek,rotk,large_size,Ddt,Udt2)
+
+         Rho_old = Rho_old + dt6 * Dscatt
          call UnitaryStepFBW(nbnd,Udt,Rho_old,Rhok(:,:,ik),large_size=large_size)
+
+         Ddt = dt23 * Dscatt
+         call UnitaryStepFBW(nbnd,Udt2,Ddt,UDdtUh,large_size=large_size)
+
+         Rhok(:,:,ik) = Rhok(:,:,ik) + UDdtUh + dt6 * Dscatt
 
       end do
       !$OMP END DO
 
-      deallocate(Rho_old,Dscatt,Udt)
-      deallocate(Ckt)
+      deallocate(Rho_old,Dscatt)
+      deallocate(Udt,Udt2)
+      deallocate(Ddt,UDdtUh)
+      deallocate(Ek,rotk)
       !$OMP END PARALLEL
 
       deallocate(Hk_12)
@@ -378,22 +379,22 @@ contains
 
    end subroutine RelaxTimestep_Hyb
 !--------------------------------------------------------------------------------------
-   subroutine GetScattTerm(nbnd,large_size,Gmm,Beta,Mu,Hk,Rhok,batch_diag,tid,Dscatt)
+   subroutine GetScattTerm(nbnd,large_size,Gmm,Beta,Mu,Ek,rotk,Rhok,batch_diag,tid,Dscatt)
       integer,intent(in)  :: nbnd
       logical,intent(in)  :: large_size
       real(dp),intent(in) :: Gmm(3)
       real(dp),intent(in) :: Beta
       real(dp),intent(in) :: Mu
-      complex(dp),intent(in) :: Hk(:,:)
+      real(dp),intent(in) :: Ek(:)
+      complex(dp),intent(in) :: rotk(:,:)
       complex(dp),intent(in) :: Rhok(:,:)
       type(Batch_Diagonalize_t) :: batch_diag
       integer,intent(in)  :: tid
       complex(dp),intent(inout) :: Dscatt(:,:)
       integer :: i
-      real(dp),dimension(nbnd) :: Ek,Occk
-      complex(dp),dimension(nbnd,nbnd) :: Rho_eq,Rho_tmp,Rho_off,rotk
+      real(dp),dimension(nbnd) :: Occk
+      complex(dp),dimension(nbnd,nbnd) :: Rho_eq,Rho_tmp,Rho_off
 
-      call batch_diag%Diagonalize(Hk, epsk=Ek, vectk=rotk, tid=tid)
       Occk = nfermi(Beta, Ek - Mu)
 
       Rho_tmp = zero
@@ -411,6 +412,26 @@ contains
       Dscatt = - Gmm(1) * (Rhok - Rho_eq) + Gmm(3) * Rho_off
 
    end subroutine GetScattTerm
+!--------------------------------------------------------------------------------------
+   subroutine GenU_Eig(dt,Ek,rotk,large_size,work,Udt)
+      real(dp),intent(in) :: dt
+      real(dp),intent(in) :: Ek(:)
+      complex(dp),intent(in) :: rotk(:,:)
+      logical,intent(in) :: large_size
+      complex(dp),intent(inout) :: work(:,:)
+      complex(dp),intent(inout) :: Udt(:,:)
+      integer :: n,i
+
+      n = size(Ek)
+
+      work = zero
+      do i=1,n
+         work(i,i) = exp(-iu*dt*Ek(i))
+      end do
+
+      Udt = util_rotate_cc(n,rotk,work,large_size=large_size)
+
+   end subroutine GenU_Eig
 !--------------------------------------------------------------------------------------
 
 !======================================================================================
