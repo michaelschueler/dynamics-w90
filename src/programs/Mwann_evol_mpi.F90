@@ -118,7 +118,7 @@ contains
       allocate(me%Rhok(me%nbnd,me%nbnd,me%Nk_loc))
 
       if(present(Rhok_start)) then
-         if(any(shape(me%Rhok) /= [me%nbnd,me%nbnd,me%Nk] )) then
+         if(any(shape(Rhok_start) /= [me%nbnd,me%nbnd,me%Nk] )) then
             call stop_error("Incompatible restart density matrix",&
                root_flag=on_root)
          end if
@@ -567,8 +567,8 @@ contains
       allocate(displ(0:ntasks-1),size_loc(0:ntasks-1))
       call GetDisplSize1D(kdist%N_loc,me%nbnd*me%nbnd,displ,nsize,size_loc)
 
-      call MPI_Allgatherv(me%Rhok,nsize,MPI_DOUBLE_COMPLEX,Rhok,size_loc,displ,&
-         MPI_DOUBLE_COMPLEX,MPI_COMM_WORLD, ierr)
+      call MPI_Gatherv(me%Rhok,nsize,MPI_DOUBLE_COMPLEX,Rhok,size_loc,displ,&
+         MPI_DOUBLE_COMPLEX, master, MPI_COMM_WORLD, ierr)
 
       deallocate(displ,size_loc)
 
