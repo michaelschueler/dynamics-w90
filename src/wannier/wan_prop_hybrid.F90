@@ -15,12 +15,11 @@ module wan_prop_hybrid
    type :: hybrid_propagator_t
       logical :: large_size
       integer :: nbnd
-      integer :: comm_order=8
       real(dp) :: Beta,Mu
       real(dp) :: Gmm(3),AF(3),Ared(3),EF(3)
       type(Batch_Diagonalize_t) :: batch_diag
       ! .. temporary work space ..
-      complex(dp),allocatable,dimension(:,:)   :: Hkt,Udt,Dscatt
+      complex(dp),allocatable,dimension(:,:)   :: Hkt,Udt,Udt2,Dscatt
       complex(dp),allocatable,dimension(:,:)   :: Rho_eq,Rho_off,Rho_tmp
       complex(dp),allocatable,dimension(:,:,:) :: Dipk,Ckt
    contains
@@ -33,14 +32,13 @@ module wan_prop_hybrid
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,nbnd,Beta,Mu,T1,T2,comm_order)
+   subroutine Init(me,nbnd,Beta,Mu,T1,T2)
       class(hybrid_propagator_t) :: me
       integer,intent(in) :: nbnd
       real(dp),intent(in) :: Beta
       real(dp),intent(in) :: Mu
       real(dp),intent(in) :: T1
       real(dp),intent(in) :: T2
-      integer,intent(in),optional :: comm_order
 
       me%nbnd = nbnd
       me%large_size = get_large_size(me%nbnd)
@@ -51,15 +49,13 @@ contains
       me%Gmm(2) = 1.0_dp / T2
       me%Gmm(3) = me%Gmm(1) - me%Gmm(2)
 
-      me%comm_order = 3
-      if(present(comm_order)) me%comm_order = comm_order
-
       call me%batch_diag%Init(me%nbnd)
 
       allocate(me%Hkt(me%nbnd,me%nbnd))
       allocate(me%Udt(me%nbnd,me%nbnd))
+      allocate(me%Udt2(me%nbnd,me%nbnd))
       allocate(me%Dscatt(me%nbnd,me%nbnd))
-      allocate(me%Ckt(me%nbnd,me%nbnd,me%comm_order))
+      allocate(me%Ckt(me%nbnd,me%nbnd,3))
       allocate(me%Dipk(me%nbnd,me%nbnd,3))
 
       allocate(me%Rho_eq(me%nbnd,me%nbnd))
@@ -74,6 +70,7 @@ contains
       call me%batch_diag%Clean()
       if(allocated(me%Hkt)) deallocate(me%Hkt)
       if(allocated(me%Udt)) deallocate(me%Udt)
+      if(allocated(me%Udt2)) deallocate(me%Udt2)
       if(allocated(me%Ckt)) deallocate(me%Ckt)
       if(allocated(me%Rho_eq)) deallocate(me%Rho_eq)
       if(allocated(me%Rho_off)) deallocate(me%Rho_off)
@@ -115,9 +112,9 @@ contains
       complex(dp),intent(inout)    :: Rhok(:,:)
       logical,intent(in),optional  :: empirical
       logical :: empirical_
-      integer :: i,icomm
+      integer :: i
+      real(dp) :: dt2,dt23,dt6
       real(dp) :: kA(3)
-      complex(dp) :: zh,mzh
 
       empirical_ = .false.
       if(present(empirical)) empirical_ = empirical
@@ -129,9 +126,16 @@ contains
          me%Hkt = me%Hkt - me%EF(1) * me%Dipk(:,:,1) - me%EF(2) * me%Dipk(:,:,2) - me%EF(3) * me%Dipk(:,:,3) 
       end if
 
-      call GenU_CF2(dt, me%Hkt, me%Udt)
+      ! call GenU_CF2(dt, me%Hkt, me%Udt)
 
       call me%batch_diag%Diagonalize(me%Hkt)
+
+      dt2 = 0.5_dp * dt
+      dt23 = 2.0_dp / 3.0_dp * dt
+      dt6 = dt / 6.0_dp
+      call GenU_Eig(dt,me%batch_diag%eps(:,0),me%batch_diag%vect(:,:,0),me%large_size,me%Ckt(:,:,1),me%Udt)
+      call GenU_Eig(dt2,me%batch_diag%eps(:,0),me%batch_diag%vect(:,:,0),me%large_size,me%Ckt(:,:,1),me%Udt2)
+
       me%Rho_tmp = zero
       do i=1,me%nbnd
          me%Rho_tmp(i,i) = nfermi(me%Beta, me%batch_diag%eps(i,0) - me%Mu)
@@ -146,30 +150,13 @@ contains
 
       me%Dscatt = -me%Gmm(1) * (Rhok - me%Rho_eq) + me%Gmm(3) * me%Rho_off
 
-      me%Ckt = zero
-      me%Ckt(:,:,1) = -iu * dt * me%Dscatt
-      do icomm=1,me%comm_order - 1
-         zh = iu * dt / (icomm + 1.0_dp)
-         mzh = -zh
-         ! me%Ckt(:,:,icomm+1) = zh * (matmul(me%Hkt, me%Ckt(:,:,icomm)) - matmul(me%Ckt(:,:,icomm), me%Hkt))
-
-         call ZGEMM('N','N',me%nbnd,me%nbnd,me%nbnd,zh,me%Hkt(1,1),me%nbnd,me%Ckt(1,1,icomm),&
-            me%nbnd,zero,me%Ckt(1,1,icomm+1),me%nbnd)
-         call ZGEMM('N','N',me%nbnd,me%nbnd,me%nbnd,mzh,me%Ckt(1,1,icomm),me%nbnd,me%Hkt(1,1),&
-            me%nbnd,one,me%Ckt(1,1,icomm+1),me%nbnd)        
-
-         ! call util_matmul(me%Hkt, me%Ckt(:,:,icomm), me%Ckt(:,:,icomm+1), alpha=zh, &
-         !    large_size=me%large_size)
-         ! call util_matmul(me%Ckt(:,:,icomm), me%Hkt, me%Ckt(:,:,icomm+1), alpha=-zh, beta=one, &
-         !    large_size=me%large_size)
-      end do
-
-      me%Rho_tmp = Rhok
-      do icomm=1,me%comm_order
-         me%Rho_tmp = me%Rho_tmp + iu * me%Ckt(:,:,icomm)
-      end do
-
+      me%Rho_tmp = Rhok + dt6 * me%Dscatt
       call UnitaryStepFBW(me%nbnd,me%Udt,me%Rho_tmp,Rhok,large_size=me%large_size)
+
+      me%Ckt(:,:,1) = dt23 * me%Dscatt
+      call UnitaryStepFBW(me%nbnd,me%Udt2,me%Ckt(:,:,1),me%Ckt(:,:,2),large_size=me%large_size)
+
+      Rhok = Rhok + me%Ckt(:,:,2) + dt6 * me%Dscatt
 
    end subroutine TimeStep_dip
 !--------------------------------------------------------------------------------------
@@ -181,15 +168,22 @@ contains
       complex(dp),intent(in)       :: Hk(:,:,:)
       complex(dp),intent(in)       :: vk(:,:,:,:)      
       complex(dp),intent(inout)    :: Rhok(:,:)
-      integer :: i,icomm
-      complex(dp) :: zh
+      integer :: i
+      real(dp) :: dt2,dt23,dt6
 
       me%Hkt = Hk(:,:,ik)
       me%Hkt = me%Hkt - me%AF(1) * vk(:,:,ik,1) - me%AF(2) * vk(:,:,ik,2) - me%AF(3) * vk(:,:,ik,3) 
 
-      call GenU_CF2(dt, me%Hkt, me%Udt)
+      ! call GenU_CF2(dt, me%Hkt, me%Udt)
 
       call me%batch_diag%Diagonalize(me%Hkt)
+
+      dt2 = 0.5_dp * dt
+      dt23 = 2.0_dp / 3.0_dp * dt
+      dt6 = dt / 6.0_dp
+      call GenU_Eig(dt,me%batch_diag%eps(:,0),me%batch_diag%vect(:,:,0),me%large_size,me%Ckt(:,:,1),me%Udt)
+      call GenU_Eig(dt2,me%batch_diag%eps(:,0),me%batch_diag%vect(:,:,0),me%large_size,me%Ckt(:,:,1),me%Udt2)
+
       me%Rho_tmp = zero
       do i=1,me%nbnd
          me%Rho_tmp(i,i) = nfermi(me%Beta, me%batch_diag%eps(i,0) - me%Mu)
@@ -202,28 +196,36 @@ contains
       end do
       me%Rho_off = util_rotate_cc(me%nbnd,me%batch_diag%vect(:,:,0),me%Rho_tmp,large_size=me%large_size)      
 
-      me%Dscatt = -me%Gmm(1) * (Rhok - me%Rho_eq) + me%Gmm(3) * me%Rho_off
-
-      me%Ckt = zero
-      me%Ckt(:,:,1) = -iu * dt * me%Dscatt
-      do icomm=1,me%comm_order - 1
-         zh = iu * dt / (me%comm_order + 1.0_dp)
-         call util_matmul(me%Hkt, me%Ckt(:,:,icomm), me%Ckt(:,:,icomm+1), alpha=zh, &
-            large_size=me%large_size)
-         call util_matmul(me%Ckt(:,:,icomm), me%Hkt, me%Ckt(:,:,icomm+1), alpha=-zh, beta=one, &
-            large_size=me%large_size)
-      end do
-
-      me%Rho_tmp = Rhok
-      do icomm=1,me%comm_order
-         me%Rho_tmp = me%Rho_tmp + me%Ckt(:,:,icomm)
-      end do
-
+      me%Rho_tmp = Rhok + dt6 * me%Dscatt
       call UnitaryStepFBW(me%nbnd,me%Udt,me%Rho_tmp,Rhok,large_size=me%large_size)
+
+      me%Ckt(:,:,1) = dt23 * me%Dscatt
+      call UnitaryStepFBW(me%nbnd,me%Udt2,me%Ckt(:,:,1),me%Ckt(:,:,2),large_size=me%large_size)
+
+      Rhok = Rhok + me%Ckt(:,:,2) + dt6 * me%Dscatt
 
    end subroutine TimeStep_velo
 !--------------------------------------------------------------------------------------
+   subroutine GenU_Eig(dt,Ek,rotk,large_size,work,Udt)
+      real(dp),intent(in) :: dt
+      real(dp),intent(in) :: Ek(:)
+      complex(dp),intent(in) :: rotk(:,:)
+      logical,intent(in) :: large_size
+      complex(dp),intent(inout) :: work(:,:)
+      complex(dp),intent(inout) :: Udt(:,:)
+      integer :: n,i
 
+      n = size(Ek)
+
+      work = zero
+      do i=1,n
+         work(i,i) = exp(-iu*dt*Ek(i))
+      end do
+
+      Udt = util_rotate_cc(n,rotk,work,large_size=large_size)
+
+   end subroutine GenU_Eig
+!--------------------------------------------------------------------------------------
 
 
 
