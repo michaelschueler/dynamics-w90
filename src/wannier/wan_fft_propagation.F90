@@ -47,14 +47,7 @@ contains
       complex(dp),allocatable,dimension(:,:) :: Rho_old,Udt
       complex(dp),allocatable,dimension(:,:,:) :: Hk_1,Hk_2
       complex(dp),allocatable,dimension(:,:,:,:) :: Dk_1,Dk_2
-      integer :: nthreads,tid
-
-      !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
-      tid = omp_get_thread_num()
-      if(tid == 0) then 
-         nthreads = omp_get_max_threads()
-      end if
-      !$OMP END PARALLEL   
+      integer :: tid
 
       peierls_ = .false.
       if(present(Peierls_only)) peierls_ = Peierls_only
@@ -91,7 +84,7 @@ contains
          end do
       end if
 
-      call omp_set_num_threads(nthreads)
+      call omp_set_num_threads(ham_fft%nthreads)
       !$OMP PARALLEL PRIVATE(Rho_old,Udt)
       allocate(Rho_old(nbnd,nbnd))
       allocate(Udt(nbnd,nbnd))
@@ -222,16 +215,9 @@ contains
          deallocate(Dk_1,Dk_2,Dk_3)
       end if
 
-      !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
-      tid = omp_get_thread_num()
-      if(tid == 0) then 
-         nthreads = omp_get_max_threads()
-      end if
-      !$OMP END PARALLEL    
+      call batch_diag%Init(nbnd,nthreads=ham_fft%nthreads)     
 
-      call batch_diag%Init(nbnd,nthreads=nthreads)     
-
-      call omp_set_num_threads(nthreads)
+      call omp_set_num_threads(ham_fft%nthreads)
       !$OMP PARALLEL PRIVATE(tid,Rho_old,Dscatt,DRhok_step)
       tid = omp_get_thread_num()
       allocate(Rho_old(nbnd,nbnd),Dscatt(nbnd,nbnd))
@@ -345,16 +331,10 @@ contains
          deallocate(Dk_12)
       end if
 
-      !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
-      tid = omp_get_thread_num()
-      if(tid == 0) then 
-         nthreads = omp_get_max_threads()
-      end if
-      !$OMP END PARALLEL    
+      call batch_diag%Init(nbnd,nthreads=ham_fft%nthreads)     
 
-      call batch_diag%Init(nbnd,nthreads=nthreads)     
+      call omp_set_num_threads(ham_fft%nthreads)
 
-      call omp_set_num_threads(nthreads)
       !$OMP PARALLEL PRIVATE(tid,Rho_old,Dscatt,Ckt,Udt)
       tid = omp_get_thread_num()
       allocate(Rho_old(nbnd,nbnd),Dscatt(nbnd,nbnd),Udt(nbnd,nbnd))

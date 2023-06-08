@@ -64,6 +64,8 @@ contains
       Jpol = 0.0_dp
       Dip = 0.0_dp
 
+      call omp_set_num_threads(ham_fft%nkpts)
+
       !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
       tid = omp_get_thread_num()
       if(tid == 0) then 
@@ -71,7 +73,8 @@ contains
       end if
       !$OMP END PARALLEL   
 
-      call omp_set_num_threads(nthreads)
+      print*, "[Wann_FFT_Observables_dip] nthreads = ", nthreads
+
       !$OMP PARALLEL PRIVATE(ik,Hkt,DRhok_dt)
       allocate(Hkt(nbnd,nbnd))
       allocate(DRhok_dt(nbnd,nbnd))

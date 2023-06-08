@@ -25,7 +25,6 @@ module Mwann_evol
    procedure(vecpot_efield_func),pointer :: field => null()
 !--------------------------------------------------------------------------------------
    logical :: large_size
-   integer :: nthreads
    character(len=*),parameter :: fmt_info='(" Info: ",a)'
    integer,parameter :: velocity_gauge=0,dipole_gauge=1,velo_emp_gauge=2,dip_emp_gauge=3
    integer,parameter :: kp_list=0, kp_path=1, kp_grid=2, kp_fft_grid_2d=3, kp_fft_grid_3d=4
@@ -52,6 +51,8 @@ module Mwann_evol
 #endif
       ! .. density matrix ..
       complex(dp),allocatable,dimension(:,:,:)   :: Rhok,Rhok_eq
+      ! .. parallelization ..
+      integer :: max_threads
    contains
       procedure,public  :: Init
       procedure,public  :: SetLaserpulse
@@ -98,11 +99,11 @@ contains
       !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
       tid = omp_get_thread_num()
       if(tid == 0) then 
-         nthreads = omp_get_num_threads()
+         me%max_threads = omp_get_num_threads()
       end if
       !$OMP END PARALLEL   
 
-      nthreads_orb_ = nthreads
+      nthreads_orb_ = me%max_threads
       if(present(nthreads_fft)) nthreads_fft_ = nthreads_fft
       if(present(nthreads_orb)) nthreads_orb_ = nthreads_orb
 
@@ -151,9 +152,9 @@ contains
       if(.not. me%fft_mode) then
          select case(me%propagator)
          case(prop_rk5)
-            call Init_RungeKutta(me%nbnd,nthreads=nthreads)
+            call Init_RungeKutta(me%nbnd,nthreads=me%max_threads)
          case(prop_rk4)
-            call Init_RungeKutta(me%nbnd,Nk=me%Nk,nthreads=nthreads)
+            call Init_RungeKutta(me%nbnd,Nk=me%Nk,nthreads=me%max_threads)
          end select
       end if
 
@@ -187,15 +188,18 @@ contains
       allocate(me%wan_rot(me%nbnd,me%nbnd,me%Nk))
       allocate(me%Rhok_eq(me%nbnd,me%nbnd,me%Nk))
 
-      call batch_diag%Init(me%nbnd,nthreads=nthreads)      
+      call batch_diag%Init(me%nbnd,nthreads=me%max_threads)      
 
       if(me%fft_mode) then
 #ifdef WITHFFTW
          call me%ham_fft%GetHam(me%Hk)
 #endif
       else
+         call omp_set_num_threads(me%max_threads)
          call Wann_GenHk(me%ham,me%Nk,me%kcoord,me%Hk)
       end if
+
+      call omp_set_num_threads(me%max_threads)
 
       !$OMP PARALLEL PRIVATE(tid)
       tid = omp_get_thread_num()
@@ -340,6 +344,9 @@ contains
             allocate(me%grad_Hk(me%nbnd,me%nbnd,3,me%Nk))
 
             call field(field_Tmax_,AF,EF)
+
+            call omp_set_num_threads(me%max_threads)
+
             !$OMP PARALLEL PRIVATE(kpt,Hk)
             !$OMP DO
             do ik=1,me%Nk
@@ -456,6 +463,8 @@ contains
 
       AF = 0.0_dp; EF = 0.0_dp
       call field(tstp*dt,AF,EF)
+
+      call omp_set_num_threads(me%max_threads)
 
       if(me%free_evol) then
          Etot = Wann_DTRAB_kpts(me%nbnd,me%Nk,me%Hk,me%Rhok)
