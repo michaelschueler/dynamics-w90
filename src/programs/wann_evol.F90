@@ -118,7 +118,7 @@ program wann_evol
    logical :: spin_current=.false.,Output_Occ_KPTS=.false.
    namelist/OUTPUT/spin_current,Output_Occ_KPTS
    integer :: nthreads_fft=1,nthreads_orb=1
-   namelist/PARELLIZATION/nthreads_fft,nthreads_orb
+   namelist/PARALLELIZATION/nthreads_fft,nthreads_orb
    ! -- internal variables --
    logical  :: file_ok
    logical  :: ApplyField=.false.
@@ -161,7 +161,7 @@ program wann_evol
       open(newunit=unit_inp,file=trim(FlIn),STATUS='OLD',ACTION='READ')
       read(unit_inp,nml=OUTPUT); rewind(unit_inp)
 #ifdef WITHFFTWOMP   
-      read(unit_inp,nml=PARELLIZATION)
+      read(unit_inp,nml=PARALLELIZATION)
 #endif
       close(unit_inp)
    else
