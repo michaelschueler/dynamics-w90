@@ -45,16 +45,14 @@ endif(wannier_lib)
 set(COMMON_LIBS "")
 
 # ~~ OpenMP + SIMD ~~
-option(omp "Build with OpenMP support" ON)
-if(omp)
-    find_package(OpenMP REQUIRED)
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
-    option(simd "Build with OpenMP SIMD support" OFF)
-    if (simd)
-       message(STATUS "Building with SIMD support")
-       set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DOMPSIMD")
-    endif (simd)
-endif(omp)
+find_package(OpenMP REQUIRED)
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
+option(simd "Build with OpenMP SIMD support" OFF)
+if (simd)
+   message(STATUS "Building with SIMD support")
+   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DOMPSIMD")
+endif (simd)
+
 
 # Require MPI for this project:
 if(mpi)
@@ -131,14 +129,28 @@ if (fftw)
     if(fftw3_prefix)
         message(STATUS "FFTW3 prefix: ${fftw3_prefix}")
         find_library(FFTW_LIB
-        NAMES fftw3
+            NAMES fftw3
             HINTS "${fftw3_prefix}/lib"
-        )     
-        link_directories(${fftw3_prefix}/lib)
-        include_directories(${fftw3_prefix}/include)
+        )
+
         message(STATUS "FFTW found: ${FFTW_LIB} " )
         list(APPEND COMMON_LIBS ${FFTW_LIB})
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DWITHFFTW")
+
+        if(fftw_omp)
+            find_library(FFTW_OMP_LIB
+                NAMES fftw3_omp
+                HINTS "${fftw3_prefix}/lib"
+            )        
+
+            message(STATUS "FFTW-OMP found: ${FFTW_OMP_LIB} " )
+            list(APPEND COMMON_LIBS ${FFTW_OMP_LIB})
+            set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DWITHFFTWOMP")
+        endif(fftw_omp)
+
+        link_directories(${fftw3_prefix}/lib)
+        include_directories(${fftw3_prefix}/include)
+
     else(fftw3_prefix)
         message(STATUS "FFTW3 prefix not specified. Trying other library")
         if(fftw_library)
@@ -146,6 +158,11 @@ if (fftw)
             message(STATUS FFT library: ${fftw_library})
         endif(fftw_library)
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DWITHFFTW")
+
+        if(fftw_omp)
+            set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DWITHFFTWOMP")
+        endif()
+
     endif(fftw3_prefix)
 endif(fftw)
 

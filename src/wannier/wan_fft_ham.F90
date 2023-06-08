@@ -3,14 +3,16 @@ module wan_fft_ham
 !! band structures, observables, and Berry-phase properties.
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
+   use,intrinsic :: ISO_C_binding
+   use omp_lib
    use Mdebug
    use scitools_def,only: dp,iu,zero,one
-   use scitools_utils,only: str
+   use scitools_utils,only: str,stop_error
    use wan_hamiltonian,only: wann90_tb_t
    implicit none
    include '../units_inc.f90'
    include '../formats.h'
-   include '../fftw3.fh'
+   include 'fftw3.f03'
 !--------------------------------------------------------------------------------------
    private
    public :: wann_fft_t
@@ -27,6 +29,9 @@ module wan_fft_ham
       complex(dp),allocatable,dimension(:,:,:,:) :: pos_r
       ! .. FFTW ..
       integer(kind=8) :: plan_fw,plan_bw
+      ! .. parallelization ..
+      logical :: fftw_omp
+      integer :: nthreads,nthreads_fft,nthreads_orb
    contains
       procedure, public   :: InitFromW90
       procedure, public   :: Clean
@@ -58,13 +63,16 @@ module wan_fft_ham
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine InitFromW90(me,w90,nk)
+   subroutine InitFromW90(me,w90,nk,nthreads_fft,nthreads_orb)
       class(wann_fft_t) :: me
       type(wann90_tb_t),intent(in) :: w90
       integer,intent(in) :: nk(:)
+      integer,intent(in),optional :: nthreads_fft
+      integer,intent(in),optional :: nthreads_orb
       integer :: ir,irw,ix,iy,iz,i,j
       integer :: kx,ky
       integer :: ix_bound(2),iy_bound(2),iz_bound(2)
+      integer :: ierr,tid
       integer,allocatable :: w90_rindx(:)
       integer,allocatable :: indx_2d(:,:), indx_3d(:,:,:)
       complex(dp),allocatable :: zr_1d(:),zk_1d(:)
@@ -84,6 +92,33 @@ contains
       me%nkx = 1
       me%nky = 1
       me%nkz = 1
+
+      !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
+      tid = omp_get_thread_num()
+      if(tid == 0) then 
+         me%nthreads = omp_get_num_threads()
+      end if
+      !$OMP END PARALLEL   
+
+      me%nthreads_fft = 1
+      me%nthreads_orb = me%nthreads
+      me%fftw_omp = .false.
+
+#ifdef WITHFFTWOMP
+      ierr = fftw_init_threads()
+      if(ierr /= 0) call stop_error("Error in fftw_init_threads")
+
+      if(present(nthreads_fft)) me%nthreads_fft = nthreads_fft
+      if(present(nthreads_orb)) me%nthreads_orb = nthreads_orb
+
+      if(me%nthreads_fft * me%nthreads_orb /= me%nthreads) then
+         call stop_error("nthreads_fft * nthreads_orb /= nthreads")
+      end if
+
+      me%fftw_omp = .true.
+
+      call FFTW_PLAN_WITH_NTHREADS(me%nthreads_fft)      
+#endif
 
       select case(me%kdim)
       case(1)
@@ -327,6 +362,7 @@ contains
       complex(dp),allocatable :: work_r(:),work_k(:)
 
       !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(work_r(me%nkx),work_k(me%nkx))
       do j=1,me%nwan
          do i=1,me%nwan
@@ -349,6 +385,7 @@ contains
       complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
 
       !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k,work_1d)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(2)
       do j=1,me%nwan
@@ -372,8 +409,19 @@ contains
       complex(dp),intent(inout) :: Hk(:,:,:)
       integer :: i,j,ik
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
+      integer :: tid
 
-      !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d)
+      !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d,tid)
+      call omp_set_num_threads(me%nthreads_orb)
+
+      tid = omp_get_thread_num()
+      if(tid == 0) then
+         print*, "nthreads = ", me%nthreads
+         print*, "nthreads_fft = ", me%nthreads_fft
+         print*, "nthreads_orb = ", me%nthreads_orb
+         print*, "nthreads_loc = ", omp_get_num_threads()
+      end if
+
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(2)
       do j=1,me%nwan
@@ -402,6 +450,7 @@ contains
       complex(dp),allocatable :: gradH_R(:,:)
 
       !$OMP PARALLEL PRIVATE(i,j,ik,idir,work_r,work_k,gradH_R)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(work_r(me%nkx),work_k(me%nkx))
       allocate(gradH_R(me%nrpts,3))
       do j=1,me%nwan
@@ -431,6 +480,7 @@ contains
       complex(dp),allocatable :: gradH_R(:,:)
 
       !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k,work_1d,gradH_R)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
       allocate(gradH_R(me%nrpts,3))
       !$OMP DO COLLAPSE(2)
@@ -463,6 +513,7 @@ contains
       complex(dp),allocatable :: gradH_R(:,:)
 
       !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d,gradH_R)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
       allocate(gradH_R(me%nrpts,3))
       !$OMP DO COLLAPSE(2)
@@ -498,6 +549,7 @@ contains
       complex(dp),allocatable :: gradH_R(:,:)
 
       !$OMP PARALLEL PRIVATE(i,j,ik,idir,work_r,work_k,gradH_R)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(work_r(me%nkx),work_k(me%nkx))
       allocate(gradH_R(me%nrpts,3))
       do j=1,me%nwan
@@ -530,6 +582,7 @@ contains
       complex(dp),allocatable :: gradH_R(:,:)
 
       !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k,work_1d,gradH_R)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
       allocate(gradH_R(me%nrpts,3))
       !$OMP DO COLLAPSE(2)
@@ -565,6 +618,7 @@ contains
       complex(dp),allocatable :: gradH_R(:,:)
 
       !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d,gradH_R)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
       allocate(gradH_R(me%nrpts,3))
       !$OMP DO COLLAPSE(2)
@@ -602,6 +656,7 @@ contains
       complex(dp),allocatable :: HA_r(:),work_r(:),work_k(:)
 
       !$OMP PARALLEL PRIVATE(i,j,ik,HA_r,work_r,work_k)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(HA_r(me%nx),work_r(me%nkx),work_k(me%nkx))
       do j=1,me%nwan
          do i=1,me%nwan
@@ -629,6 +684,7 @@ contains
       complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
 
       !$OMP PARALLEL PRIVATE(i,j,ik,HA_r,work_r,work_k,work_1d)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(HA_r(me%nrpts))
       allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(2)
@@ -661,6 +717,7 @@ contains
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
 
       !$OMP PARALLEL PRIVATE(i,j,HA_r,work_r,work_k,work_1d)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(HA_r(me%nrpts))
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(2)
@@ -690,6 +747,7 @@ contains
       complex(dp),allocatable :: work_r(:),work_k(:)
 
       !$OMP PARALLEL PRIVATE(i,j,idir,ik,work_r,work_k)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(work_r(me%nkx),work_k(me%nkx))
       !$OMP DO COLLAPSE(3)
       do idir=1,3
@@ -716,6 +774,7 @@ contains
       complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
 
       !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k,work_1d)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(3)
       do idir=1,3
@@ -743,6 +802,7 @@ contains
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
 
       !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(3)
       do idir=1,3
@@ -772,6 +832,7 @@ contains
       complex(dp),allocatable :: work_r(:),work_k(:)
 
       !$OMP PARALLEL PRIVATE(i,j,idir,ik,DA_r,work_r,work_k)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(DA_r(me%nrpts))
       allocate(work_r(me%nkx),work_k(me%nkx))
       !$OMP DO COLLAPSE(3)
@@ -805,6 +866,7 @@ contains
       complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
 
       !$OMP PARALLEL PRIVATE(i,j,idir,ik,DA_r,work_r,work_k,work_1d)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(DA_r(me%nrpts))
       allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(3)
@@ -839,6 +901,7 @@ contains
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
 
       !$OMP PARALLEL PRIVATE(i,j,idir,ik,DA_r,work_r,work_k,work_1d)
+      call omp_set_num_threads(me%nthreads_orb)
       allocate(DA_r(me%nrpts))
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(3)

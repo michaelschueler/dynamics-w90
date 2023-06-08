@@ -16,6 +16,7 @@ class WannierEvolution():
         self.PathOut = PathOut
         self.PathLog = PathLog
         self.Output = {'spin_current': False, 'Output_Occ_KPTS': False}
+        self.Parallel = {'nthreads_fft': 1, 'nthreads_orb': 1}
     #========================================
     def SetHamiltonian(self,MuChem,Beta,file_ham,gauge,FixMuChem=True,Filling=1.0):
         self.hamiltonian = {
@@ -60,7 +61,8 @@ class WannierEvolution():
             'HAMILTONIAN': self.hamiltonian,
             'TIMEPARAMS': self.timeparams,
             'OUTPUT': self.Output,
-            'KPOINTS': self.kpoints
+            'KPOINTS': self.kpoints,
+            'PARALLELIZATION': self.parallel
             }
         with open(file_inp, 'w') as nml_file:
             f90nml.write(inp, nml_file)

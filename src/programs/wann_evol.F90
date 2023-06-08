@@ -117,6 +117,8 @@ program wann_evol
    type(TimeParams_t) :: par_time
    logical :: spin_current=.false.,Output_Occ_KPTS=.false.
    namelist/OUTPUT/spin_current,Output_Occ_KPTS
+   integer :: nthreads_fft=1,nthreads_orb=1
+   namelist/PARELLIZATION/nthreads_fft,nthreads_orb
    ! -- internal variables --
    logical  :: file_ok
    logical  :: ApplyField=.false.
@@ -141,6 +143,7 @@ program wann_evol
    threadid = omp_get_thread_num()
    if(threadid == 0) then
       nthreads = omp_get_num_threads()
+      nthreads_orb = nthreads
       write(output_unit,fmt148) 'number of threads',nthreads
       write(output_unit,*)
    end if
@@ -156,7 +159,10 @@ program wann_evol
       call par_ham%ReadFromFile(FlIn)
       call par_time%ReadFromFile(FlIn)
       open(newunit=unit_inp,file=trim(FlIn),STATUS='OLD',ACTION='READ')
-      read(unit_inp,nml=OUTPUT)
+      read(unit_inp,nml=OUTPUT); rewind(unit_inp)
+#ifdef WITHFFTWOMP   
+      read(unit_inp,nml=PARELLIZATION)
+#endif
       close(unit_inp)
    else
       call stop_error('Please provide a namelist input file.')
@@ -169,6 +175,7 @@ program wann_evol
    if(.not.PrintToFile) then
       write(output_unit,fmt_info) 'No output prefix given. No output will be produced.'
    end if
+
 
    inquire(file=trim(par_ham%file_ham),exist=file_ok)
    if(.not.file_ok) then
@@ -196,7 +203,8 @@ program wann_evol
 !--------------------------------------------------------------------------------------
 
    call lattsys%Init(par_ham%Beta,par_ham%MuChem,ham,kp,par_ham%lm_gauge,&
-      T1=par_time%T1_relax,T2=par_time%T2_relax,propagator=par_time%propagator)
+      T1=par_time%T1_relax,T2=par_time%T2_relax,propagator=par_time%propagator,&
+      nthreads_fft=nthreads_fft,nthreads_orb=nthreads_orb)
 
    call lattsys%SetLaserPulse(external_field)
 

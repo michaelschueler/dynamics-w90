@@ -76,7 +76,8 @@ module Mwann_evol
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,Beta,MuChem,ham,kp,gauge,T1,T2,spin_current,propagator)
+   subroutine Init(me,Beta,MuChem,ham,kp,gauge,T1,T2,spin_current,propagator,&
+      nthreads_fft,nthreads_orb)
       class(wann_evol_t)                :: me
       real(dp),intent(in)               :: Beta
       real(dp),intent(in)               :: MuChem
@@ -87,7 +88,12 @@ contains
       real(dp),intent(in),optional      :: T2
       logical,intent(in),optional       :: spin_current
       integer,intent(in),optional       :: propagator
+      integer,intent(in),optional       :: nthreads_fft
+      integer,intent(in),optional       :: nthreads_orb
+      integer :: nthreads_fft_,nthreads_orb_
       integer :: tid
+
+      nthreads_fft_ = 1
 
       !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
       tid = omp_get_thread_num()
@@ -95,6 +101,10 @@ contains
          nthreads = omp_get_num_threads()
       end if
       !$OMP END PARALLEL   
+
+      nthreads_orb_ = nthreads
+      if(present(nthreads_fft)) nthreads_fft_ = nthreads_fft
+      if(present(nthreads_orb)) nthreads_orb_ = nthreads_orb
 
       me%gauge = gauge
       me%Nk = kp%nk
@@ -125,11 +135,13 @@ contains
 #ifdef WITHFFTW
       if(kp%kpoints_type == kp_fft_grid_2d) then
          write(output_unit,fmt_info) "Fourier transform: 2D FFT"
-         call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2])
+         call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2],&
+            nthreads_fft=nthreads_fft_,nthreads_orb=nthreads_orb_)
          me%fft_mode = .true.
       elseif(kp%kpoints_type == kp_fft_grid_3d) then
          write(output_unit,fmt_info) "Fourier transform: 3D FFT"
-         call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2, kp%nk3])   
+         call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2, kp%nk3],&
+            nthreads_fft=nthreads_fft_,nthreads_orb=nthreads_orb_)   
          me%fft_mode = .true.   
       else
          write(output_unit,fmt_info) "Fourier transform: DFT"
