@@ -62,7 +62,7 @@ class WannierEvolution():
             'TIMEPARAMS': self.timeparams,
             'OUTPUT': self.Output,
             'KPOINTS': self.kpoints,
-            'PARALLELIZATION': self.parallel
+            'PARALLELIZATION': self.Parallel
             }
         with open(file_inp, 'w') as nml_file:
             f90nml.write(inp, nml_file)
