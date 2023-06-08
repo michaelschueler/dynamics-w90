@@ -40,6 +40,7 @@ module Mwann_evol_mpi
       integer  :: propagator=prop_unitary
       integer  :: Nk,Nk_loc,nbnd
       real(dp) :: Beta,MuChem,nelec
+      real(dp) :: tstart
       real(dp) :: T1,T2
       real(dp),allocatable :: kcoord_loc(:,:)
       complex(dp),allocatable,dimension(:,:,:)  :: Hk,Udt,wan_rot
@@ -73,7 +74,8 @@ module Mwann_evol_mpi
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,Beta,MuChem,ham,kp,gauge,T1,T2,spin_current,propagator,Rhok_start)
+   subroutine Init(me,Beta,MuChem,ham,kp,gauge,T1,T2,spin_current,propagator,Rhok_start,&
+      tstart)
       class(wann_evol_t)           :: me
       real(dp),intent(in)          :: Beta
       real(dp),intent(in)          :: MuChem
@@ -85,6 +87,7 @@ contains
       logical,intent(in),optional  :: spin_current
       integer,intent(in),optional  :: propagator
       complex(dp),intent(in),optional :: Rhok_start(:,:,:)
+      real(dp),intent(in),optional :: tstart
       integer :: ik,ik_glob
 
       call MPI_COMM_RANK(MPI_COMM_WORLD, taskid, ierr)
@@ -128,6 +131,9 @@ contains
          end do
          me%restart = .true.
       end if
+
+      me%tstart = 0.0_dp
+      if(present(tstart)) me%tstart = tstart
 
       if(present(spin_current)) me%spin_current = spin_current
       if(me%spin_current) then
@@ -246,14 +252,14 @@ contains
 
       select case(me%gauge)
       case(dipole_gauge)
-         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,field,me%T1,me%T2,&
+         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,me%tstart,field,me%T1,me%T2,&
             me%Beta,me%MuChem,me%Rhok,method=me%propagator)
       case(dip_emp_gauge)
-         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,field,me%T1,me%T2,&
+         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,me%tstart,field,me%T1,me%T2,&
             me%Beta,me%MuChem,me%Rhok,empirical=.true.,method=me%propagator)        
       case(velocity_gauge,velo_emp_gauge)
-         call Wann_timestep_RelaxTime_velo_calc(me%nbnd,me%Nk_loc,me%Hk,me%velok,tstp,dt,field,me%T1,me%T2,&
-            me%Beta,me%MuChem,me%Rhok,method=me%propagator)
+         call Wann_timestep_RelaxTime_velo_calc(me%nbnd,me%Nk_loc,me%Hk,me%velok,tstp,dt,me%tstart,&
+            field,me%T1,me%T2,me%Beta,me%MuChem,me%Rhok,method=me%propagator)
       end select
 
    end subroutine Timestep_RelaxTime
@@ -277,17 +283,17 @@ contains
       if((tstp * dt < field_Tmax_) .or. tstp == 0) then
          select case(me%gauge)
          case(dipole_gauge)
-            call Wann_Rhok_timestep_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,&
+            call Wann_Rhok_timestep_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,me%tstart,&
                field,me%Rhok)
          case(dip_emp_gauge)
-            call Wann_Rhok_timestep_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,&
+            call Wann_Rhok_timestep_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,me%tstart,&
                field,me%Rhok,Peierls_only=.true.)
          case(velocity_gauge)
             call Wann_Rhok_timestep_velo_calc(me%nbnd,me%Nk_loc,me%Hk,me%velok,tstp,dt,&
-               field,me%Rhok)
+               me%tstart,field,me%Rhok)
          case(velo_emp_gauge)
             call Wann_Rhok_timestep_velo_calc(me%nbnd,me%Nk_loc,me%Hk,me%velok,tstp,dt,&
-               field,me%Rhok)
+               me%tstart,field,me%Rhok)
          end select
 
       else
@@ -359,7 +365,7 @@ contains
       complex(dp),dimension(me%nbnd,me%nbnd) :: rhok_bnd,rot_cc
 
       AF = 0.0_dp; EF = 0.0_dp
-      call field(tstp*dt,AF,EF)
+      call field(tstp*dt + me%tstart,AF,EF)
 
       ck = me%Nk_loc / dble(me%Nk)
       Occ = 0.0_dp
@@ -402,7 +408,7 @@ contains
       real(dp),dimension(3,3) :: Jpara_loc,Jdia_loc,Jspin_loc
 
       AF = 0.0_dp; EF = 0.0_dp
-      call field(tstp*dt,AF,EF)
+      call field(tstp*dt + me%tstart,AF,EF)
 
       ck = me%Nk_loc / dble(me%Nk)
 
@@ -433,7 +439,7 @@ contains
       complex(dp),dimension(me%nbnd,me%nbnd) :: rhok_bnd
 
       AF = 0.0_dp; EF = 0.0_dp
-      call field(tstp*dt,AF,EF)
+      call field(tstp*dt + me%tstart,AF,EF)
 
       ck = me%Nk_loc / dble(me%Nk)
       Occ = 0.0_dp
@@ -501,7 +507,7 @@ contains
       real(dp),dimension(3,3) :: Jspin_loc
 
       AF = 0.0_dp; EF = 0.0_dp
-      call field(tstp*dt,AF,EF)
+      call field(tstp*dt + me%tstart,AF,EF)
 
       if(me%free_evol) then
          Jspin_loc = Wann_SpinCurrent_dip_calc(me%nbnd,me%Nk_loc,me%Hk,me%grad_Hk,me%Dk,me%Rhok,&

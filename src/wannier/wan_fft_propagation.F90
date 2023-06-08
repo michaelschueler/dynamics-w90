@@ -31,11 +31,12 @@ module wan_fft_propagation
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Wann_FFT_UnitaryTimestep_dip(ham,ham_fft,tstp,dt,field,Rhok,Peierls_only)
+   subroutine Wann_FFT_UnitaryTimestep_dip(ham,ham_fft,tstp,dt,tstart,field,Rhok,Peierls_only)
       type(wann90_tb_t),intent(in) :: ham
       type(wann_fft_t),intent(in)  :: ham_fft
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
+      real(dp),intent(in)          :: tstart
       procedure(vecpot_efield_func),pointer :: field
       complex(dp),intent(inout)    :: Rhok(:,:,:)
       logical,intent(in),optional  :: Peierls_only
@@ -59,9 +60,9 @@ contains
 
       call assert_shape(Rhok, [nbnd,nbnd,Nk], "Wann_FFT_UnitaryTimestep_dip", "Rhok")
 
-      tn = (tstp + c1) * dt
+      tn = (tstp + c1) * dt + tstart
       call field(tn, AF(:,1), EF(:,1))
-      tn = (tstp + c2) * dt
+      tn = (tstp + c2) * dt + tstart
       call field(tn, AF(:,2), EF(:,2))
 
       Ared(:,1) = ham%get_kreduced(AF(:,1))
@@ -108,12 +109,13 @@ contains
 
    end subroutine Wann_FFT_UnitaryTimestep_dip
 !--------------------------------------------------------------------------------------
-   subroutine Wann_FFT_RelaxTimestep_dip(ham,ham_fft,tstp,dt,field,T1,T2,Beta,Mu,Rhok,&
+   subroutine Wann_FFT_RelaxTimestep_dip(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,&
       Peierls_only,method,comm_order)
       type(wann90_tb_t),intent(in) :: ham
       type(wann_fft_t),intent(in)  :: ham_fft
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
+      real(dp),intent(in)          :: tstart
       procedure(vecpot_efield_func),pointer :: field
       real(dp),intent(in)          :: T1
       real(dp),intent(in)          :: T2
@@ -137,22 +139,23 @@ contains
 
       select case(method_)
       case(prop_rk4)
-         call RelaxTimestep_RK4(ham,ham_fft,tstp,dt,field,T1,T2,Beta,Mu,Rhok,peierls_)
+         call RelaxTimestep_RK4(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,peierls_)
       case(prop_hybrid)
-         call RelaxTimestep_Hyb(ham,ham_fft,tstp,dt,field,T1,T2,Beta,Mu,Rhok,peierls_,&
+         call RelaxTimestep_Hyb(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,peierls_,&
             comm_order_)
       case default
          write(output_unit,fmt700) "Other propagators not implemented. Switching back to Runge-Kutta-4"
-         call RelaxTimestep_RK4(ham,ham_fft,tstp,dt,field,T1,T2,Beta,Mu,Rhok,peierls_)
+         call RelaxTimestep_RK4(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,peierls_)
       end select
 
    end subroutine Wann_FFT_RelaxTimestep_dip
 !--------------------------------------------------------------------------------------
-   subroutine RelaxTimestep_RK4(ham,ham_fft,tstp,dt,field,T1,T2,Beta,Mu,Rhok,Peierls_only)
+   subroutine RelaxTimestep_RK4(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,Peierls_only)
       type(wann90_tb_t),intent(in) :: ham
       type(wann_fft_t),intent(in)  :: ham_fft
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
+      real(dp),intent(in)          :: tstart
       procedure(vecpot_efield_func),pointer :: field
       real(dp),intent(in)          :: T1
       real(dp),intent(in)          :: T2
@@ -183,11 +186,11 @@ contains
       Gmm(2) = 1.0_dp / T2
       Gmm(3) = Gmm(1) - Gmm(2)
 
-      tn = tstp * dt
+      tn = tstp * dt + tstart
       call field(tn, AF(:,1), EF(:,1))
-      tn = (tstp + 0.5_dp) * dt
+      tn = (tstp + 0.5_dp) * dt + tstart
       call field(tn, AF(:,2), EF(:,2))
-      tn = (tstp + 1.0_dp) * dt
+      tn = (tstp + 1.0_dp) * dt + tstart
       call field(tn, AF(:,3), EF(:,3))
 
       Ared(:,1) = ham%get_kreduced(AF(:,1))
@@ -270,11 +273,12 @@ contains
 
    end subroutine RelaxTimestep_RK4
 !--------------------------------------------------------------------------------------
-  subroutine RelaxTimestep_Hyb(ham,ham_fft,tstp,dt,field,T1,T2,Beta,Mu,Rhok,Peierls_only,comm_order)
+  subroutine RelaxTimestep_Hyb(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,Peierls_only,comm_order)
       type(wann90_tb_t),intent(in) :: ham
       type(wann_fft_t),intent(in)  :: ham_fft
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
+      real(dp),intent(in)          :: tstart
       procedure(vecpot_efield_func),pointer :: field
       real(dp),intent(in)          :: T1
       real(dp),intent(in)          :: T2
@@ -307,7 +311,7 @@ contains
       Gmm(3) = Gmm(1) - Gmm(2)
 
 
-      tn = (tstp + 0.5_dp) * dt
+      tn = (tstp + 0.5_dp) * dt + tstart
       call field(tn, AF, EF)
 
       do icomm=1,comm_order

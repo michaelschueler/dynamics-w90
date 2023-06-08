@@ -117,7 +117,7 @@ contains
 
    end subroutine Wann_GenDipk
 !--------------------------------------------------------------------------------------
-   subroutine Wann_timestep_RelaxTime_dip(w90,Nk,kpts,tstp,dt,field,T1,T2,Beta,Mu,Rhok,empirical,method)
+   subroutine Wann_timestep_RelaxTime_dip(w90,Nk,kpts,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,empirical,method)
    !! Performs the time step \(\rho(\mathbf{k},t) \rightarrow \rho(\mathbf{k},t + \Delta t) \)
    !! assuming phenomenological dissipative dynamics. The Hamiltonian and density matrix 
    !! are treated in the dipole gauge.
@@ -126,6 +126,7 @@ contains
       real(dp),intent(in)          :: kpts(:,:) !! List of k-points, dimension [Nk,3]
       integer,intent(in)           :: tstp !! the time step where the density matrix is known
       real(dp),intent(in)          :: dt !! time step size 
+      real(dp),intent(in)          :: tstart !! starting time
       procedure(vecpot_efield_func) :: field !! External field: vector potential + electric field
       real(dp),intent(in)          :: T1 !! The time constant for relaxation to equilibrium
       real(dp),intent(in)          :: T2 !! Time time constant for dephasing of off-diagonal components
@@ -156,7 +157,7 @@ contains
          !$OMP DO
          do ik=1,Nk
             kpt = kpts(ik,:)
-            call RK4_TimeStep_Dip_k(w90,kpt,ik,tstp,dt,field,T1,T2,beta,mu,Rhok(:,:,ik),&
+            call RK4_TimeStep_Dip_k(w90,kpt,ik,tstp,dt,tstart,field,T1,T2,beta,mu,Rhok(:,:,ik),&
                empirical=empirical_,tid=tid)
          end do
          !$OMP END DO
@@ -167,14 +168,14 @@ contains
          !$OMP DO
          do ik=1,Nk
             kpt = kpts(ik,:)
-            call RK5_TimeStep_Dip_k(w90,kpt,tstp,dt,field,T1,T2,beta,mu,Rhok(:,:,ik),&
+            call RK5_TimeStep_Dip_k(w90,kpt,tstp,dt,tstart,field,T1,T2,beta,mu,Rhok(:,:,ik),&
                empirical=empirical_,tid=tid)
          end do              
          !$OMP END DO
          !$OMP END PARALLEL
       case(3)
          call hybrid%Init(w90%num_wann,Beta,Mu,T1,T2)
-         call hybrid%Prepare_Timestep(tstp,dt,field,w90=w90)
+         call hybrid%Prepare_Timestep(tstp,dt,tstart,field,w90=w90)
          do ik=1,Nk
             kpt = kpts(ik,:)
             call hybrid%TimeStep_dip(w90,kpt,tstp,dt,Rhok(:,:,ik),empirical=empirical_)
@@ -184,7 +185,7 @@ contains
    
    end subroutine Wann_timestep_RelaxTime_dip
 !--------------------------------------------------------------------------------------
-   subroutine Wann_timestep_RelaxTime_velo_calc(nbnd,Nk,Hk,vk,tstp,dt,field,T1,T2,Beta,Mu,Rhok,method)
+   subroutine Wann_timestep_RelaxTime_velo_calc(nbnd,Nk,Hk,vk,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,method)
    !! Performs the time step \(\rho(\mathbf{k},t) \rightarrow \rho(\mathbf{k},t + \Delta t) \)
    !! assuming phenomenological dissipative dynamics. The Hamiltonian and density matrix 
    !! are treated in the velocity gauge with precomputed Hamiltonian \(H_0(\mathbf{k})\) and velocity matrix
@@ -196,6 +197,7 @@ contains
                                                   !! dimension [nbnd,nbnd,Nk,3]
       integer,intent(in)           :: tstp !! the time step where the density matrix is known
       real(dp),intent(in)          :: dt !! time step size 
+      real(dp),intent(in)          :: tstart !! starting time
       procedure(vecpot_efield_func) :: field !! External field: vector potential + electric field
       real(dp),intent(in)          :: T1 !! The time constant for relaxation to equilibrium
       real(dp),intent(in)          :: T2 !! Time time constant for dephasing of off-diagonal components
@@ -223,7 +225,7 @@ contains
          tid = omp_get_thread_num()
          !$OMP DO
          do ik=1,Nk
-            call RK4_TimeStep_velo_k(ik,tstp,dt,field,T1,T2,beta,mu,Hk,vk,Rhok(:,:,ik),tid=tid)
+            call RK4_TimeStep_velo_k(ik,tstp,dt,tstart,field,T1,T2,beta,mu,Hk,vk,Rhok(:,:,ik),tid=tid)
          end do
          !$OMP END DO
          !$OMP END PARALLEL
@@ -232,13 +234,13 @@ contains
          tid = omp_get_thread_num()
          !$OMP DO
          do ik=1,Nk
-            call RK5_TimeStep_velo_k(ik,tstp,dt,field,T1,T2,beta,mu,Hk,vk,Rhok(:,:,ik),tid=tid)
+            call RK5_TimeStep_velo_k(ik,tstp,dt,tstart,field,T1,T2,beta,mu,Hk,vk,Rhok(:,:,ik),tid=tid)
          end do     
          !$OMP END DO
          !$OMP END PARALLEL   
       case(3)
          call hybrid%Init(nbnd,Beta,Mu,T1,T2)
-         call hybrid%Prepare_Timestep(tstp,dt,field)
+         call hybrid%Prepare_Timestep(tstp,dt,tstart,field)
          do ik=1,Nk
             call hybrid%TimeStep_velo(ik,tstp,dt,Hk,vk,Rhok(:,:,ik))
          end do             
@@ -247,12 +249,13 @@ contains
 
    end subroutine Wann_timestep_RelaxTime_velo_calc
 !--------------------------------------------------------------------------------------
-   subroutine Wann_Rhok_timestep_velo(w90,Nk,kpts,tstp,dt,field,Rhok)
+   subroutine Wann_Rhok_timestep_velo(w90,Nk,kpts,tstp,dt,tstart,field,Rhok)
       type(wann90_tb_t),intent(in) :: w90
       integer,intent(in)           :: Nk
       real(dp),intent(in)          :: kpts(:,:)
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
+      real(dp),intent(in)          :: tstart
       procedure(vecpot_efield_func),pointer :: field
       complex(dp),intent(inout)    :: Rhok(:,:,:)
       logical :: large_size
@@ -266,8 +269,8 @@ contains
       AF_1 = 0.0_dp; AF_2 = 0.0_dp
       EF_1 = 0.0_dp; EF_2 = 0.0_dp
       if(associated(field)) then
-         call field((tstp + c1)*dt,AF_1,EF_1)
-         call field((tstp + c2)*dt,AF_2,EF_2)
+         call field((tstp + c1)*dt + tstart,AF_1,EF_1)
+         call field((tstp + c2)*dt + tstart,AF_2,EF_2)
       end if
 
       !$OMP PARALLEL PRIVATE(ik,H1,H2,Rho_old,Udt,vk)
@@ -287,12 +290,13 @@ contains
 
    end subroutine Wann_Rhok_timestep_velo
 !--------------------------------------------------------------------------------------
-   subroutine Wann_Rhok_timestep_velo_calc(nbnd,Nk,Hk,vk,tstp,dt,field,Rhok)
+   subroutine Wann_Rhok_timestep_velo_calc(nbnd,Nk,Hk,vk,tstp,dt,tstart,field,Rhok)
       integer,intent(in)           :: nbnd,Nk
       complex(dp),intent(in)       :: Hk(:,:,:)
       complex(dp),intent(in)       :: vk(:,:,:,:)
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
+      real(dp),intent(in)          :: tstart
       procedure(vecpot_efield_func),pointer :: field
       complex(dp),intent(inout)    :: Rhok(:,:,:)
       logical :: large_size
@@ -305,8 +309,8 @@ contains
       AF_1 = 0.0_dp; AF_2 = 0.0_dp
       EF_1 = 0.0_dp; EF_2 = 0.0_dp
       if(associated(field)) then
-         call field((tstp + c1)*dt,AF_1,EF_1)
-         call field((tstp + c2)*dt,AF_2,EF_2)
+         call field((tstp + c1)*dt + tstart,AF_1,EF_1)
+         call field((tstp + c2)*dt + tstart,AF_2,EF_2)
       end if
 
       !$OMP PARALLEL PRIVATE(ik,H1,H2,Rho_old,Udt)
@@ -397,12 +401,13 @@ contains
 
    end function Wann_GetGradHk_dip
 !--------------------------------------------------------------------------------------
-   subroutine Wann_Rhok_timestep_dip_field(w90,Nk,kpts,tstp,dt,field,Rhok,Peierls_only)
+   subroutine Wann_Rhok_timestep_dip_field(w90,Nk,kpts,tstp,dt,tstart,field,Rhok,Peierls_only)
       type(wann90_tb_t),intent(in) :: w90
       integer,intent(in)           :: Nk
       real(dp),intent(in)          :: kpts(:,:)
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
+      real(dp),intent(in)          :: tstart
       procedure(vecpot_efield_func),pointer :: field
       complex(dp),intent(inout)    :: Rhok(:,:,:)
       logical,intent(in),optional  :: Peierls_only
@@ -419,8 +424,8 @@ contains
 
       AF_1 = 0.0_dp; AF_2 = 0.0_dp
       EF_1 = 0.0_dp; EF_2 = 0.0_dp
-      call field((tstp + c1)*dt,AF_1,EF_1)
-      call field((tstp + c2)*dt,AF_2,EF_2)
+      call field((tstp + c1)*dt + tstart,AF_1,EF_1)
+      call field((tstp + c2)*dt + tstart,AF_2,EF_2)
 
       !$OMP PARALLEL PRIVATE(ik,kpt,Rho_old,H1,H2,Udt)
       !$OMP DO

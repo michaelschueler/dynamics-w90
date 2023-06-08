@@ -108,11 +108,12 @@ contains
 
    end subroutine Clean_RungeKutta
 !--------------------------------------------------------------------------------------
-   subroutine RK5_TimeStep_Dip_k(w90,kpt,tstp,dt,field,T1,T2,beta,mu,Rhok,empirical,tid)
+   subroutine RK5_TimeStep_Dip_k(w90,kpt,tstp,dt,tstart,field,T1,T2,beta,mu,Rhok,empirical,tid)
       type(wann90_tb_t),intent(in) :: w90
       real(dp),intent(in)          :: kpt(3)
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
+      real(dp),intent(in)          :: tstart !! starting time
       real(dp),intent(in)          :: T1
       real(dp),intent(in)          :: T2
       real(dp),intent(in)          :: beta
@@ -146,7 +147,7 @@ contains
 
       Rhok_old(:,:,tid_) = Rhok
 
-      tk = tstp * dt
+      tk = tstp * dt + tstart
       call field(tk, AF, EF)
       DRhok_step(:,:,1,tid_) = deriv_dipole_gauge(nbnd_,w90,kpt,AF,EF,beta,mu,gm,Rhok_old(:,:,tid_),empirical_)
       do k=1,5
@@ -155,7 +156,7 @@ contains
             Rhok = Rhok + dt * CRK5(k,j)*DRhok_step(:,:,j,tid_)
          end do
 
-         tk = (tstp + ARK5(k))*dt
+         tk = (tstp + ARK5(k))*dt + tstart
          call field(tk, AF, EF)
          DRhok_step(:,:,k+1,tid_) = deriv_dipole_gauge(nbnd_,w90,kpt,AF,EF,beta,mu,gm,Rhok,empirical_)
       end do
@@ -167,12 +168,13 @@ contains
 
    end subroutine RK5_TimeStep_Dip_k
 !--------------------------------------------------------------------------------------
-   subroutine RK4_TimeStep_dip_k(w90,kpt,ik,tstp,dt,field,T1,T2,beta,mu,Rhok,empirical,tid)
+   subroutine RK4_TimeStep_dip_k(w90,kpt,ik,tstp,dt,tstart,field,T1,T2,beta,mu,Rhok,empirical,tid)
       type(wann90_tb_t),intent(in) :: w90
       real(dp),intent(in)          :: kpt(3)
       integer,intent(in)           :: ik
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
+      real(dp),intent(in)          :: tstart !! starting time
       real(dp),intent(in)          :: T1
       real(dp),intent(in)          :: T2
       real(dp),intent(in)          :: beta
@@ -210,18 +212,18 @@ contains
       ! Hk_step(:,:,3) ---> H(t_n + dt)
 
       if(tstp == 0) then
-         tk = tstp * dt
+         tk = tstp * dt + tstart
          call field(tk, AF, EF)     
          Hkt_step(:,:,ik,1) = Wann_GetHk_dip(w90,AF,EF,kpt,reducedA=.false.,&
             Peierls_only=empirical_)            
       end if
 
-      tk =(tstp + 0.5_dp) * dt
+      tk =(tstp + 0.5_dp) * dt + tstart
       call field(tk, AF, EF)   
       Hkt_step(:,:,ik,2) = Wann_GetHk_dip(w90,AF,EF,kpt,reducedA=.false.,&
          Peierls_only=empirical_)   
 
-      tk =(tstp + 1.0_dp) * dt
+      tk =(tstp + 1.0_dp) * dt + tstart
       call field(tk, AF, EF)   
       Hkt_step(:,:,ik,3) = Wann_GetHk_dip(w90,AF,EF,kpt,reducedA=.false.,&
             Peierls_only=empirical_)   
@@ -243,10 +245,11 @@ contains
 
    end subroutine RK4_TimeStep_dip_k
 !--------------------------------------------------------------------------------------
-   subroutine RK5_TimeStep_velo_k(ik,tstp,dt,field,T1,T2,beta,mu,Hk,vk,Rhok,tid)
+   subroutine RK5_TimeStep_velo_k(ik,tstp,dt,tstart,field,T1,T2,beta,mu,Hk,vk,Rhok,tid)
       integer,intent(in)           :: ik
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
+      real(dp),intent(in)          :: tstart !! starting time
       real(dp),intent(in)          :: T1
       real(dp),intent(in)          :: T2
       real(dp),intent(in)          :: beta
@@ -277,7 +280,7 @@ contains
 
       Rhok_old(:,:,tid_) = Rhok
 
-      tk = tstp * dt
+      tk = tstp * dt + tstart
       call field(tk, AF, EF)
       DRhok_step(:,:,1,tid_) = deriv_velo_gauge(nbnd_,ik,Hk,vk,AF,EF,beta,mu,gm,Rhok_old(:,:,tid_))
       do k=1,5
@@ -286,7 +289,7 @@ contains
             Rhok = Rhok + dt * CRK5(k,j)*DRhok_step(:,:,j,tid_)
          end do
 
-         tk = (tstp + ARK5(k))*dt
+         tk = (tstp + ARK5(k))*dt + tstart
          call field(tk, AF, EF)
          DRhok_step(:,:,k+1,tid_) = deriv_velo_gauge(nbnd_,ik,Hk,vk,AF,EF,beta,mu,gm,Rhok_old(:,:,tid_))
       end do
@@ -298,10 +301,11 @@ contains
 
    end subroutine RK5_TimeStep_velo_k
 !--------------------------------------------------------------------------------------
-   subroutine RK4_TimeStep_velo_k(ik,tstp,dt,field,T1,T2,beta,mu,Hk,vk,Rhok,tid)
+   subroutine RK4_TimeStep_velo_k(ik,tstp,dt,tstart,field,T1,T2,beta,mu,Hk,vk,Rhok,tid)
      integer,intent(in)           :: ik
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
+      real(dp),intent(in)          :: tstart !! starting time
       real(dp),intent(in)          :: T1
       real(dp),intent(in)          :: T2
       real(dp),intent(in)          :: beta
@@ -336,16 +340,16 @@ contains
       ! Hk_step(:,:,3) ---> H(t_n + dt)
 
       if(tstp == 0) then
-         tk = tstp * dt
+         tk = tstp * dt + tstart
          call field(tk, AF, EF)        
          call UpdateHk_velo(ik, Hk, vk, AF, Hkt_step(:,:,ik,1))
       end if
 
-      tk =(tstp + 0.5_dp) * dt
+      tk =(tstp + 0.5_dp) * dt + tstart
       call field(tk, AF, EF)   
       call UpdateHk_velo(ik, Hk, vk, AF, Hkt_step(:,:,ik,2))
 
-      tk =(tstp + 1.0_dp) * dt
+      tk =(tstp + 1.0_dp) * dt + tstart
       call field(tk, AF, EF)   
       call UpdateHk_velo(ik, Hk, vk, AF, Hkt_step(:,:,ik,3))
 

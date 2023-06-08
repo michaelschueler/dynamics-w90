@@ -40,6 +40,7 @@ module Mwann_evol
       integer  :: gauge
       integer  :: propagator=prop_unitary
       integer  :: Nk,nbnd
+      real(dp) :: tstart
       real(dp) :: Beta,MuChem,nelec
       real(dp) :: T1,T2
       complex(dp),allocatable,dimension(:,:,:)  :: Hk,Udt,wan_rot
@@ -81,7 +82,7 @@ module Mwann_evol
 contains
 !--------------------------------------------------------------------------------------
    subroutine Init(me,Beta,MuChem,ham,kp,gauge,T1,T2,spin_current,propagator,&
-      nthreads_fft,nthreads_orb,Rhok_start)
+      nthreads_fft,nthreads_orb,Rhok_start,tstart)
       class(wann_evol_t)                :: me
       real(dp),intent(in)               :: Beta
       real(dp),intent(in)               :: MuChem
@@ -95,6 +96,7 @@ contains
       integer,intent(in),optional       :: nthreads_fft
       integer,intent(in),optional       :: nthreads_orb
       complex(dp),intent(in),optional   :: Rhok_start(:,:,:)
+      real(dp),intent(in),optional      :: tstart
       integer :: nthreads_fft_,nthreads_orb_
       integer :: tid
 
@@ -132,6 +134,9 @@ contains
          me%Rhok = Rhok_start
          me%restart = .true.
       end if
+
+      me%tstart = 0.0_dp
+      if(present(tstart)) me%tstart = tstart
 
       large_size = get_large_size(me%nbnd)
 
@@ -288,25 +293,25 @@ contains
             ! me%Rhok_Eq,me%Rhok)
          if(me%fft_mode) then
 #ifdef WITHFFTW
-            call Wann_FFT_RelaxTimestep_dip(me%ham,me%ham_fft,tstp,dt,field,me%T1,me%T2,&
+            call Wann_FFT_RelaxTimestep_dip(me%ham,me%ham_fft,tstp,dt,me%tstart,field,me%T1,me%T2,&
                me%Beta,me%MuChem,me%Rhok,method=me%propagator)
 #endif
          else
-            call Wann_timestep_RelaxTime_dip(me%ham,me%Nk,me%kcoord,tstp,dt,field,me%T1,me%T2,&
+            call Wann_timestep_RelaxTime_dip(me%ham,me%Nk,me%kcoord,tstp,dt,me%tstart,field,me%T1,me%T2,&
                me%Beta,me%MuChem,me%Rhok,method=me%propagator)
          end if
       case(dip_emp_gauge)
          if(me%fft_mode) then
 #ifdef WITHFFTW
-            call Wann_FFT_RelaxTimestep_dip(me%ham,me%ham_fft,tstp,dt,field,me%T1,me%T2,&
+            call Wann_FFT_RelaxTimestep_dip(me%ham,me%ham_fft,tstp,dt,me%tstart,field,me%T1,me%T2,&
                me%Beta,me%MuChem,me%Rhok,Peierls_only=.true.,method=me%propagator)       
 #endif  
          else
-            call Wann_timestep_RelaxTime_dip(me%ham,me%Nk,me%kcoord,tstp,dt,field,me%T1,me%T2,&
+            call Wann_timestep_RelaxTime_dip(me%ham,me%Nk,me%kcoord,tstp,dt,me%tstart,field,me%T1,me%T2,&
                me%Beta,me%MuChem,me%Rhok,empirical=.true.,method=me%propagator)      
          end if  
       case(velocity_gauge,velo_emp_gauge)
-         call Wann_timestep_RelaxTime_velo_calc(me%nbnd,me%Nk,me%Hk,me%velok,tstp,dt,field,&
+         call Wann_timestep_RelaxTime_velo_calc(me%nbnd,me%Nk,me%Hk,me%velok,tstp,dt,me%tstart,field,&
             me%T1,me%T2,me%Beta,me%MuChem,me%Rhok,method=me%propagator)
       end select
 
@@ -333,24 +338,24 @@ contains
          case(dipole_gauge)
             if(me%fft_mode) then
 #ifdef WITHFFTW
-               call Wann_FFT_UnitaryTimestep_dip(me%ham,me%ham_fft,tstp,dt,field,me%Rhok)
+               call Wann_FFT_UnitaryTimestep_dip(me%ham,me%ham_fft,tstp,dt,me%tstart,field,me%Rhok)
 #endif
             else
-               call Wann_Rhok_timestep_dip(me%ham,me%Nk,me%kcoord,tstp,dt,&
+               call Wann_Rhok_timestep_dip(me%ham,me%Nk,me%kcoord,tstp,dt,me%tstart,&
                   field,me%Rhok)
             end if
          case(dip_emp_gauge)
             if(me%fft_mode) then
 #ifdef WITHFFTW
-               call Wann_FFT_UnitaryTimestep_dip(me%ham,me%ham_fft,tstp,dt,field,me%Rhok,&
+               call Wann_FFT_UnitaryTimestep_dip(me%ham,me%ham_fft,tstp,dt,me%tstart,field,me%Rhok,&
                   Peierls_only=.true.)
 #endif
             else
-               call Wann_Rhok_timestep_dip(me%ham,me%Nk,me%kcoord,tstp,dt,&
+               call Wann_Rhok_timestep_dip(me%ham,me%Nk,me%kcoord,tstp,dt,me%tstart,&
                   field,me%Rhok,Peierls_only=.true.)
             end if
          case(velocity_gauge,velo_emp_gauge)
-            call Wann_Rhok_timestep_velo_calc(me%nbnd,me%Nk,me%Hk,me%velok,tstp,dt,&
+            call Wann_Rhok_timestep_velo_calc(me%nbnd,me%Nk,me%Hk,me%velok,tstp,dt,me%tstart,&
                field,me%Rhok)
          end select
 
@@ -428,7 +433,7 @@ contains
       real(dp) :: AF(3),EF(3)
 
       AF = 0.0_dp; EF = 0.0_dp
-      call field(tstp*dt,AF,EF)
+      call field(tstp*dt + me%tstart,AF,EF)
 
       Ekin = Wann_KineticEn_calc(me%nbnd,me%Nk,me%Hk,me%Rhok)
       Etot = Wann_TotalEn_velo_calc(me%nbnd,me%Nk,me%Hk,me%velok,AF,me%Rhok)
@@ -459,7 +464,7 @@ contains
       real(dp) :: Jpara(3,3),Jdia(3,3)
 
       AF = 0.0_dp; EF = 0.0_dp
-      call field(tstp*dt,AF,EF)
+      call field(tstp*dt + me%tstart,AF,EF)
 
       Jpara = Wann_SpinCurrent_para_velo(me%nbnd,me%Nk,me%velok,me%wan_rot,me%Rhok)
       Jdia = Wann_SpinCurrent_dia_velo(me%nbnd,me%Nk,AF,me%wan_rot,me%Rhok)
@@ -485,7 +490,7 @@ contains
       print*, "CalcObservables_dip"
 
       AF = 0.0_dp; EF = 0.0_dp
-      call field(tstp*dt,AF,EF)
+      call field(tstp*dt + me%tstart,AF,EF)
 
       print*, "CalcObservables_dip", 1
 
@@ -562,7 +567,7 @@ contains
       real(dp) :: AF(3),EF(3)
 
       AF = 0.0_dp; EF = 0.0_dp
-      call field(tstp*dt,AF,EF)
+      call field(tstp*dt + me%tstart,AF,EF)
 
       if(me%free_evol) then
          Jspin = Wann_SpinCurrent_dip_calc(me%nbnd,me%Nk,me%Hk,me%grad_Hk,me%Dk,me%Rhok,&

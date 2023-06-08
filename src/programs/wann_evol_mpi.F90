@@ -236,7 +236,7 @@ program wann_evol_mpi
    if(par_time%restart_evolution) then
       call lattsys%Init(par_ham%Beta,par_ham%MuChem,ham,kp,par_ham%lm_gauge,&
          T1=par_time%T1_relax,T2=par_time%T2_relax,propagator=par_time%propagator,&
-         Rhok_start=Rhok)
+         Rhok_start=Rhok,tstart=tstart)
       deallocate(Rhok)
    else
       call lattsys%Init(par_ham%Beta,par_ham%MuChem,ham,kp,par_ham%lm_gauge,&
@@ -395,7 +395,7 @@ contains
       real(dp),intent(out) :: AF(3),EF(3)
 
       AF = 0.0_dp; EF = 0.0_dp
-      if(ApplyField) call pulse%GetField(t + tstart,AF,EF)
+      if(ApplyField) call pulse%GetField(t,AF,EF)
 
    end subroutine external_field
 !--------------------------------------------------------------------------------------

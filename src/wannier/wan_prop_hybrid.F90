@@ -81,10 +81,11 @@ contains
 
    end subroutine
 !--------------------------------------------------------------------------------------
-   subroutine Prepare_Timestep(me,tstp,dt,field,w90)
+   subroutine Prepare_Timestep(me,tstp,dt,tstart,field,w90)
       class(hybrid_propagator_t)            :: me
       integer,intent(in)                    :: tstp
       real(dp),intent(in)                   :: dt
+      real(dp),intent(in)                   :: tstart !! starting time
       type(wann90_tb_t),intent(in),optional :: w90      
       interface
          subroutine field(t,A,E)
@@ -96,7 +97,7 @@ contains
       end interface
       real(dp) :: tn
 
-      tn  = (tstp + 0.5_dp) * dt
+      tn  = (tstp + 0.5_dp) * dt + tstart
       call field(tn, me%AF, me%EF)
 
       if(present(w90)) then
