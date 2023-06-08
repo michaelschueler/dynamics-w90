@@ -43,6 +43,9 @@ module io_params
    type :: TimeParams_t
    !! Options and parameters for the time evolution by [[wann_evol]]
       character(len=256) :: file_field="" !! file name for external electric field
+      character(len=256) :: file_dens="" !! file for density matrix
+      logical  :: restart_evolution=.false. !! if `.true.`, the density matrix is read from `file_dens` and the
+                                            !! time evolution is restarted
       integer  :: propagator=prop_unitary !! method for time evolution: 0 ... unitary, 1 ... RK4, 2 ... RK5
                                           !! for propagator=1,2, the equation with
                                           !! phenomenological damping `T1_relax` and decoherence `T2_relax` will be solved.
@@ -187,6 +190,8 @@ contains
       character(len=*),intent(in)  :: fname
       integer :: unit_inp
       character(len=256) :: file_field="" 
+      character(len=256) :: file_dens=""
+      logical  :: restart_evolution=.false.
       integer  :: propagator=0
       integer  :: Nt=100 
       integer  :: output_step=1 
@@ -194,7 +199,7 @@ contains
       real(dp) :: T1_relax=1.0e10_dp  
       real(dp) :: T2_relax=1.0e10_dp  
       namelist/TIMEPARAMS/Nt,Tmax,output_step,propagator,T1_relax,T2_relax,&
-         file_field
+         file_field,file_dens,restart_evolution
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
       read(unit_inp,nml=TIMEPARAMS)
@@ -207,6 +212,8 @@ contains
       me%T1_relax = T1_relax
       me%T2_relax = T2_relax
       me%file_field = file_field
+      me%file_dens = file_dens
+      me%restart_evolution = restart_evolution
 
    end subroutine Time_ReadFromFile
 !--------------------------------------------------------------------------------------

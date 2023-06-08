@@ -414,9 +414,10 @@ contains
 
    end subroutine wann_calc_SaveToFile
 !--------------------------------------------------------------------------------------
-   subroutine SaveTDObs_velo(prefix,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
+   subroutine SaveTDObs_velo(prefix,tstart,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
       Jcurr_para,Jcurr_dia,Jcurr_intra)
       character(len=*),intent(in) :: prefix
+      real(dp),intent(in) :: tstart
       integer,intent(in)  :: Nt,output_step
       real(dp),intent(in) :: dt
       real(dp),intent(in) :: Etot(:)
@@ -429,18 +430,19 @@ contains
       real(dp),intent(in) :: Jcurr_intra(:,:)
 
 #ifdef WITHHDF5
-      call SaveTDObs_velo_hdf5(prefix,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
+      call SaveTDObs_velo_hdf5(prefix,tstart,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
          Jcurr_para,Jcurr_dia,Jcurr_intra)
 #else
-      call SaveTDObs_velo_txt(prefix,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
+      call SaveTDObs_velo_txt(prefix,tstart,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
          Jcurr_para,Jcurr_dia,Jcurr_intra)
 #endif
 
    end subroutine SaveTDObs_velo
 !--------------------------------------------------------------------------------------
-   subroutine SaveTDObs_dip(prefix,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
+   subroutine SaveTDObs_dip(prefix,tstart,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
       Jcurr_hk,Jcurr_pol)
       character(len=*),intent(in) :: prefix
+      real(dp),intent(in) :: tstart
       integer,intent(in)  :: Nt,output_step
       real(dp),intent(in) :: dt
       real(dp),intent(in) :: Etot(:)
@@ -452,47 +454,50 @@ contains
       real(dp),intent(in) :: Jcurr_pol(:,:)
 
 #ifdef WITHHDF5
-      call SaveTDObs_dip_hdf5(prefix,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
+      call SaveTDObs_dip_hdf5(prefix,tstart,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
          Jcurr_hk,Jcurr_pol)
 #else
-      call SaveTDObs_dip_txt(prefix,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
+      call SaveTDObs_dip_txt(prefix,tstart,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
          Jcurr_hk,Jcurr_pol)
 #endif
 
    end subroutine SaveTDObs_dip
 !--------------------------------------------------------------------------------------
-   subroutine SaveTDOccupation(prefix,Nt,output_step,dt,Occk)
+   subroutine SaveTDOccupation(prefix,tstart,Nt,output_step,dt,Occk)
       character(len=*),intent(in) :: prefix
+      real(dp),intent(in) :: tstart
       integer,intent(in)  :: Nt,output_step
       real(dp),intent(in) :: dt
       real(dp),intent(in) :: Occk(:,:,0:)
 
 #ifdef WITHHDF5
-      call SaveTDOccupation_hdf5(prefix,Nt,output_step,dt,Occk)
+      call SaveTDOccupation_hdf5(prefix,tstart,Nt,output_step,dt,Occk)
 #else
-      call SaveTDOccupation_txt(prefix,Nt,Occk)
+      call SaveTDOccupation_txt(prefix,tstart,Nt,Occk)
 #endif
 
    end subroutine SaveTDOccupation
 !--------------------------------------------------------------------------------------
-   subroutine SaveSpinCurrent(prefix,Nt,output_step,dt,Jspin)
+   subroutine SaveSpinCurrent(prefix,tstart,Nt,output_step,dt,Jspin)
       character(len=*),intent(in) :: prefix
+      real(dp),intent(in) :: tstart
       integer,intent(in)  :: Nt,output_step
       real(dp),intent(in) :: dt
       real(dp),intent(in) :: Jspin(:,:,0:)
 
 #ifdef WITHHDF5
-      call SaveSpinCurrent_hdf5(prefix,Nt,output_step,dt,Jspin)
+      call SaveSpinCurrent_hdf5(prefix,tstart,Nt,output_step,dt,Jspin)
 #else
-      call SaveSpinCurrent_txt(prefix,Nt,Jspin)
+      call SaveSpinCurrent_txt(prefix,tstart,Nt,Jspin)
 #endif
 
    end subroutine SaveSpinCurrent
 !--------------------------------------------------------------------------------------
 #ifdef WITHHDF5
-   subroutine SaveTDObs_velo_hdf5(prefix,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
+   subroutine SaveTDObs_velo_hdf5(prefix,tstart,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
       Jcurr_para,Jcurr_dia,Jcurr_intra)
       character(len=*),intent(in) :: prefix
+      real(dp),intent(in) :: tstart
       integer,intent(in)  :: Nt,output_step
       real(dp),intent(in) :: dt
       real(dp),intent(in) :: Etot(:)
@@ -512,7 +517,7 @@ contains
       call hdf_open_file(file_id, trim(Flname), STATUS='NEW')
 
       allocate(ts(0:Nt))
-      forall(tstp=0:Nt) ts(tstp) = dt * tstp * output_step
+      forall(tstp=0:Nt) ts(tstp) = dt * tstp * output_step + tstart
       call hdf_write_dataset(file_id,'time',ts)      
 
       call hdf_write_dataset(file_id,'etot',Etot)
@@ -531,9 +536,10 @@ contains
    end subroutine SaveTDObs_velo_hdf5
 #endif
 !--------------------------------------------------------------------------------------
-   subroutine SaveTDObs_velo_txt(prefix,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
+   subroutine SaveTDObs_velo_txt(prefix,tstart,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
       Jcurr_para,Jcurr_dia,Jcurr_intra)
       character(len=*),intent(in) :: prefix
+      real(dp),intent(in) :: tstart
       integer,intent(in)  :: Nt,output_step
       real(dp),intent(in) :: dt
       real(dp),intent(in) :: Etot(:)
@@ -548,7 +554,7 @@ contains
       real(dp),allocatable :: ts(:)
 
       allocate(ts(0:Nt))
-      forall(tstp=0:Nt) ts(tstp) = dt * tstp * output_step
+      forall(tstp=0:Nt) ts(tstp) = dt * tstp * output_step + tstart
 
       call save_griddata(trim(prefix)//'_etot.txt', ts, Etot)
       call save_griddata(trim(prefix)//'_ekin.txt', ts, Ekin)
@@ -565,9 +571,10 @@ contains
    end subroutine SaveTDObs_velo_txt
 !--------------------------------------------------------------------------------------
 #ifdef WITHHDF5
-   subroutine SaveTDObs_dip_hdf5(prefix,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
+   subroutine SaveTDObs_dip_hdf5(prefix,tstart,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
       Jcurr_hk,Jcurr_pol)
       character(len=*),intent(in) :: prefix
+      real(dp),intent(in) :: tstart
       integer,intent(in)  :: Nt,output_step
       real(dp),intent(in) :: dt
       real(dp),intent(in) :: Etot(:)
@@ -586,7 +593,7 @@ contains
       call hdf_open_file(file_id, trim(Flname), STATUS='NEW')
 
       allocate(ts(0:Nt))
-      forall(tstp=0:Nt) ts(tstp) = dt * tstp * output_step
+      forall(tstp=0:Nt) ts(tstp) = dt * tstp * output_step + tstart
       call hdf_write_dataset(file_id,'time',ts)      
 
       call hdf_write_dataset(file_id,'etot',Etot)
@@ -604,9 +611,10 @@ contains
    end subroutine SaveTDObs_dip_hdf5
 #endif
 !--------------------------------------------------------------------------------------
-   subroutine SaveTDObs_dip_txt(prefix,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
+   subroutine SaveTDObs_dip_txt(prefix,tstart,Nt,output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
       Jcurr_hk,Jcurr_pol)
       character(len=*),intent(in) :: prefix
+      real(dp),intent(in) :: tstart
       integer,intent(in)  :: Nt,output_step
       real(dp),intent(in) :: dt
       real(dp),intent(in) :: Etot(:)
@@ -620,7 +628,7 @@ contains
       real(dp),allocatable :: ts(:)
 
       allocate(ts(0:Nt))
-      forall(tstp=0:Nt) ts(tstp) = dt * tstp * output_step
+      forall(tstp=0:Nt) ts(tstp) = dt * tstp * output_step + tstart
 
       call save_griddata(trim(prefix)//'_etot.txt', ts, Etot)
       call save_griddata(trim(prefix)//'_ekin.txt', ts, Ekin)
@@ -636,8 +644,9 @@ contains
    end subroutine SaveTDObs_dip_txt
 !--------------------------------------------------------------------------------------
 #ifdef WITHHDF5
-   subroutine SaveTDOccupation_hdf5(prefix,Nt,output_step,dt,Occk)
+   subroutine SaveTDOccupation_hdf5(prefix,tstart,Nt,output_step,dt,Occk)
       character(len=*),intent(in) :: prefix
+      real(dp),intent(in) :: tstart
       integer,intent(in)  :: Nt,output_step
       real(dp),intent(in) :: dt
       real(dp),intent(in) :: Occk(:,:,0:)
@@ -650,7 +659,7 @@ contains
       call hdf_open_file(file_id, trim(Flname), STATUS='NEW')
 
       allocate(ts(0:Nt))
-      forall(tstp=0:Nt) ts(tstp) = dt * tstp * output_step
+      forall(tstp=0:Nt) ts(tstp) = dt * tstp * output_step + tstart
       call hdf_write_dataset(file_id,'time',ts)   
 
       call hdf_write_dataset(file_id,'occupation',Occk)
@@ -661,8 +670,9 @@ contains
    end subroutine SaveTDOccupation_hdf5
 #endif
 !--------------------------------------------------------------------------------------
-   subroutine SaveTDOccupation_txt(prefix,Nt,Occk)
+   subroutine SaveTDOccupation_txt(prefix,tstart,Nt,Occk)
       character(len=*),intent(in) :: prefix
+      real(dp),intent(in) :: tstart
       integer,intent(in)  :: Nt
       real(dp),intent(in) :: Occk(:,:,0:)
       integer  :: tstp
@@ -676,8 +686,9 @@ contains
    end subroutine SaveTDOccupation_txt
 !--------------------------------------------------------------------------------------
 #ifdef WITHHDF5
-   subroutine SaveSpinCurrent_hdf5(prefix,Nt,output_step,dt,Jspin)
+   subroutine SaveSpinCurrent_hdf5(prefix,tstart,Nt,output_step,dt,Jspin)
       character(len=*),intent(in) :: prefix
+      real(dp),intent(in) :: tstart
       integer,intent(in)  :: Nt,output_step
       real(dp),intent(in) :: dt
       real(dp),intent(in) :: Jspin(:,:,0:)
@@ -690,7 +701,7 @@ contains
       call hdf_open_file(file_id, trim(Flname), STATUS='NEW')
 
       allocate(ts(0:Nt))
-      forall(tstp=0:Nt) ts(tstp) = dt * tstp * output_step
+      forall(tstp=0:Nt) ts(tstp) = dt * tstp * output_step + tstart
       call hdf_write_dataset(file_id,'time',ts)   
 
       call hdf_write_dataset(file_id,'spin-current',Jspin)
@@ -701,8 +712,9 @@ contains
    end subroutine SaveSpinCurrent_hdf5
 #endif
 !--------------------------------------------------------------------------------------
-   subroutine SaveSpinCurrent_txt(prefix,Nt,Jspin)
+   subroutine SaveSpinCurrent_txt(prefix,tstart,Nt,Jspin)
       character(len=*),intent(in) :: prefix
+      real(dp),intent(in) :: tstart
       integer,intent(in)  :: Nt
       real(dp),intent(in) :: Jspin(:,:,0:)
       integer  :: tstp

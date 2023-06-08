@@ -101,6 +101,7 @@ program wann_evol_mpi
    use io_params,only: HamiltonianParams_t, TimeParams_t
    use io_hamiltonian,only: ReadHamiltonian
    use io_obs,only: SaveTDObs, SaveTDOccupation, SaveSpinCurrent
+   use io_density,only: ReadDensityMatrix
    use Mwann_evol_mpi,only: wann_evol_t
    implicit none
    include '../formats.h'
@@ -117,18 +118,19 @@ program wann_evol_mpi
    ! -- input variables --
    type(HamiltonianParams_t) :: par_ham
    type(TimeParams_t) :: par_time
-   logical :: spin_current=.false.,Output_Occ_KPTS=.false.
-   namelist/OUTPUT/spin_current,Output_Occ_KPTS
+   logical :: spin_current=.false.,Output_Occ_KPTS=.false.,save_dens=.false.
+   namelist/OUTPUT/spin_current,Output_Occ_KPTS,save_dens
    ! -- internal variables --
    logical  :: file_ok
    logical  :: ApplyField=.false.
    integer  :: Nsteps,tstp,tstp_max,step
-   real(dp) :: dt,pulse_tmin,pulse_tmax
+   real(dp) :: dt,tstart,tstop,pulse_tmin,pulse_tmax
    real(dp) :: EF(3),AF(3)
    real(dp),allocatable,dimension(:)     :: Etot,Ekin
    real(dp),allocatable,dimension(:,:)   :: kpts,BandOcc,Jcurr,Dip
    real(dp),allocatable,dimension(:,:)   :: Jpara,Jdia,JHk,Jpol,Jintra
    real(dp),allocatable,dimension(:,:,:) :: Occk,Jspin
+   complex(dp),allocatable,dimension(:,:,:) :: Rhok
    type(Laserpulse_3D_t)     :: pulse
    type(kpoints_t)           :: kp
    type(wann90_tb_t)         :: Ham
@@ -190,6 +192,19 @@ program wann_evol_mpi
    if(on_root) write(output_unit,fmt_input) 'Hamiltionian from file: '//trim(par_ham%file_ham)
    call ReadHamiltonian(par_ham%file_ham,Ham)
 
+   tstart = 0.0_dp
+   if(par_time%restart_evolution) then
+      inquire(file=trim(par_time%file_dens),exist=file_ok)
+      if(.not.file_ok) then
+         call stop_error('Input file does not exist: '//trim(par_time%file_dens),&
+            root_flag=on_root)
+      end if
+      if(on_root) then 
+         write(output_unit,fmt_input) 'Density matrix from file: '//trim(par_time%file_dens)
+      end if
+      call ReadDensityMatrix(par_time%file_dens,Rhok,tstart)  
+   end if 
+
    call Read_Kpoints(FlIn,kp,print_info=.true.,root_tag=on_root)
 
    ApplyField = len_trim(par_time%file_field) > 0
@@ -218,11 +233,19 @@ program wann_evol_mpi
 
    tic = MPI_Wtime()
 
-   call lattsys%Init(par_ham%Beta,par_ham%MuChem,ham,kp,par_ham%lm_gauge,&
-      T1=par_time%T1_relax,T2=par_time%T2_relax,propagator=par_time%propagator)
+   if(par_time%restart_evolution) then
+      call lattsys%Init(par_ham%Beta,par_ham%MuChem,ham,kp,par_ham%lm_gauge,&
+         T1=par_time%T1_relax,T2=par_time%T2_relax,propagator=par_time%propagator,&
+         Rhok_start=Rhok)
+      deallocate(Rhok)
+   else
+      call lattsys%Init(par_ham%Beta,par_ham%MuChem,ham,kp,par_ham%lm_gauge,&
+         T1=par_time%T1_relax,T2=par_time%T2_relax,propagator=par_time%propagator)
+   end if      
+
    call lattsys%SetLaserPulse(external_field)
 
-   if(par_ham%FixMuChem) then
+   if(par_ham%FixMuChem .or. par_time%restart_evolution) then
       call lattsys%SolveEquilibrium()
       if(on_root) write(output_unit,fmt149) "number of electrons", lattsys%nelec
    else
@@ -337,20 +360,25 @@ program wann_evol_mpi
    if(on_root .and. PrintToFile) then
       select case(par_ham%lm_gauge)
       case(velocity_gauge, velo_emp_gauge)
-         call SaveTDObs(FlOutPref,Nsteps,par_time%output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
+         call SaveTDObs(FlOutPref,tstart,Nsteps,par_time%output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
             Jpara,Jdia,Jintra)
       case(dipole_gauge, dip_emp_gauge)
-         call SaveTDObs(FlOutPref,Nsteps,par_time%output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
+         call SaveTDObs(FlOutPref,tstart,Nsteps,par_time%output_step,dt,Etot,Ekin,BandOcc,Jcurr,Dip,&
             JHk,Jpol)         
       end select
 
       if(spin_current) then
-         call SaveSpinCurrent(FlOutPref,Nsteps,par_time%output_step,dt,Jspin)
+         call SaveSpinCurrent(FlOutPref,tstart,Nsteps,par_time%output_step,dt,Jspin)
       end if
 
       if(Output_Occ_KPTS) then
-         call SaveTDOccupation(FlOutPref,Nsteps,par_time%output_step,dt,Occk)
+         call SaveTDOccupation(FlOutPref,tstart,Nsteps,par_time%output_step,dt,Occk)
       end if
+   end if
+
+   if(PrintToFile .and. save_dens) then
+      tstop = tstart + dt * par_time%Nt
+      call lattsys%SaveDensityMatrix(FlOutPref,tstop)
    end if
 !--------------------------------------------------------------------------------------
    if(on_root) then
@@ -367,7 +395,7 @@ contains
       real(dp),intent(out) :: AF(3),EF(3)
 
       AF = 0.0_dp; EF = 0.0_dp
-      if(ApplyField) call pulse%GetField(t,AF,EF)
+      if(ApplyField) call pulse%GetField(t + tstart,AF,EF)
 
    end subroutine external_field
 !--------------------------------------------------------------------------------------

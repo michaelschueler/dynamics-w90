@@ -1193,6 +1193,8 @@ contains
          call hdf_write_attribute(file_id,'','coords_stored', 0)        
       end if
 
+      call hdf_close_file(file_id)
+
    end subroutine SaveToHDF5
 #endif
 !--------------------------------------------------------------------------------------

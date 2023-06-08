@@ -3,6 +3,7 @@ include_directories(
   )
 
 set(OBJECT_FILES
+    io_density.F90
     io_params.F90
 		io_obs.F90
 		io_hamiltonian.F90

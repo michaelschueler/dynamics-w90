@@ -7,6 +7,7 @@ module Mwann_evol_mpi
    use scitools_utils,only: stop_error
    use scitools_linalg,only: get_large_size,util_matmul,util_rotate,util_rotate_cc
    use scitools_array1d_dist,only: dist_array1d_t,GetDisplSize1D
+   use io_density,only: WriteDensityMatrix
    use wan_utils,only: Batch_Diagonalize_t
    use wan_latt_kpts,only: kpoints_t
    use wan_hamiltonian,only: wann90_tb_t
@@ -34,7 +35,7 @@ module Mwann_evol_mpi
    public :: wann_evol_t
 !--------------------------------------------------------------------------------------
    type wann_evol_t
-      logical  :: free_evol=.false., spin_current=.false.
+      logical  :: free_evol=.false., spin_current=.false., restart=.false.
       integer  :: gauge
       integer  :: propagator=prop_unitary
       integer  :: Nk,Nk_loc,nbnd
@@ -58,6 +59,7 @@ module Mwann_evol_mpi
       procedure,public  :: CalcSpinCurrent_velo
       procedure,public  :: CalcSpinCurrent_dip    
       procedure,public  :: GetOccupationKPTS
+      procedure,public  :: SaveDensityMatrix
    end type wann_evol_t
 !--------------------------------------------------------------------------------------
    abstract interface
@@ -71,7 +73,7 @@ module Mwann_evol_mpi
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,Beta,MuChem,ham,kp,gauge,T1,T2,spin_current,propagator)
+   subroutine Init(me,Beta,MuChem,ham,kp,gauge,T1,T2,spin_current,propagator,Rhok_start)
       class(wann_evol_t)           :: me
       real(dp),intent(in)          :: Beta
       real(dp),intent(in)          :: MuChem
@@ -82,6 +84,7 @@ contains
       real(dp),intent(in),optional :: T2
       logical,intent(in),optional  :: spin_current
       integer,intent(in),optional  :: propagator
+      complex(dp),intent(in),optional :: Rhok_start(:,:,:)
       integer :: ik,ik_glob
 
       call MPI_COMM_RANK(MPI_COMM_WORLD, taskid, ierr)
@@ -114,6 +117,18 @@ contains
 
       allocate(me%Rhok(me%nbnd,me%nbnd,me%Nk_loc))
 
+      if(present(Rhok_start)) then
+         if(any(shape(me%Rhok) /= [me%nbnd,me%nbnd,me%Nk] )) then
+            call stop_error("Incompatible restart density matrix",&
+               root_flag=on_root)
+         end if
+         do ik=1,me%Nk_loc
+            ik_glob = kdist%Indx_Loc2Glob(taskid,ik)
+            me%Rhok(:,:,ik) = Rhok_start(:,:,ik_glob) 
+         end do
+         me%restart = .true.
+      end if
+
       if(present(spin_current)) me%spin_current = spin_current
       if(me%spin_current) then
          if(mod(me%nbnd, 2) /= 0) then
@@ -128,7 +143,7 @@ contains
       case(prop_rk5)
          call Init_RungeKutta(me%nbnd)
       case(prop_rk4)
-         call Init_RungeKutta(me%nbnd,Nk=me%Nk)
+         call Init_RungeKutta(me%nbnd,Nk=me%Nk_loc)
       end select
 
    end subroutine Init
@@ -157,11 +172,13 @@ contains
 
       calc_mu = present(filling)
 
-      allocate(Hk(me%nbnd,me%nbnd,me%Nk_loc),Ek(me%nbnd,me%Nk_loc))
+
       allocate(me%wan_rot(me%nbnd,me%nbnd,me%Nk_loc))
       allocate(me%Rhok_eq(me%nbnd,me%nbnd,me%Nk_loc))
 
       call batch_diag%Init(me%nbnd)
+
+      allocate(Hk(me%nbnd,me%nbnd,me%Nk_loc),Ek(me%nbnd,me%Nk_loc))
 
       call Wann_GenHk(me%ham,me%Nk_loc,me%kcoord_loc,Hk)
       do ik=1,me%Nk_loc
@@ -172,6 +189,10 @@ contains
          me%MuChem = GetChemicalPotential_mpi(me%Nk,Ek,me%Beta,filling)
       end if
 
+      deallocate(Ek,Hk)
+
+      call batch_diag%Clean()
+
       allocate(me%Hk(me%nbnd,me%nbnd,me%Nk_loc))
       if(me%gauge == velocity_gauge .or. me%gauge == velo_emp_gauge) then
          allocate(me%velok(me%nbnd,me%nbnd,3,me%Nk_loc))
@@ -179,34 +200,42 @@ contains
 
       select case(me%gauge)
       case(velocity_gauge)
-         call Wann_GenRhok_eq(me%ham,me%Nk_loc,me%kcoord_loc,me%MuChem,me%Beta,me%Rhok,&
-            band_basis=.true.)
+         if(.not. me%restart) then
+            call Wann_GenRhok_eq(me%ham,me%Nk_loc,me%kcoord_loc,me%MuChem,me%Beta,me%Rhok,&
+               band_basis=.true.)
+         end if
          do ik=1,me%Nk_loc
             kpt = me%kcoord_loc(ik,:)
             me%Hk(:,:,ik) = me%ham%get_ham_diag(kpt)
             me%velok(:,:,:,ik) = me%ham%get_velocity(kpt)
          end do
       case(velo_emp_gauge)
-         call Wann_GenRhok_eq(me%ham,me%Nk_loc,me%kcoord_loc,me%MuChem,me%Beta,me%Rhok,&
-            band_basis=.true.)   
+         if(.not. me%restart) then
+            call Wann_GenRhok_eq(me%ham,me%Nk_loc,me%kcoord_loc,me%MuChem,me%Beta,me%Rhok,&
+               band_basis=.true.)   
+         end if
          do ik=1,me%Nk_loc
             kpt = me%kcoord_loc(ik,:)
             me%Hk(:,:,ik) = me%ham%get_ham_diag(kpt)
             me%velok(:,:,:,ik) = me%ham%get_emp_velocity(kpt)
          end do
       case(dipole_gauge, dip_emp_gauge)
-         call Wann_GenRhok_eq(me%ham,me%Nk_loc,me%kcoord_loc,me%MuChem,me%Beta,me%Rhok,&
-            band_basis=.false.)
+         if(.not. me%restart) then
+            call Wann_GenRhok_eq(me%ham,me%Nk_loc,me%kcoord_loc,me%MuChem,me%Beta,me%Rhok,&
+               band_basis=.false.)
+         end if
       end select
 
       me%Rhok_eq = me%Rhok
 
-      nel_loc = sum(nfermi(me%Beta, Ek - me%MuChem)) / me%Nk
+      nel_loc = 0.0_dp
+      do ik=1,me%Nk_loc
+         do j=1,me%nbnd
+            nel_loc = nel_loc + dble(me%Rhok(j,j,ik)) / me%Nk
+         end do
+      end do
+
       call MPI_ALLREDUCE(nel_loc,me%nelec,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-
-      deallocate(Ek,Hk)
-
-      call batch_diag%Clean()
 
    end subroutine SolveEquilibrium
 !--------------------------------------------------------------------------------------
@@ -524,6 +553,32 @@ contains
       deallocate(Occk_loc)
 
    end subroutine GetOccupationKPTS
+!--------------------------------------------------------------------------------------
+   subroutine SaveDensityMatrix(me,prefix,tstop)
+      class(wann_evol_t),intent(in) :: me
+      character(len=*),intent(in)   :: prefix
+      real(dp),intent(in)           :: tstop
+      integer :: nsize
+      integer,allocatable :: displ(:),size_loc(:)
+      complex(dp),allocatable :: Rhok(:,:,:)
+
+      if(on_root .or. debug_mode) allocate(Rhok(me%nbnd,me%nbnd,me%Nk))
+
+      allocate(displ(0:ntasks-1),size_loc(0:ntasks-1))
+      call GetDisplSize1D(kdist%N_loc,me%nbnd*me%nbnd,displ,nsize,size_loc)
+
+      call MPI_Allgatherv(me%Rhok,nsize,MPI_DOUBLE_COMPLEX,Rhok,size_loc,displ,&
+         MPI_DOUBLE_COMPLEX,MPI_COMM_WORLD, ierr)
+
+      deallocate(displ,size_loc)
+
+      if(on_root) then
+         call WriteDensityMatrix(prefix,Rhok,tstop)
+      end if
+
+      if(allocated(Rhok)) deallocate(Rhok)
+
+   end subroutine SaveDensityMatrix
 !--------------------------------------------------------------------------------------
    function GetDiag(ndim,A) result(Adiag)
       integer,intent(in)     :: ndim

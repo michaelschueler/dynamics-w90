@@ -6,6 +6,7 @@ module Mwann_evol
    use scitools_def,only: dp,iu,one,zero,nfermi
    use scitools_utils,only: stop_error
    use scitools_linalg,only: get_large_size,util_matmul,util_rotate,util_rotate_cc
+   use io_density,only: WriteDensityMatrix
    use wan_latt_kpts,only: kpoints_t
    use wan_utils,only: Batch_Diagonalize_t
    use wan_hamiltonian,only: wann90_tb_t
@@ -35,6 +36,7 @@ module Mwann_evol
 !--------------------------------------------------------------------------------------
    type wann_evol_t
       logical  :: free_evol=.false., spin_current=.false., fft_mode=.false.
+      logical  :: restart=.false.
       integer  :: gauge
       integer  :: propagator=prop_unitary
       integer  :: Nk,nbnd
@@ -64,6 +66,7 @@ module Mwann_evol
       procedure,public  :: CalcSpinCurrent_velo
       procedure,public  :: CalcSpinCurrent_dip      
       procedure,public  :: GetOccupationKPTS
+      procedure,public  :: SaveDensityMatrix
    end type wann_evol_t
 !--------------------------------------------------------------------------------------
    abstract interface
@@ -78,7 +81,7 @@ module Mwann_evol
 contains
 !--------------------------------------------------------------------------------------
    subroutine Init(me,Beta,MuChem,ham,kp,gauge,T1,T2,spin_current,propagator,&
-      nthreads_fft,nthreads_orb)
+      nthreads_fft,nthreads_orb,Rhok_start)
       class(wann_evol_t)                :: me
       real(dp),intent(in)               :: Beta
       real(dp),intent(in)               :: MuChem
@@ -91,6 +94,7 @@ contains
       integer,intent(in),optional       :: propagator
       integer,intent(in),optional       :: nthreads_fft
       integer,intent(in),optional       :: nthreads_orb
+      complex(dp),intent(in),optional   :: Rhok_start(:,:,:)
       integer :: nthreads_fft_,nthreads_orb_
       integer :: tid
 
@@ -121,6 +125,13 @@ contains
       if(present(T2)) me%T2 = T2
 
       allocate(me%Rhok(me%nbnd,me%nbnd,me%Nk))
+      if(present(Rhok_start)) then
+         if(any(shape(me%Rhok) /= [me%nbnd,me%nbnd,me%Nk] )) then
+            call stop_error("Incompatible restart density matrix")
+         end if
+         me%Rhok = Rhok_start
+         me%restart = .true.
+      end if
 
       large_size = get_large_size(me%nbnd)
 
@@ -219,8 +230,10 @@ contains
 
       select case(me%gauge)
       case(velocity_gauge)
-         call Wann_GenRhok_eq(me%ham,me%Nk,me%kcoord,me%MuChem,me%Beta,me%Rhok,&
-            band_basis=.true.)
+         if(.not. me%restart) then
+            call Wann_GenRhok_eq(me%ham,me%Nk,me%kcoord,me%MuChem,me%Beta,me%Rhok,&
+               band_basis=.true.)
+         end if
          
          !$OMP PARALLEL PRIVATE(kpt)
          !$OMP DO
@@ -232,8 +245,10 @@ contains
          !$OMP END DO
          !$OMP END PARALLEL
       case(velo_emp_gauge)
-         call Wann_GenRhok_eq(me%ham,me%Nk,me%kcoord,me%MuChem,me%Beta,me%Rhok,&
-            band_basis=.true.)   
+         if(.not. me%restart) then
+            call Wann_GenRhok_eq(me%ham,me%Nk,me%kcoord,me%MuChem,me%Beta,me%Rhok,&
+               band_basis=.true.)   
+         end if
          !$OMP PARALLEL PRIVATE(kpt)
          !$OMP DO
          do ik=1,me%Nk
@@ -244,12 +259,19 @@ contains
          !$OMP END DO
          !$OMP END PARALLEL
       case(dipole_gauge, dip_emp_gauge)
-         call Wann_GenRhok_eq(me%ham,me%Nk,me%kcoord,me%MuChem,me%Beta,me%Rhok,&
-            band_basis=.false.)
+         if(.not. me%restart) then
+            call Wann_GenRhok_eq(me%ham,me%Nk,me%kcoord,me%MuChem,me%Beta,me%Rhok,&
+               band_basis=.false.)
+         end if
       end select
 
       me%Rhok_eq = me%Rhok
-      me%nelec = sum(nfermi(me%Beta,Ek - me%MuChem)) / me%Nk
+      me%nelec = 0.0_dp
+      do ik=1,me%Nk
+         do j=1,me%nbnd
+            me%nelec = me%nelec + dble(me%Rhok(j,j,ik)) / me%Nk
+         end do
+      end do      
 
       deallocate(Ek)
 
@@ -574,6 +596,15 @@ contains
       end select
 
    end subroutine GetOccupationKPTS
+!--------------------------------------------------------------------------------------
+   subroutine SaveDensityMatrix(me,prefix,tstop)
+      class(wann_evol_t),intent(in) :: me
+      character(len=*),intent(in)   :: prefix
+      real(dp),intent(in)           :: tstop
+
+      call WriteDensityMatrix(prefix,me%Rhok,tstop)
+
+   end subroutine SaveDensityMatrix
 !--------------------------------------------------------------------------------------
    function GetDiag(ndim,A) result(Adiag)
       integer,intent(in)     :: ndim

@@ -15,7 +15,7 @@ class WannierEvolution():
         self.PathInp = PathInp
         self.PathOut = PathOut
         self.PathLog = PathLog
-        self.Output = {'spin_current': False, 'Output_Occ_KPTS': False}
+        self.Output = {'spin_current': False, 'Output_Occ_KPTS': False, 'save_dens': False}
         self.Parallel = {'nthreads_fft': 1, 'nthreads_orb': 1}
     #========================================
     def SetHamiltonian(self,MuChem,Beta,file_ham,gauge,FixMuChem=True,Filling=1.0):
@@ -29,13 +29,15 @@ class WannierEvolution():
         }
     #========================================
     def SetTimeParams(self,Nt,Tmax,file_field="",output_step=1,\
-        propagator=0,T1_relax=None,T2_relax=None):
+        propagator=0,T1_relax=None,T2_relax=None,file_dens="",restart_evolution=False):
         self.timeparams = {
             'Nt': Nt,
             'Tmax': Tmax,
             'file_field': file_field,
             'output_step': output_step,
-            'propagator': propagator
+            'propagator': propagator,
+            'file_dens': file_dens,
+            'restart_evolution': restart_evolution
         }
 
         if T1_relax != None:
@@ -52,9 +54,10 @@ class WannierEvolution():
             'nk3': nk3
         }
     #========================================
-    def SetOutput(self,spin_current=False,Output_Occ_KPTS=False):
+    def SetOutput(self,spin_current=False,Output_Occ_KPTS=False,save_dens=False):
         self.Output['spin_current'] = spin_current
         self.Output['Output_Occ_KPTS'] = Output_Occ_KPTS
+        self.Output['save_dens'] = save_dens
     #========================================
     def WriteInput(self,file_inp):
         inp = {
