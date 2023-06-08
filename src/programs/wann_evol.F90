@@ -274,8 +274,6 @@ program wann_evol
       allocate(Jpara(3,0:Nsteps),Jdia(3,0:Nsteps),Jintra(3,0:Nsteps))
    end if
 
-   print*, "test"
-
    if(spin_current) then
       allocate(Jspin(3,3,0:Nsteps))
    end if
