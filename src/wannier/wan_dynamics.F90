@@ -139,7 +139,7 @@ contains
       integer,intent(in),optional  :: method
       logical :: empirical_
       integer :: method_
-      integer :: tid
+      integer :: nthreads,tid
       integer :: ik
       real(dp) :: kpt(3)
       type(hybrid_propagator_t) :: hybrid
@@ -174,12 +174,24 @@ contains
          !$OMP END DO
          !$OMP END PARALLEL
       case(3)
-         call hybrid%Init(w90%num_wann,Beta,Mu,T1,T2)
+         !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
+         tid = omp_get_thread_num()
+         if(tid == 0) nthreads = omp_get_num_threads()
+         !$OMP END PARALLEL
+
+         call hybrid%Init(w90%num_wann,Beta,Mu,T1,T2,nthreads=nthreads)
          call hybrid%Prepare_Timestep(tstp,dt,tstart,field,w90=w90)
+
+         !$OMP PARALLEL PRIVATE(ik,kpt,tid)
+         tid = omp_get_thread_num()
+         !$OMP DO
          do ik=1,Nk
             kpt = kpts(ik,:)
-            call hybrid%TimeStep_dip(w90,kpt,tstp,dt,Rhok(:,:,ik),empirical=empirical_)
-         end do             
+            call hybrid%TimeStep_dip(w90,kpt,tstp,dt,Rhok(:,:,ik),empirical=empirical_,tid=tid)
+         end do  
+         !$OMP END DO
+         !$OMP END PARALLEL    
+
          call hybrid%Clean()
       end select
    
@@ -209,7 +221,7 @@ contains
       logical :: empirical_
       integer :: method_
       integer :: tid
-      integer :: ik
+      integer :: nthreads,ik
       type(hybrid_propagator_t) :: hybrid
 
       method_ = 2
@@ -239,11 +251,23 @@ contains
          !$OMP END DO
          !$OMP END PARALLEL   
       case(3)
-         call hybrid%Init(nbnd,Beta,Mu,T1,T2)
+         !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
+         tid = omp_get_thread_num()
+         if(tid == 0) nthreads = omp_get_num_threads()
+         !$OMP END PARALLEL
+
+         call hybrid%Init(nbnd,Beta,Mu,T1,T2,nthreads=nthreads)
          call hybrid%Prepare_Timestep(tstp,dt,tstart,field)
+
+         !$OMP PARALLEL PRIVATE(ik,tid)
+         tid = omp_get_thread_num()
+         !$OMP DO
          do ik=1,Nk
             call hybrid%TimeStep_velo(ik,tstp,dt,Hk,vk,Rhok(:,:,ik))
          end do             
+         !$OMP END DO
+         !$OMP END PARALLEL   
+
          call hybrid%Clean()
       end select
 

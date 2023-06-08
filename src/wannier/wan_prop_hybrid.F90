@@ -14,14 +14,15 @@ module wan_prop_hybrid
 !--------------------------------------------------------------------------------------
    type :: hybrid_propagator_t
       logical :: large_size
+      integer :: nthreads
       integer :: nbnd
       real(dp) :: Beta,Mu
       real(dp) :: Gmm(3),AF(3),Ared(3),EF(3)
       type(Batch_Diagonalize_t) :: batch_diag
       ! .. temporary work space ..
-      complex(dp),allocatable,dimension(:,:)   :: Hkt,Udt,Udt2,Dscatt
-      complex(dp),allocatable,dimension(:,:)   :: Rho_eq,Rho_off,Rho_tmp
-      complex(dp),allocatable,dimension(:,:,:) :: Dipk,Ckt
+      complex(dp),allocatable,dimension(:,:,:)   :: Hkt,Udt,Udt2,Dscatt
+      complex(dp),allocatable,dimension(:,:,:)   :: Rho_eq,Rho_off,Rho_tmp
+      complex(dp),allocatable,dimension(:,:,:,:) :: Dipk,Ckt
    contains
       procedure, public :: Init
       procedure, public :: Clean
@@ -32,16 +33,20 @@ module wan_prop_hybrid
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,nbnd,Beta,Mu,T1,T2)
+   subroutine Init(me,nbnd,Beta,Mu,T1,T2,nthreads)
       class(hybrid_propagator_t) :: me
       integer,intent(in) :: nbnd
       real(dp),intent(in) :: Beta
       real(dp),intent(in) :: Mu
       real(dp),intent(in) :: T1
       real(dp),intent(in) :: T2
+      integer,intent(in),optional :: nthreads
 
       me%nbnd = nbnd
       me%large_size = get_large_size(me%nbnd)
+
+      me%nthreads = 1
+      if(present(nthreads)) me%nthreads = nthreads
 
       me%Beta = Beta
       me%Mu = Mu
@@ -49,18 +54,18 @@ contains
       me%Gmm(2) = 1.0_dp / T2
       me%Gmm(3) = me%Gmm(1) - me%Gmm(2)
 
-      call me%batch_diag%Init(me%nbnd)
+      call me%batch_diag%Init(me%nbnd,nthreads=me%nthreads)
 
-      allocate(me%Hkt(me%nbnd,me%nbnd))
-      allocate(me%Udt(me%nbnd,me%nbnd))
-      allocate(me%Udt2(me%nbnd,me%nbnd))
-      allocate(me%Dscatt(me%nbnd,me%nbnd))
-      allocate(me%Ckt(me%nbnd,me%nbnd,3))
-      allocate(me%Dipk(me%nbnd,me%nbnd,3))
+      allocate(me%Hkt(me%nbnd,me%nbnd,0:me%nthreads-1))
+      allocate(me%Udt(me%nbnd,me%nbnd,0:me%nthreads-1))
+      allocate(me%Udt2(me%nbnd,me%nbnd,0:me%nthreads-1))
+      allocate(me%Dscatt(me%nbnd,me%nbnd,0:me%nthreads-1))
+      allocate(me%Ckt(me%nbnd,me%nbnd,3,0:me%nthreads-1))
+      allocate(me%Dipk(me%nbnd,me%nbnd,3,0:me%nthreads-1))
 
-      allocate(me%Rho_eq(me%nbnd,me%nbnd))
-      allocate(me%Rho_off(me%nbnd,me%nbnd))
-      allocate(me%Rho_tmp(me%nbnd,me%nbnd))
+      allocate(me%Rho_eq(me%nbnd,me%nbnd,0:me%nthreads-1))
+      allocate(me%Rho_off(me%nbnd,me%nbnd,0:me%nthreads-1))
+      allocate(me%Rho_tmp(me%nbnd,me%nbnd,0:me%nthreads-1))
 
    end subroutine Init
 !--------------------------------------------------------------------------------------
@@ -103,7 +108,7 @@ contains
 
    end subroutine Prepare_Timestep
 !--------------------------------------------------------------------------------------
-   subroutine TimeStep_dip(me,w90,kpt,tstp,dt,Rhok,empirical)
+   subroutine TimeStep_dip(me,w90,kpt,tstp,dt,Rhok,empirical,tid)
       class(hybrid_propagator_t)   :: me
       type(wann90_tb_t),intent(in) :: w90
       real(dp),intent(in)          :: kpt(3)      
@@ -111,7 +116,9 @@ contains
       real(dp),intent(in)          :: dt
       complex(dp),intent(inout)    :: Rhok(:,:)
       logical,intent(in),optional  :: empirical
+      integer,intent(in),optional  :: tid
       logical :: empirical_
+      integer :: tid_
       integer :: i
       real(dp) :: dt2,dt23,dt6
       real(dp) :: kA(3)
@@ -119,48 +126,57 @@ contains
       empirical_ = .false.
       if(present(empirical)) empirical_ = empirical
 
+      tid_ = 0
+      if(present(tid)) tid_ = tid
+
       kA = kpt - me%Ared
-      me%Hkt = w90%get_ham(kA)
+      me%Hkt(:,:,tid_) = w90%get_ham(kA)
       if(.not.empirical_) then
-         me%Dipk = w90%get_dipole(kA)
-         me%Hkt = me%Hkt - me%EF(1) * me%Dipk(:,:,1) - me%EF(2) * me%Dipk(:,:,2) - me%EF(3) * me%Dipk(:,:,3) 
+         me%Dipk(:,:,:,tid_) = w90%get_dipole(kA)
+         me%Hkt(:,:,tid_) = me%Hkt(:,:,tid_) - me%EF(1) * me%Dipk(:,:,1,tid_) &
+            - me%EF(2) * me%Dipk(:,:,2,tid_) - me%EF(3) * me%Dipk(:,:,3,tid_) 
       end if
 
       ! call GenU_CF2(dt, me%Hkt, me%Udt)
 
-      call me%batch_diag%Diagonalize(me%Hkt)
+      call me%batch_diag%Diagonalize(me%Hkt(:,:,tid_), tid=tid_)
 
       dt2 = 0.5_dp * dt
       dt23 = 2.0_dp / 3.0_dp * dt
       dt6 = dt / 6.0_dp
-      call GenU_Eig(dt,me%batch_diag%eps(:,0),me%batch_diag%vect(:,:,0),me%large_size,me%Ckt(:,:,1),me%Udt)
-      call GenU_Eig(dt2,me%batch_diag%eps(:,0),me%batch_diag%vect(:,:,0),me%large_size,me%Ckt(:,:,1),me%Udt2)
+      call GenU_Eig(dt,me%batch_diag%eps(:,tid_),me%batch_diag%vect(:,:,tid_),me%large_size,&
+         me%Ckt(:,:,1,tid_),me%Udt(:,:,tid_))
+      call GenU_Eig(dt2,me%batch_diag%eps(:,tid_),me%batch_diag%vect(:,:,tid_),me%large_size,&
+         me%Ckt(:,:,1,tid_),me%Udt2(:,:,tid_))
 
-      me%Rho_tmp = zero
+      me%Rho_tmp(:,:,tid_) = zero
       do i=1,me%nbnd
-         me%Rho_tmp(i,i) = nfermi(me%Beta, me%batch_diag%eps(i,0) - me%Mu)
+         me%Rho_tmp(i,i,tid_) = nfermi(me%Beta, me%batch_diag%eps(i,tid_) - me%Mu)
       end do
-      me%Rho_eq = util_rotate_cc(me%nbnd,me%batch_diag%vect(:,:,0),me%Rho_tmp,large_size=me%large_size)
+      me%Rho_eq(:,:,tid_) = util_rotate_cc(me%nbnd,me%batch_diag%vect(:,:,tid_),me%Rho_tmp(:,:,tid_),&
+         large_size=me%large_size)
 
-      me%Rho_tmp = util_rotate(me%nbnd,me%batch_diag%vect(:,:,0),Rhok,large_size=me%large_size)
+      me%Rho_tmp(:,:,tid_) = util_rotate(me%nbnd,me%batch_diag%vect(:,:,tid_),Rhok,large_size=me%large_size)
       do i=1,me%nbnd
-         me%Rho_tmp(i,i) = zero
+         me%Rho_tmp(i,i,tid_) = zero
       end do
-      me%Rho_off = util_rotate_cc(me%nbnd,me%batch_diag%vect(:,:,0),me%Rho_tmp,large_size=me%large_size)      
+      me%Rho_off(:,:,tid_) = util_rotate_cc(me%nbnd,me%batch_diag%vect(:,:,tid_),me%Rho_tmp(:,:,tid_),&
+         large_size=me%large_size)      
 
-      me%Dscatt = -me%Gmm(1) * (Rhok - me%Rho_eq) + me%Gmm(3) * me%Rho_off
+      me%Dscatt(:,:,tid_) = -me%Gmm(1) * (Rhok - me%Rho_eq(:,:,tid_)) + me%Gmm(3) * me%Rho_off(:,:,tid_)
 
-      me%Rho_tmp = Rhok + dt6 * me%Dscatt
-      call UnitaryStepFBW(me%nbnd,me%Udt,me%Rho_tmp,Rhok,large_size=me%large_size)
+      me%Rho_tmp(:,:,tid_) = Rhok + dt6 * me%Dscatt(:,:,tid_)
+      call UnitaryStepFBW(me%nbnd,me%Udt(:,:,tid_),me%Rho_tmp(:,:,tid_),Rhok,large_size=me%large_size)
 
-      me%Ckt(:,:,1) = dt23 * me%Dscatt
-      call UnitaryStepFBW(me%nbnd,me%Udt2,me%Ckt(:,:,1),me%Ckt(:,:,2),large_size=me%large_size)
+      me%Ckt(:,:,1,tid_) = dt23 * me%Dscatt(:,:,tid_)
+      call UnitaryStepFBW(me%nbnd,me%Udt2(:,:,tid_),me%Ckt(:,:,1,tid_),me%Ckt(:,:,2,tid_),&
+         large_size=me%large_size)
 
-      Rhok = Rhok + me%Ckt(:,:,2) + dt6 * me%Dscatt
+      Rhok = Rhok + me%Ckt(:,:,2,tid_) + dt6 * me%Dscatt(:,:,tid_)
 
    end subroutine TimeStep_dip
 !--------------------------------------------------------------------------------------
-   subroutine TimeStep_velo(me,ik,tstp,dt,Hk,vk,Rhok)
+   subroutine TimeStep_velo(me,ik,tstp,dt,Hk,vk,Rhok,tid)
       class(hybrid_propagator_t)   :: me
       integer,intent(in)           :: ik
       integer,intent(in)           :: tstp
@@ -168,41 +184,49 @@ contains
       complex(dp),intent(in)       :: Hk(:,:,:)
       complex(dp),intent(in)       :: vk(:,:,:,:)      
       complex(dp),intent(inout)    :: Rhok(:,:)
+      integer,intent(in),optional  :: tid
+      integer :: tid_
       integer :: i
       real(dp) :: dt2,dt23,dt6
 
-      me%Hkt = Hk(:,:,ik)
-      me%Hkt = me%Hkt - me%AF(1) * vk(:,:,ik,1) - me%AF(2) * vk(:,:,ik,2) - me%AF(3) * vk(:,:,ik,3) 
+      tid_ = 0
+      if(present(tid)) tid_ = tid
+
+      me%Hkt(:,:,tid_) = Hk(:,:,ik)
+      me%Hkt(:,:,tid_) = me%Hkt(:,:,tid_) - me%AF(1) * vk(:,:,ik,1) &
+         - me%AF(2) * vk(:,:,ik,2) - me%AF(3) * vk(:,:,ik,3) 
 
       ! call GenU_CF2(dt, me%Hkt, me%Udt)
 
-      call me%batch_diag%Diagonalize(me%Hkt)
+      call me%batch_diag%Diagonalize(me%Hkt(:,:,tid_), tid=tid_)
 
       dt2 = 0.5_dp * dt
       dt23 = 2.0_dp / 3.0_dp * dt
       dt6 = dt / 6.0_dp
-      call GenU_Eig(dt,me%batch_diag%eps(:,0),me%batch_diag%vect(:,:,0),me%large_size,me%Ckt(:,:,1),me%Udt)
-      call GenU_Eig(dt2,me%batch_diag%eps(:,0),me%batch_diag%vect(:,:,0),me%large_size,me%Ckt(:,:,1),me%Udt2)
+      call GenU_Eig(dt,me%batch_diag%eps(:,tid_),me%batch_diag%vect(:,:,tid_),me%large_size,&
+         me%Ckt(:,:,1,tid_),me%Udt(:,:,tid_))
+      call GenU_Eig(dt2,me%batch_diag%eps(:,tid_),me%batch_diag%vect(:,:,tid_),me%large_size,&
+         me%Ckt(:,:,1,tid_),me%Udt2(:,:,tid_))
 
-      me%Rho_tmp = zero
+      me%Rho_tmp(:,:,tid_) = zero
       do i=1,me%nbnd
-         me%Rho_tmp(i,i) = nfermi(me%Beta, me%batch_diag%eps(i,0) - me%Mu)
+         me%Rho_tmp(i,i,tid_) = nfermi(me%Beta, me%batch_diag%eps(i,tid_) - me%Mu)
       end do
-      me%Rho_eq = util_rotate_cc(me%nbnd,me%batch_diag%vect(:,:,0),me%Rho_tmp,large_size=me%large_size)
+      me%Rho_eq(:,:,tid_) = util_rotate_cc(me%nbnd,me%batch_diag%vect(:,:,tid_),me%Rho_tmp(:,:,tid_),large_size=me%large_size)
 
-      me%Rho_tmp = util_rotate(me%nbnd,me%batch_diag%vect(:,:,0),Rhok,large_size=me%large_size)
+      me%Rho_tmp(:,:,tid_) = util_rotate(me%nbnd,me%batch_diag%vect(:,:,tid_),Rhok,large_size=me%large_size)
       do i=1,me%nbnd
-         me%Rho_tmp(i,i) = zero
+         me%Rho_tmp(i,i,tid_) = zero
       end do
-      me%Rho_off = util_rotate_cc(me%nbnd,me%batch_diag%vect(:,:,0),me%Rho_tmp,large_size=me%large_size)      
+      me%Rho_off(:,:,tid_) = util_rotate_cc(me%nbnd,me%batch_diag%vect(:,:,tid_),me%Rho_tmp(:,:,tid_),large_size=me%large_size)      
 
-      me%Rho_tmp = Rhok + dt6 * me%Dscatt
-      call UnitaryStepFBW(me%nbnd,me%Udt,me%Rho_tmp,Rhok,large_size=me%large_size)
+      me%Rho_tmp(:,:,tid_) = Rhok + dt6 * me%Dscatt(:,:,tid_)
+      call UnitaryStepFBW(me%nbnd,me%Udt(:,:,tid_),me%Rho_tmp(:,:,tid_),Rhok,large_size=me%large_size)
 
-      me%Ckt(:,:,1) = dt23 * me%Dscatt
-      call UnitaryStepFBW(me%nbnd,me%Udt2,me%Ckt(:,:,1),me%Ckt(:,:,2),large_size=me%large_size)
+      me%Ckt(:,:,1,tid_) = dt23 * me%Dscatt(:,:,tid_)
+      call UnitaryStepFBW(me%nbnd,me%Udt2(:,:,tid_),me%Ckt(:,:,1,tid_),me%Ckt(:,:,2,tid_),large_size=me%large_size)
 
-      Rhok = Rhok + me%Ckt(:,:,2) + dt6 * me%Dscatt
+      Rhok = Rhok + me%Ckt(:,:,2,tid_) + dt6 * me%Dscatt(:,:,tid_)
 
    end subroutine TimeStep_velo
 !--------------------------------------------------------------------------------------
