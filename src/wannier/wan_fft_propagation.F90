@@ -52,7 +52,7 @@ contains
       !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
       tid = omp_get_thread_num()
       if(tid == 0) then 
-         nthreads = omp_get_num_threads()
+         nthreads = omp_get_max_threads()
       end if
       !$OMP END PARALLEL   
 
@@ -225,7 +225,7 @@ contains
       !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
       tid = omp_get_thread_num()
       if(tid == 0) then 
-         nthreads = omp_get_num_threads()
+         nthreads = omp_get_max_threads()
       end if
       !$OMP END PARALLEL    
 
@@ -348,7 +348,7 @@ contains
       !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
       tid = omp_get_thread_num()
       if(tid == 0) then 
-         nthreads = omp_get_num_threads()
+         nthreads = omp_get_max_threads()
       end if
       !$OMP END PARALLEL    
 
