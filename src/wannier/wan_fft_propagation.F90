@@ -330,7 +330,6 @@ contains
          end do
          deallocate(Dk_12)
       end if
-
       call batch_diag%Init(nbnd,nthreads=ham_fft%nthreads)     
 
       call omp_set_num_threads(ham_fft%nthreads)

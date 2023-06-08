@@ -107,12 +107,6 @@ contains
       if(present(nthreads_fft)) nthreads_fft_ = nthreads_fft
       if(present(nthreads_orb)) nthreads_orb_ = nthreads_orb
 
-      print*, "max_threads = ", me%max_threads
-      print*, "nthreads_fft = ", nthreads_fft
-      print*, "nthreads_orb = ", nthreads_orb
-
-      stop
-
       me%gauge = gauge
       me%Nk = kp%nk
       me%kcoord => kp%kpts
@@ -201,7 +195,6 @@ contains
          call me%ham_fft%GetHam(me%Hk)
 #endif
       else
-         call omp_set_num_threads(me%max_threads)
          call Wann_GenHk(me%ham,me%Nk,me%kcoord,me%Hk)
       end if
 

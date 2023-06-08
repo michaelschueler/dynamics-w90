@@ -361,8 +361,9 @@ contains
       integer :: i,j,ik
       complex(dp),allocatable :: work_r(:),work_k(:)
 
-      !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k)
       call omp_set_num_threads(me%nthreads_orb)
+
+      !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k)
       allocate(work_r(me%nkx),work_k(me%nkx))
       do j=1,me%nwan
          do i=1,me%nwan
@@ -383,9 +384,12 @@ contains
       complex(dp),intent(inout) :: Hk(:,:,:)
       integer :: i,j,ik
       complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
+      integer :: tid
 
-      !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k,work_1d)
       call omp_set_num_threads(me%nthreads_orb)
+
+      !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k,work_1d,tid)
+
       allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(2)
       do j=1,me%nwan
@@ -414,13 +418,6 @@ contains
       call omp_set_num_threads(me%nthreads_orb)
 
       !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d,tid)
-      tid = omp_get_thread_num()
-      if(tid == 0) then
-         print*, "nthreads = ", me%nthreads
-         print*, "nthreads_fft = ", me%nthreads_fft
-         print*, "nthreads_orb = ", me%nthreads_orb
-         print*, "nthreads_loc = ", omp_get_num_threads()
-      end if
 
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(2)
@@ -1087,6 +1084,7 @@ contains
    
    end subroutine GetGradiant
 !--------------------------------------------------------------------------------------
+
 
 !======================================================================================
 
