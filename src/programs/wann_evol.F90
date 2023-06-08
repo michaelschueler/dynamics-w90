@@ -292,6 +292,8 @@ program wann_evol
       if(spin_current) call lattsys%CalcSpinCurrent_velo(tstp,dt,Jspin(:,:,0))
    end if
 
+   print*, "test"
+
    if(Output_Occ_KPTS) then
       call lattsys%GetOccupationKPTS(Occk(:,:,0))
    end if
