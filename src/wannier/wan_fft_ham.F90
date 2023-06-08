@@ -411,9 +411,9 @@ contains
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
       integer :: tid
 
-      !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d,tid)
       call omp_set_num_threads(me%nthreads_orb)
 
+      !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d,tid)
       tid = omp_get_thread_num()
       if(tid == 0) then
          print*, "nthreads = ", me%nthreads
@@ -449,8 +449,8 @@ contains
       complex(dp),allocatable :: work_r(:),work_k(:)
       complex(dp),allocatable :: gradH_R(:,:)
 
-      !$OMP PARALLEL PRIVATE(i,j,ik,idir,work_r,work_k,gradH_R)
       call omp_set_num_threads(me%nthreads_orb)
+      !$OMP PARALLEL PRIVATE(i,j,ik,idir,work_r,work_k,gradH_R)
       allocate(work_r(me%nkx),work_k(me%nkx))
       allocate(gradH_R(me%nrpts,3))
       do j=1,me%nwan
@@ -479,8 +479,8 @@ contains
       complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
       complex(dp),allocatable :: gradH_R(:,:)
 
-      !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k,work_1d,gradH_R)
       call omp_set_num_threads(me%nthreads_orb)
+      !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k,work_1d,gradH_R)
       allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
       allocate(gradH_R(me%nrpts,3))
       !$OMP DO COLLAPSE(2)
@@ -512,8 +512,8 @@ contains
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
       complex(dp),allocatable :: gradH_R(:,:)
 
-      !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d,gradH_R)
       call omp_set_num_threads(me%nthreads_orb)
+      !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d,gradH_R)
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
       allocate(gradH_R(me%nrpts,3))
       !$OMP DO COLLAPSE(2)
@@ -548,8 +548,8 @@ contains
       complex(dp),allocatable :: work_r(:),work_k(:)
       complex(dp),allocatable :: gradH_R(:,:)
 
-      !$OMP PARALLEL PRIVATE(i,j,ik,idir,work_r,work_k,gradH_R)
       call omp_set_num_threads(me%nthreads_orb)
+      !$OMP PARALLEL PRIVATE(i,j,ik,idir,work_r,work_k,gradH_R)
       allocate(work_r(me%nkx),work_k(me%nkx))
       allocate(gradH_R(me%nrpts,3))
       do j=1,me%nwan
@@ -581,8 +581,8 @@ contains
       complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
       complex(dp),allocatable :: gradH_R(:,:)
 
-      !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k,work_1d,gradH_R)
       call omp_set_num_threads(me%nthreads_orb)
+      !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k,work_1d,gradH_R)
       allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
       allocate(gradH_R(me%nrpts,3))
       !$OMP DO COLLAPSE(2)
@@ -617,8 +617,8 @@ contains
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
       complex(dp),allocatable :: gradH_R(:,:)
 
-      !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d,gradH_R)
       call omp_set_num_threads(me%nthreads_orb)
+      !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d,gradH_R)
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
       allocate(gradH_R(me%nrpts,3))
       !$OMP DO COLLAPSE(2)
@@ -655,8 +655,8 @@ contains
       integer :: i,j,ik
       complex(dp),allocatable :: HA_r(:),work_r(:),work_k(:)
 
-      !$OMP PARALLEL PRIVATE(i,j,ik,HA_r,work_r,work_k)
       call omp_set_num_threads(me%nthreads_orb)
+      !$OMP PARALLEL PRIVATE(i,j,ik,HA_r,work_r,work_k)
       allocate(HA_r(me%nx),work_r(me%nkx),work_k(me%nkx))
       do j=1,me%nwan
          do i=1,me%nwan
@@ -683,8 +683,8 @@ contains
       complex(dp),allocatable :: HA_r(:)
       complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
 
-      !$OMP PARALLEL PRIVATE(i,j,ik,HA_r,work_r,work_k,work_1d)
       call omp_set_num_threads(me%nthreads_orb)
+      !$OMP PARALLEL PRIVATE(i,j,ik,HA_r,work_r,work_k,work_1d)
       allocate(HA_r(me%nrpts))
       allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(2)
@@ -716,8 +716,8 @@ contains
       complex(dp),allocatable :: HA_r(:)
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
 
-      !$OMP PARALLEL PRIVATE(i,j,HA_r,work_r,work_k,work_1d)
       call omp_set_num_threads(me%nthreads_orb)
+      !$OMP PARALLEL PRIVATE(i,j,HA_r,work_r,work_k,work_1d)
       allocate(HA_r(me%nrpts))
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(2)
@@ -746,8 +746,8 @@ contains
       integer :: i,j,idir,ik
       complex(dp),allocatable :: work_r(:),work_k(:)
 
-      !$OMP PARALLEL PRIVATE(i,j,idir,ik,work_r,work_k)
       call omp_set_num_threads(me%nthreads_orb)
+      !$OMP PARALLEL PRIVATE(i,j,idir,ik,work_r,work_k)
       allocate(work_r(me%nkx),work_k(me%nkx))
       !$OMP DO COLLAPSE(3)
       do idir=1,3
@@ -773,8 +773,8 @@ contains
       integer :: i,j,idir,ik
       complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
 
-      !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k,work_1d)
       call omp_set_num_threads(me%nthreads_orb)
+      !$OMP PARALLEL PRIVATE(i,j,ik,work_r,work_k,work_1d)
       allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(3)
       do idir=1,3
@@ -801,8 +801,8 @@ contains
       integer :: i,j,idir,ik
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
 
-      !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d)
       call omp_set_num_threads(me%nthreads_orb)
+      !$OMP PARALLEL PRIVATE(i,j,work_r,work_k,work_1d)
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(3)
       do idir=1,3
@@ -831,8 +831,8 @@ contains
       complex(dp),allocatable :: DA_r(:)
       complex(dp),allocatable :: work_r(:),work_k(:)
 
-      !$OMP PARALLEL PRIVATE(i,j,idir,ik,DA_r,work_r,work_k)
       call omp_set_num_threads(me%nthreads_orb)
+      !$OMP PARALLEL PRIVATE(i,j,idir,ik,DA_r,work_r,work_k)
       allocate(DA_r(me%nrpts))
       allocate(work_r(me%nkx),work_k(me%nkx))
       !$OMP DO COLLAPSE(3)
@@ -865,8 +865,8 @@ contains
       complex(dp),allocatable :: DA_r(:)
       complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
 
-      !$OMP PARALLEL PRIVATE(i,j,idir,ik,DA_r,work_r,work_k,work_1d)
       call omp_set_num_threads(me%nthreads_orb)
+      !$OMP PARALLEL PRIVATE(i,j,idir,ik,DA_r,work_r,work_k,work_1d)
       allocate(DA_r(me%nrpts))
       allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(3)
@@ -900,8 +900,8 @@ contains
       complex(dp),allocatable :: DA_r(:)
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
 
-      !$OMP PARALLEL PRIVATE(i,j,idir,ik,DA_r,work_r,work_k,work_1d)
       call omp_set_num_threads(me%nthreads_orb)
+      !$OMP PARALLEL PRIVATE(i,j,idir,ik,DA_r,work_r,work_k,work_1d)
       allocate(DA_r(me%nrpts))
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
       !$OMP DO COLLAPSE(3)

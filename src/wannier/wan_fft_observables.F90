@@ -34,6 +34,7 @@ contains
       complex(dp),allocatable,dimension(:,:) :: Hkt,DRhok_dt
       complex(dp),allocatable,dimension(:,:,:) :: Hk
       complex(dp),allocatable,dimension(:,:,:,:) :: grad_Hk,Dk
+      integer :: nthreads,tid
 
       dipole_current_ = .false.
       if(present(dipole_current)) dipole_current_ = dipole_current
@@ -63,6 +64,14 @@ contains
       Jpol = 0.0_dp
       Dip = 0.0_dp
 
+      !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
+      tid = omp_get_thread_num()
+      if(tid == 0) then 
+         nthreads = omp_get_num_threads()
+      end if
+      !$OMP END PARALLEL   
+
+      call omp_set_num_threads(nthreads)
       !$OMP PARALLEL PRIVATE(ik,Hkt,DRhok_dt)
       allocate(Hkt(nbnd,nbnd))
       allocate(DRhok_dt(nbnd,nbnd))
