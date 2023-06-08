@@ -487,7 +487,11 @@ contains
       AF = 0.0_dp; EF = 0.0_dp
       call field(tstp*dt,AF,EF)
 
+      print*, "CalcObservables_dip", 1
+
       call omp_set_num_threads(me%max_threads)
+
+      print*, "CalcObservables_dip", 2
 
       if(me%free_evol) then
          Etot = Wann_DTRAB_kpts(me%nbnd,me%Nk,me%Hk,me%Rhok)
