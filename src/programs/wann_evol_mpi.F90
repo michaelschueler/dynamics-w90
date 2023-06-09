@@ -245,7 +245,7 @@ program wann_evol_mpi
 
    call lattsys%SetLaserPulse(external_field)
 
-   if(par_ham%FixMuChem .or. par_time%restart_evolution) then
+   if(par_ham%FixMuChem) then
       call lattsys%SolveEquilibrium()
       if(on_root) write(output_unit,fmt149) "number of electrons", lattsys%nelec
    else

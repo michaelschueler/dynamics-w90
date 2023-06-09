@@ -88,7 +88,6 @@ contains
       integer :: unit_inp
       real(dp),allocatable :: rdata(:,:,:)
 
-
       call hdf_open_file(file_id, trim(file_dens), STATUS='OLD', ACTION='READ')
 
       call hdf_read_attribute(file_id,'','nbnd', nbnd)

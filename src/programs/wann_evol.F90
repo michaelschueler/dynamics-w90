@@ -230,7 +230,7 @@ program wann_evol
    call print_header(output_unit,"Equilibrium","*")
    call Timer_Tic('equilibrium', 2)
 
-   if(par_ham%FixMuChem .or. par_time%restart_evolution) then
+   if(par_ham%FixMuChem) then
       call lattsys%SolveEquilibrium()
       write(output_unit,fmt149) "number of electrons", lattsys%nelec
    else

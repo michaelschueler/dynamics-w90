@@ -53,7 +53,7 @@ module Mwann_evol
       type(wann_fft_t)  :: ham_fft
 #endif
       ! .. density matrix ..
-      complex(dp),allocatable,dimension(:,:,:)   :: Rhok,Rhok_eq
+      complex(dp),allocatable,dimension(:,:,:)   :: Rhok
       ! .. parallelization ..
       integer :: max_threads
    contains
@@ -202,7 +202,6 @@ contains
       allocate(Ek(me%nbnd,me%Nk))
       allocate(me%Hk(me%nbnd,me%nbnd,me%Nk))
       allocate(me%wan_rot(me%nbnd,me%nbnd,me%Nk))
-      allocate(me%Rhok_eq(me%nbnd,me%nbnd,me%Nk))
 
       call batch_diag%Init(me%nbnd,nthreads=me%max_threads)      
 
@@ -270,7 +269,6 @@ contains
          end if
       end select
 
-      me%Rhok_eq = me%Rhok
       me%nelec = 0.0_dp
       do ik=1,me%Nk
          do j=1,me%nbnd
