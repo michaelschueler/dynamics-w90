@@ -287,6 +287,8 @@ program wann_evol_mpi
 
    dt = par_time%Tmax/dble(par_time%Nt)
 
+   print*, Nsteps, par_time%output_step, par_time%Nt, dt
+
    allocate(Ekin(0:Nsteps),Etot(0:Nsteps),Jcurr(3,0:Nsteps),Dip(3,0:Nsteps))
    allocate(BandOcc(Ham%num_wann,0:Nsteps))
    if(par_ham%lm_gauge == dipole_gauge .or. par_ham%lm_gauge == dip_emp_gauge) then
