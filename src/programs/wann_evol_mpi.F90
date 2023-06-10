@@ -316,6 +316,7 @@ program wann_evol_mpi
    end if
 
    print*, taskid, "step 2"
+   call MPI_Finalize(ierr) ; stop
 
    if(Output_Occ_KPTS) then
       call lattsys%GetOccupationKPTS(Occk(:,:,0))
