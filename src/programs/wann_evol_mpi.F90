@@ -333,19 +333,19 @@ program wann_evol_mpi
       if(mod(tstp+1, par_time%output_step) == 0) then
          step = step + 1
 
-         if(par_ham%lm_gauge == dipole_gauge .or. par_ham%lm_gauge == dip_emp_gauge) then
-            call lattsys%CalcObservables_dip(tstp+1,dt,Ekin(step),Etot(step),Jcurr(:,step),JHk(:,step),&
-                  Jpol(:,step),Dip(:,step),BandOcc(:,step))
-            if(spin_current) call lattsys%CalcSpinCurrent_dip(tstp,dt,Jspin(:,:,step))
-         else
-            call lattsys%CalcObservables_velo(tstp+1,dt,Ekin(step),Etot(step),Jcurr(:,step),Jpara(:,step),&
-                  Jdia(:,step),Jintra(:,step),Dip(:,step),BandOcc(:,step))
-            if(spin_current) call lattsys%CalcSpinCurrent_velo(tstp,dt,Jspin(:,:,step))
-         end if
+         ! if(par_ham%lm_gauge == dipole_gauge .or. par_ham%lm_gauge == dip_emp_gauge) then
+         !    call lattsys%CalcObservables_dip(tstp+1,dt,Ekin(step),Etot(step),Jcurr(:,step),JHk(:,step),&
+         !          Jpol(:,step),Dip(:,step),BandOcc(:,step))
+         !    if(spin_current) call lattsys%CalcSpinCurrent_dip(tstp,dt,Jspin(:,:,step))
+         ! else
+         !    call lattsys%CalcObservables_velo(tstp+1,dt,Ekin(step),Etot(step),Jcurr(:,step),Jpara(:,step),&
+         !          Jdia(:,step),Jintra(:,step),Dip(:,step),BandOcc(:,step))
+         !    if(spin_current) call lattsys%CalcSpinCurrent_velo(tstp,dt,Jspin(:,:,step))
+         ! end if
 
-         if(Output_Occ_KPTS) then
-            call lattsys%GetOccupationKPTS(Occk(:,:,step))
-         end if
+         ! if(Output_Occ_KPTS) then
+         !    call lattsys%GetOccupationKPTS(Occk(:,:,step))
+         ! end if
 
          if(on_root) write(output_unit,fmt145) "tstp",tstp+1
 
