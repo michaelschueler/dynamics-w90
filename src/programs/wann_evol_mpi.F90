@@ -155,7 +155,7 @@ program wann_evol_mpi
       if(threadid == 0) then
          nthreads = omp_get_num_threads()
          write(output_unit,fmt148) 'number of threads',nthreads
-         write(output_unit,fmt148) 'number of MPI ranks',ntasks
+         write(output_unit,fmt148) 'number of MPI ranks',nthreads
          write(output_unit,*)
       end if
       !$OMP END PARALLEL
@@ -303,7 +303,7 @@ program wann_evol_mpi
       allocate(Occk(lattsys%nbnd,lattsys%Nk,0:Nsteps))
    end if
 
-   print*, "start"
+   print*, taskid, "start"
 
    if(par_ham%lm_gauge == dipole_gauge .or. par_ham%lm_gauge == dip_emp_gauge) then
       call lattsys%CalcObservables_dip(0,dt,Ekin(0),Etot(0),Jcurr(:,0),JHk(:,0),Jpol(:,0),&
@@ -314,6 +314,8 @@ program wann_evol_mpi
          Jintra(:,0),Dip(:,0),BandOcc(:,0))
       if(spin_current) call lattsys%CalcSpinCurrent_velo(tstp,dt,Jspin(:,:,0))
    end if
+
+   print*, taskid, "step 2"
 
    if(Output_Occ_KPTS) then
       call lattsys%GetOccupationKPTS(Occk(:,:,0))
