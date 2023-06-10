@@ -519,6 +519,9 @@ contains
             call Wann_FFT_Observables_dip(me%ham,me%ham_fft,kdist,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
                dipole_current=.false.)            
          end if
+
+      print*, taskid, "step", tstp
+
 #endif
       else
          Etot_loc = ck * Wann_TotalEn_dip(me%ham,me%Nk_loc,me%kcoord_loc,AF,EF,me%Rhok)

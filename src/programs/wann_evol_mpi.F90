@@ -343,10 +343,6 @@ program wann_evol_mpi
             if(spin_current) call lattsys%CalcSpinCurrent_velo(tstp,dt,Jspin(:,:,step))
          end if
 
-         
-      print*, taskid, "step 2"
-      call MPI_Finalize(ierr) ; stop
-
          if(Output_Occ_KPTS) then
             call lattsys%GetOccupationKPTS(Occk(:,:,step))
          end if
