@@ -330,9 +330,6 @@ program wann_evol_mpi
          call lattsys%Timestep_RelaxTime(tstp,dt)
       end if
 
-      print*, taskid, "step 2"
-      call MPI_Finalize(ierr) ; stop
-
       if(mod(tstp+1, par_time%output_step) == 0) then
          step = step + 1
 
@@ -345,6 +342,10 @@ program wann_evol_mpi
                   Jdia(:,step),Jintra(:,step),Dip(:,step),BandOcc(:,step))
             if(spin_current) call lattsys%CalcSpinCurrent_velo(tstp,dt,Jspin(:,:,step))
          end if
+
+         
+      print*, taskid, "step 2"
+      call MPI_Finalize(ierr) ; stop
 
          if(Output_Occ_KPTS) then
             call lattsys%GetOccupationKPTS(Occk(:,:,step))
