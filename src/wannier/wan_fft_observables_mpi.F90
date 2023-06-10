@@ -40,8 +40,6 @@ contains
       complex(dp),allocatable,dimension(:,:,:,:) :: grad_Hk,Dk
       integer :: ntasks,taskid,ierr
 
-      print*, "Wann_FFT_Observables_dip"
-
       call MPI_COMM_RANK(MPI_COMM_WORLD, taskid, ierr)
       call MPI_COMM_SIZE(MPI_COMM_WORLD, ntasks, ierr)
 
@@ -51,8 +49,6 @@ contains
       nbnd = ham_fft%nwan
       Nk = ham_fft%nkpts
       Nk_loc = kdist%N_loc(taskid)
-      print*, "[Wann_FFT_Observables_dip ] Nk ", Nk
-      print*, "[Wann_FFT_Observables_dip ] Nk_loc ", Nk_loc
 
       large_size = get_large_size(nbnd)
 
@@ -69,44 +65,42 @@ contains
       allocate(Dk(nbnd,nbnd,3,Nk_loc))
       call ham_fft%GetDipole(kdist, Dk, Ar=Ared)
 
-      print*,  "[Wann_FFT_Observables_dip ] HAM! "
-
       Ekin_loc = 0.0_dp
       Etot_loc = 0.0_dp
       Jgrad_loc = 0.0_dp
       Jpol_loc = 0.0_dp
       Dip_loc = 0.0_dp
 
-      ! allocate(Hkt(nbnd,nbnd))
-      ! allocate(DRhok_dt(nbnd,nbnd))
+      allocate(Hkt(nbnd,nbnd))
+      allocate(DRhok_dt(nbnd,nbnd))
 
-      ! do ik=1,Nk_loc
-      !    Hkt = Hk(:,:,ik)
-      !    do idir=1,3
-      !       Hkt(:,:) = Hkt(:,:) - EF(idir) * Dk(:,:,idir,ik)
-      !    end do
+      do ik=1,Nk_loc
+         Hkt = Hk(:,:,ik)
+         do idir=1,3
+            Hkt(:,:) = Hkt(:,:) - EF(idir) * Dk(:,:,idir,ik)
+         end do
 
-      !    Ekin_loc = Ekin_loc + DTRAB(nbnd, Hk(:,:,ik), Rhok(:,:,ik)) / Nk
-      !    Etot_loc = Etot_loc + DTRAB(nbnd, Hkt, Rhok(:,:,ik)) / Nk
+         Ekin_loc = Ekin_loc + DTRAB(nbnd, Hk(:,:,ik), Rhok(:,:,ik)) / Nk
+         Etot_loc = Etot_loc + DTRAB(nbnd, Hkt, Rhok(:,:,ik)) / Nk
 
-      !    do idir=1,3
-      !       Jgrad_loc(idir) = Jgrad_loc(idir) + DTRAB(nbnd, grad_Hk(:,:,idir,ik), Rhok(:,:,ik)) / Nk
-      !       Dip_loc(idir) = Dip_loc(idir) + DTRAB(nbnd, Dk(:,:,idir,ik), Rhok(:,:,ik)) / Nk
-      !    end do
+         do idir=1,3
+            Jgrad_loc(idir) = Jgrad_loc(idir) + DTRAB(nbnd, grad_Hk(:,:,idir,ik), Rhok(:,:,ik)) / Nk
+            Dip_loc(idir) = Dip_loc(idir) + DTRAB(nbnd, Dk(:,:,idir,ik), Rhok(:,:,ik)) / Nk
+         end do
 
-      !    if(dipole_current_) then
-      !       DRhok_dt = zero
-      !       call util_matmul(Hkt,Rhok(:,:,ik),DRhok_dt,alpha=-iu,large_size=large_size)
-      !       call util_matmul(Rhok(:,:,ik),Hkt,DRhok_dt,alpha=iu,beta=one,large_size=large_size)    
+         if(dipole_current_) then
+            DRhok_dt = zero
+            call util_matmul(Hkt,Rhok(:,:,ik),DRhok_dt,alpha=-iu,large_size=large_size)
+            call util_matmul(Rhok(:,:,ik),Hkt,DRhok_dt,alpha=iu,beta=one,large_size=large_size)    
 
-      !       do idir=1,3
-      !          Jpol_loc(idir) = Jpol_loc(idir) + DTRAB(nbnd, Dk(:,:,idir,ik), DRhok_dt) / Nk
-      !       end do
+            do idir=1,3
+               Jpol_loc(idir) = Jpol_loc(idir) + DTRAB(nbnd, Dk(:,:,idir,ik), DRhok_dt) / Nk
+            end do
 
-      !    end if
+         end if
 
-      ! end do
-      ! deallocate(Hkt,DRhok_dt)
+      end do
+      deallocate(Hkt,DRhok_dt)
 
       call MPI_ALLREDUCE(Ekin_loc,Ekin,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
       call MPI_ALLREDUCE(Etot_loc,Etot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
