@@ -303,8 +303,6 @@ program wann_evol_mpi
       allocate(Occk(lattsys%nbnd,lattsys%Nk,0:Nsteps))
    end if
 
-   print*, taskid, "start"
-
    if(par_ham%lm_gauge == dipole_gauge .or. par_ham%lm_gauge == dip_emp_gauge) then
       call lattsys%CalcObservables_dip(0,dt,Ekin(0),Etot(0),Jcurr(:,0),JHk(:,0),Jpol(:,0),&
                Dip(:,0),BandOcc(:,0))
@@ -315,8 +313,6 @@ program wann_evol_mpi
       if(spin_current) call lattsys%CalcSpinCurrent_velo(tstp,dt,Jspin(:,:,0))
    end if
 
-   print*, taskid, "step 2"
-   call MPI_Finalize(ierr) ; stop
 
    if(Output_Occ_KPTS) then
       call lattsys%GetOccupationKPTS(Occk(:,:,0))
@@ -333,6 +329,9 @@ program wann_evol_mpi
       else
          call lattsys%Timestep_RelaxTime(tstp,dt)
       end if
+
+      print*, taskid, "step 2"
+      call MPI_Finalize(ierr) ; stop
 
       if(mod(tstp+1, par_time%output_step) == 0) then
          step = step + 1
