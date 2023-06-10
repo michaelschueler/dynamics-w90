@@ -69,6 +69,8 @@ contains
       allocate(Dk(nbnd,nbnd,3,Nk_loc))
       call ham_fft%GetDipole(kdist, Dk, Ar=Ared)
 
+      print*,  "[Wann_FFT_Observables_dip ] HAM! "
+
       Ekin_loc = 0.0_dp
       Etot_loc = 0.0_dp
       Jgrad_loc = 0.0_dp
