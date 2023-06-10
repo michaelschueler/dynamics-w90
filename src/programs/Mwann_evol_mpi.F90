@@ -493,6 +493,9 @@ contains
       AF = 0.0_dp; EF = 0.0_dp
       call field(tstp*dt + me%tstart,AF,EF)
 
+      print*, "Nk = ", me%Nk
+      print*, "Nk_loc = ", me%Nk_loc
+
       ck = me%Nk_loc / dble(me%Nk)
       Occ = 0.0_dp
 
