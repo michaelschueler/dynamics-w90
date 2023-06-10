@@ -25,6 +25,14 @@ if(fftw)
     )
 endif(fftw)
 
+if(mpi)
+    list(APPEND OBJECT_FILES 
+        wan_fft_ham_mpi.F90
+        wan_fft_propagation_mpi.F90
+        wan_fft_observables_mpi.F90
+    )
+endif(mpi)
+
 # ~~ Installation targets ~~
 add_library(wannier STATIC ${OBJECT_FILES})
 target_link_libraries(wannier basic scitools ${COMMON_LIBS})

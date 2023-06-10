@@ -14,6 +14,11 @@ module Mwann_evol_mpi
    use wan_equilibrium,only: GetChemicalPotential_mpi, Wann_GenRhok_eq
    use wan_rungekutta,only: Init_RungeKutta
    use wan_dynamics
+#ifdef WITHFFTW
+   use wan_fft_ham_mpi,only: wann_fft_t
+   use wan_fft_propagation_mpi,only: Wann_FFT_UnitaryTimestep_dip, Wann_FFT_RelaxTimestep_dip
+   use wan_fft_observables_mpi,only: Wann_FFT_Observables_dip
+#endif
    implicit none
    include '../formats.h'
    include '../units_inc.f90'
@@ -27,7 +32,9 @@ module Mwann_evol_mpi
    integer :: status(MPI_STATUS_SIZE)
    type(dist_array1d_t),private :: kdist
 !--------------------------------------------------------------------------------------
+   character(len=*),parameter :: fmt_info='(" Info: ",a)'
    integer,parameter :: velocity_gauge=0,dipole_gauge=1,velo_emp_gauge=2,dip_emp_gauge=3
+   integer,parameter :: kp_list=0, kp_path=1, kp_grid=2, kp_fft_grid_2d=3, kp_fft_grid_3d=4
    integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2, prop_hybrid=3
    logical :: large_size
 !--------------------------------------------------------------------------------------
@@ -35,6 +42,7 @@ module Mwann_evol_mpi
    public :: wann_evol_t
 !--------------------------------------------------------------------------------------
    type wann_evol_t
+      logical  :: fft_mode=.false.
       logical  :: free_evol=.false., spin_current=.false., restart=.false.
       integer  :: gauge
       integer  :: propagator=prop_unitary
@@ -47,8 +55,11 @@ module Mwann_evol_mpi
       complex(dp),allocatable,dimension(:,:,:,:) :: grad_Hk,Dk,velok
       ! .. Hamiltonian class ..
       type(wann90_tb_t) :: Ham
+#ifdef WITHFFTW
+      type(wann_fft_t)  :: ham_fft
+#endif
       ! .. density matrix ..
-      complex(dp),allocatable,dimension(:,:,:)   :: Rhok,Rhok_eq
+      complex(dp),allocatable,dimension(:,:,:)   :: Rhok
    contains
       procedure,public  :: Init
       procedure,public  :: SetLaserpulse
@@ -145,12 +156,28 @@ contains
 
       if(present(propagator)) me%propagator = propagator
 
-      select case(me%propagator)
-      case(prop_rk5)
-         call Init_RungeKutta(me%nbnd)
-      case(prop_rk4)
-         call Init_RungeKutta(me%nbnd,Nk=me%Nk_loc)
-      end select
+#ifdef WITHFFTW
+      if(kp%kpoints_type == kp_fft_grid_2d) then
+         if(on_root) write(output_unit,fmt_info) "Fourier transform: 2D FFT"
+         call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2], kdist)
+         me%fft_mode = .true.
+      elseif(kp%kpoints_type == kp_fft_grid_3d) then
+         if(on_root) write(output_unit,fmt_info) "Fourier transform: 3D FFT"
+         call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2, kp%nk3], kdist)   
+         me%fft_mode = .true.   
+      else
+         if(on_root) write(output_unit,fmt_info) "Fourier transform: DFT"
+      end if
+#endif
+
+      if(.not. me%fft_mode) then
+         select case(me%propagator)
+         case(prop_rk5)
+            call Init_RungeKutta(me%nbnd)
+         case(prop_rk4)
+            call Init_RungeKutta(me%nbnd,Nk=me%Nk_loc)
+         end select
+      end if
 
    end subroutine Init
 !--------------------------------------------------------------------------------------
@@ -180,7 +207,6 @@ contains
 
 
       allocate(me%wan_rot(me%nbnd,me%nbnd,me%Nk_loc))
-      allocate(me%Rhok_eq(me%nbnd,me%nbnd,me%Nk_loc))
 
       call batch_diag%Init(me%nbnd)
 
@@ -232,8 +258,6 @@ contains
          end if
       end select
 
-      me%Rhok_eq = me%Rhok
-
       nel_loc = 0.0_dp
       do ik=1,me%Nk_loc
          do j=1,me%nbnd
@@ -252,14 +276,30 @@ contains
 
       select case(me%gauge)
       case(dipole_gauge)
-         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,me%tstart,field,me%T1,me%T2,&
-            me%Beta,me%MuChem,me%Rhok,method=me%propagator)
+         ! call Wann_timestep_RelaxTime(me%ham,me%Nk,me%kcoord,tstp,dt,field,T1,T2,&
+            ! me%Rhok_Eq,me%Rhok)
+         if(me%fft_mode) then
+#ifdef WITHFFTW
+            call Wann_FFT_RelaxTimestep_dip(me%ham,me%ham_fft,kdist,tstp,dt,me%tstart,field,me%T1,me%T2,&
+               me%Beta,me%MuChem,me%Rhok,method=me%propagator)
+#endif
+         else
+            call Wann_timestep_RelaxTime_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,me%tstart,field,me%T1,me%T2,&
+               me%Beta,me%MuChem,me%Rhok,method=me%propagator)
+         end if
       case(dip_emp_gauge)
-         call Wann_timestep_RelaxTime_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,me%tstart,field,me%T1,me%T2,&
-            me%Beta,me%MuChem,me%Rhok,empirical=.true.,method=me%propagator)        
+         if(me%fft_mode) then
+#ifdef WITHFFTW
+            call Wann_FFT_RelaxTimestep_dip(me%ham,me%ham_fft,kdist,tstp,dt,me%tstart,field,me%T1,me%T2,&
+               me%Beta,me%MuChem,me%Rhok,Peierls_only=.true.,method=me%propagator)       
+#endif  
+         else
+            call Wann_timestep_RelaxTime_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,me%tstart,field,me%T1,me%T2,&
+               me%Beta,me%MuChem,me%Rhok,empirical=.true.,method=me%propagator)      
+         end if  
       case(velocity_gauge,velo_emp_gauge)
-         call Wann_timestep_RelaxTime_velo_calc(me%nbnd,me%Nk_loc,me%Hk,me%velok,tstp,dt,me%tstart,&
-            field,me%T1,me%T2,me%Beta,me%MuChem,me%Rhok,method=me%propagator)
+         call Wann_timestep_RelaxTime_velo_calc(me%nbnd,me%Nk_loc,me%Hk,me%velok,tstp,dt,me%tstart,field,&
+            me%T1,me%T2,me%Beta,me%MuChem,me%Rhok,method=me%propagator)
       end select
 
    end subroutine Timestep_RelaxTime
@@ -283,17 +323,27 @@ contains
       if((tstp * dt < field_Tmax_) .or. tstp == 0) then
          select case(me%gauge)
          case(dipole_gauge)
-            call Wann_Rhok_timestep_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,me%tstart,&
-               field,me%Rhok)
+            if(me%fft_mode) then
+#ifdef WITHFFTW
+               call Wann_FFT_UnitaryTimestep_dip(me%ham,me%ham_fft,kdist,tstp,dt,me%tstart,field,me%Rhok)
+#endif
+            else
+               call Wann_Rhok_timestep_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,me%tstart,&
+                  field,me%Rhok)
+            end if
          case(dip_emp_gauge)
-            call Wann_Rhok_timestep_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,me%tstart,&
-               field,me%Rhok,Peierls_only=.true.)
-         case(velocity_gauge)
-            call Wann_Rhok_timestep_velo_calc(me%nbnd,me%Nk_loc,me%Hk,me%velok,tstp,dt,&
-               me%tstart,field,me%Rhok)
-         case(velo_emp_gauge)
-            call Wann_Rhok_timestep_velo_calc(me%nbnd,me%Nk_loc,me%Hk,me%velok,tstp,dt,&
-               me%tstart,field,me%Rhok)
+            if(me%fft_mode) then
+#ifdef WITHFFTW
+               call Wann_FFT_UnitaryTimestep_dip(me%ham,me%ham_fft,kdist,tstp,dt,me%tstart,field,me%Rhok,&
+                  Peierls_only=.true.)
+#endif
+            else
+               call Wann_Rhok_timestep_dip(me%ham,me%Nk,me%kcoord_loc,tstp,dt,me%tstart,&
+                  field,me%Rhok,Peierls_only=.true.)
+            end if
+         case(velocity_gauge,velo_emp_gauge)
+            call Wann_Rhok_timestep_velo_calc(me%nbnd,me%Nk_loc,me%Hk,me%velok,tstp,dt,me%tstart,&
+               field,me%Rhok)
          end select
 
       else
@@ -446,6 +496,8 @@ contains
 
       if(me%free_evol) then
          Etot_loc = ck * Wann_DTRAB_kpts(me%nbnd,me%Nk_loc,me%Hk,me%Rhok)
+         Ekin_loc = ck * Wann_KineticEn(me%ham,me%Nk_loc,me%kcoord_loc,me%Rhok,&
+            band_basis=.false.)
 
          if(me%gauge == dipole_gauge) then
             J_loc = ck * Wann_Current_dip_calc(me%nbnd,me%Nk_loc,me%Hk,me%grad_Hk,me%Dk,me%Rhok)
@@ -458,8 +510,20 @@ contains
          end if
 
          Dip_loc = ck * Wann_Pol_dip_calc(me%nbnd,me%Nk_loc,me%Dk,me%Rhok)
+      elseif(me%fft_mode) then
+#ifdef WITHFFTW
+         if(me%gauge == dipole_gauge) then
+            call Wann_FFT_Observables_dip(me%ham,me%ham_fft,kdist,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
+               dipole_current=.true.)
+         else
+            call Wann_FFT_Observables_dip(me%ham,me%ham_fft,kdist,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
+               dipole_current=.false.)            
+         end if
+#endif
       else
          Etot_loc = ck * Wann_TotalEn_dip(me%ham,me%Nk_loc,me%kcoord_loc,AF,EF,me%Rhok)
+         Ekin_loc = ck * Wann_KineticEn(me%ham,me%Nk_loc,me%kcoord_loc,me%Rhok,&
+            band_basis=.false.)
 
          if(me%gauge == dipole_gauge) then
             J_loc = ck * Wann_Current_dip(me%ham,me%Nk_loc,me%kcoord_loc,AF,EF,me%Rhok)
@@ -474,20 +538,19 @@ contains
          Dip_loc = ck * Wann_Pol_dip(me%ham,me%Nk_loc,me%kcoord_loc,AF,me%Rhok)
       end if
 
-      Ekin_loc = ck * Wann_KineticEn(me%ham,me%Nk_loc,me%kcoord_loc,me%Rhok,&
-         band_basis=.false.)
-      
       !$OMP PARALLEL DO REDUCTION(+:Occ) PRIVATE(rhok_bnd)
       do ik=1,me%Nk_loc
          rhok_bnd = util_rotate(me%nbnd,me%wan_rot(:,:,ik),me%Rhok(:,:,ik),large_size=large_size)
          Occ = Occ + dble(GetDiag(me%nbnd,rhok_bnd)) / me%Nk
       end do
-      
-      call MPI_ALLREDUCE(JHk_loc,Jhk,3,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-      call MPI_ALLREDUCE(Ekin_loc,Ekin,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-      call MPI_ALLREDUCE(Etot_loc,Etot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-      call MPI_ALLREDUCE(J_loc,Jcurr,3,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
-      call MPI_ALLREDUCE(Dip_loc,Dip,3,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
+
+      if(.not. me%fft_mode) then      
+         call MPI_ALLREDUCE(JHk_loc,Jhk,3,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
+         call MPI_ALLREDUCE(Ekin_loc,Ekin,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
+         call MPI_ALLREDUCE(Etot_loc,Etot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
+         call MPI_ALLREDUCE(J_loc,Jcurr,3,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
+         call MPI_ALLREDUCE(Dip_loc,Dip,3,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
+      end if
       call MPI_ALLREDUCE(Occ,BandOcc,me%nbnd,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
 
       if(me%gauge == dipole_gauge) then
