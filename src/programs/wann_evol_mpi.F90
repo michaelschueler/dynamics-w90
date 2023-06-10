@@ -302,6 +302,8 @@ program wann_evol_mpi
       allocate(Occk(lattsys%nbnd,lattsys%Nk,0:Nsteps))
    end if
 
+   print*, "start"
+
    if(par_ham%lm_gauge == dipole_gauge .or. par_ham%lm_gauge == dip_emp_gauge) then
       call lattsys%CalcObservables_dip(0,dt,Ekin(0),Etot(0),Jcurr(:,0),JHk(:,0),Jpol(:,0),&
                Dip(:,0),BandOcc(:,0))
