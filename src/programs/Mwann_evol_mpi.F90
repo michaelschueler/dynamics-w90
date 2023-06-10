@@ -488,6 +488,8 @@ contains
       real(dp) :: occ(me%nbnd)
       complex(dp),dimension(me%nbnd,me%nbnd) :: rhok_bnd
 
+      print*, "CalcObservables_dip"
+
       AF = 0.0_dp; EF = 0.0_dp
       call field(tstp*dt + me%tstart,AF,EF)
 
