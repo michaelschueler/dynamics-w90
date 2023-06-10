@@ -155,6 +155,7 @@ program wann_evol_mpi
       if(threadid == 0) then
          nthreads = omp_get_num_threads()
          write(output_unit,fmt148) 'number of threads',nthreads
+         write(output_unit,fmt148) 'number of MPI ranks',ntasks
          write(output_unit,*)
       end if
       !$OMP END PARALLEL
