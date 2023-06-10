@@ -514,15 +514,13 @@ contains
 
 
 #ifdef WITHFFTW
-         ! if(me%gauge == dipole_gauge) then
-         !    call Wann_FFT_Observables_dip(me%ham,me%ham_fft,kdist,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
-         !       dipole_current=.true.)
-         ! else
-         !    call Wann_FFT_Observables_dip(me%ham,me%ham_fft,kdist,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
-         !       dipole_current=.false.)            
-         ! end if
-
-
+         if(me%gauge == dipole_gauge) then
+            call Wann_FFT_Observables_dip(me%ham,me%ham_fft,kdist,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
+               dipole_current=.true.)
+         else
+            call Wann_FFT_Observables_dip(me%ham,me%ham_fft,kdist,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
+               dipole_current=.false.)            
+         end if
 #endif
       else
          Etot_loc = ck * Wann_TotalEn_dip(me%ham,me%Nk_loc,me%kcoord_loc,AF,EF,me%Rhok)
