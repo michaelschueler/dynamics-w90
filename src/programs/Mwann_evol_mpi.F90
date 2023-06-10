@@ -512,8 +512,8 @@ contains
          Dip_loc = ck * Wann_Pol_dip_calc(me%nbnd,me%Nk_loc,me%Dk,me%Rhok)
       elseif(me%fft_mode) then
 
-      print*, taskid, "step", tstp
-         
+      print*, taskid, "step", tstp, ck
+
 #ifdef WITHFFTW
          if(me%gauge == dipole_gauge) then
             call Wann_FFT_Observables_dip(me%ham,me%ham_fft,kdist,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&

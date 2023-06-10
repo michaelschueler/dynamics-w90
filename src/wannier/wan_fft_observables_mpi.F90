@@ -40,6 +40,8 @@ contains
       complex(dp),allocatable,dimension(:,:,:,:) :: grad_Hk,Dk
       integer :: ntasks,taskid,ierr
 
+      print*, "Wann_FFT_Observables_dip"
+
       call MPI_COMM_RANK(MPI_COMM_WORLD, taskid, ierr)
       call MPI_COMM_SIZE(MPI_COMM_WORLD, ntasks, ierr)
 
@@ -49,6 +51,8 @@ contains
       nbnd = ham_fft%nwan
       Nk = ham_fft%nkpts
       Nk_loc = kdist%N_loc(taskid)
+      print*, "[Wann_FFT_Observables_dip ] Nk ", Nk
+      print*, "[Wann_FFT_Observables_dip ] Nk_loc ", Nk_loc
 
       large_size = get_large_size(nbnd)
 
