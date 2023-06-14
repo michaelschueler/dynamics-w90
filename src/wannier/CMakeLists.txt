@@ -63,5 +63,5 @@ if(wannier_lib)
 
     install(FILES ${CMAKE_Fortran_MODULE_DIRECTORY}/wan_read_xyz.mod DESTINATION include/hamw90)
     install(FILES ${CMAKE_Fortran_MODULE_DIRECTORY}/wan_hamiltonian.mod DESTINATION include/hamw90)
-    install(FILES ${CMAKE_Fortran_MODULE_DIRECTORY}/wan_latt_utils.mod DESTINATION include/hamw90)
+    install(FILES ${CMAKE_Fortran_MODULE_DIRECTORY}/wan_utils.mod DESTINATION include/hamw90)
 endif(wannier_lib)
