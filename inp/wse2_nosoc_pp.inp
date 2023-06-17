@@ -8,6 +8,7 @@
 &HAMILTONIAN
 	file_ham="data/WSe2_nosoc/wse2_11bnd_proj_tb.dat"
 	w90_with_soc=.false.
+	!exclude_orbitals="6,7,8,9,10,11"
 /
 &KPOINTS
 	kpoints_type="path"

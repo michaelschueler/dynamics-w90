@@ -7,8 +7,9 @@
 	gauge=0
 /
 &HAMILTONIAN
-	file_ham="data/WS2_soc/ws2_11bnd_mlwf_tb.dat"
+	file_ham="data/WS2_soc/ws2_11bnd_proj_tb.dat"
 	w90_with_soc=.true.
+	energy_thresh=1.0d-4
 /
 &KPOINTS
 	kpoints_type="path"
