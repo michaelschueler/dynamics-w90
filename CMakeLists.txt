@@ -166,6 +166,25 @@ if (fftw)
     endif(fftw3_prefix)
 endif(fftw)
 
+# ~~ Add SPFFT ~~
+if (spfft)
+    message(STATUS "Building with SpFFT")
+    if(spfft_prefix)
+        find_library(SPFFT_LIB REQUIRED
+        NAMES spfft
+            HINTS "${spfft_prefix}/lib"
+        )     
+    else(spfft_prefix)     
+        find_library(SPFFT_LIB REQUIRED NAMES spfft)
+    endif(spfft_prefix)
+    message(STATUS "SpFFT found: ${SPFFT_LIB} " )
+
+    list(APPEND COMMON_LIBS ${SPFFT_LIB})
+    link_directories(${spfft_prefix}/lib)
+    include_directories(${spfft_prefix}/include)       
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DWITHSPFFT")
+endif (spfft)
+
 # ~~ Add SciTools ~~
 if(scitools_prefix)
     find_library(SCITOOLS_LIB
