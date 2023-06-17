@@ -181,7 +181,7 @@ if (spfft)
 
     list(APPEND COMMON_LIBS ${SPFFT_LIB})
     link_directories(${spfft_prefix}/lib)
-    include_directories(${spfft_prefix}/include)       
+    include_directories(${spfft_prefix}/include/spfft)       
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DWITHSPFFT")
 endif (spfft)
 
