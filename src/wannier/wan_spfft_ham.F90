@@ -7,7 +7,6 @@ module wan_spfft_ham
    use Mdebug
    use scitools_def,only: dp,iu,zero,one
    use scitools_utils,only: str,stop_error
-   use scitools_array1d_dist,only: dist_array1d_t
    use wan_hamiltonian,only: wann90_tb_t
    use spfft
    implicit none
@@ -48,11 +47,10 @@ module wan_spfft_ham
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine InitFromW90(me,w90,nk,kdist)
+   subroutine InitFromW90(me,w90,nk)
       class(wann_spfft_t),target :: me
       type(wann90_tb_t),intent(in) :: w90
       integer,intent(in) :: nk(:)
-      type(dist_array1d_t),intent(in) :: kdist
       integer :: ir,irw,ix,iy,iz,i,j,counter
       integer :: kx,ky
       integer :: ix_bound(2),iy_bound(2),iz_bound(2)
