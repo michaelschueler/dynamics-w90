@@ -193,8 +193,8 @@ contains
       if(present(tid)) tid_ = tid
 
       me%Hkt(:,:,tid_) = Hk(:,:,ik)
-      me%Hkt(:,:,tid_) = me%Hkt(:,:,tid_) - me%AF(1) * vk(:,:,ik,1) &
-         - me%AF(2) * vk(:,:,ik,2) - me%AF(3) * vk(:,:,ik,3) 
+      me%Hkt(:,:,tid_) = me%Hkt(:,:,tid_) - me%AF(1) * vk(:,:,1,ik) &
+         - me%AF(2) * vk(:,:,2,ik) - me%AF(3) * vk(:,:,3,ik) 
 
       ! call GenU_CF2(dt, me%Hkt, me%Udt)
 

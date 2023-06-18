@@ -228,7 +228,7 @@ contains
       if(present(method)) method_ = method
 
       call assert_shape(Hk,[nbnd,nbnd,Nk],"Wann_timestep_RelaxTime_velo_calc","Hk")
-      call assert_shape(vk,[nbnd,nbnd,Nk,3],"Wann_timestep_RelaxTime_velo_calc","vk")
+      call assert_shape(vk,[nbnd,nbnd,3,Nk],"Wann_timestep_RelaxTime_velo_calc","vk")
       call assert_shape(Rhok,[nbnd,nbnd,Nk],"Wann_timestep_RelaxTime_velo_calc","Rhok")
 
       select case(method_)
