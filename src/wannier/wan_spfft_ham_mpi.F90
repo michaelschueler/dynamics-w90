@@ -1,12 +1,14 @@
-module wan_spfft_ham
+module wan_spfft_ham_mpi
 !! Provides tools for reading/writing the Wannier Hamiltonian and for computing 
 !! band structures, observables, and Berry-phase properties.
 !======================================================================================
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use,intrinsic :: ISO_C_binding
+   use mpi
    use Mdebug
    use scitools_def,only: dp,iu,zero,one
    use scitools_utils,only: str,stop_error
+   use scitools_array1d_dist,only: dist_array1d_t
    use wan_hamiltonian,only: wann90_tb_t
    use spfft
    implicit none
@@ -17,10 +19,12 @@ module wan_spfft_ham
    private
    public :: wann_spfft_t
 !--------------------------------------------------------------------------------------
+   integer :: ntasks,taskid,ierr
+!--------------------------------------------------------------------------------------
    type :: wann_spfft_t
       integer                                    :: nwan
       integer                                    :: nrpts
-      integer                                    :: nkx,nky,nkz,nkpts,kdim
+      integer                                    :: nkx,nky,nkz,nkpts,nkpts_loc,kdim
       integer,allocatable,dimension(:)           :: ndegen
       integer,allocatable,dimension(:,:)         :: irvec
       real(dp),allocatable,dimension(:,:)        :: crvec
@@ -48,9 +52,10 @@ module wan_spfft_ham
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine InitFromW90(me,w90,nk,nthreads)
+   subroutine InitFromW90(me,w90,nk,kdist,nthreads)
       class(wann_spfft_t),target :: me
       type(wann90_tb_t),intent(in) :: w90
+      type(dist_array1d_t),intent(in) :: kdist
       integer,intent(in),optional :: nthreads
       integer,intent(in) :: nk(:)
       integer :: ir,irw,ix,iy,iz,i,j,counter
@@ -59,11 +64,15 @@ contains
       integer,allocatable :: w90_rindx(:)
       integer,allocatable :: indx_2d(:,:), indx_3d(:,:,:)
 
+      call MPI_COMM_RANK(MPI_COMM_WORLD, taskid, ierr)
+      call MPI_COMM_SIZE(MPI_COMM_WORLD, ntasks, ierr)
+
       if(present(nthreads)) me%maxNumThreads = nthreads
 
       me%nwan = w90%num_wann
       me%kdim = size(nk)
       me%nrpts = w90%nrpts
+      me%nkpts_loc = kdist%N_loc(taskid)
 
       me%nkx = 1
       me%nky = 1
@@ -78,7 +87,7 @@ contains
          me%nky = nk(2)
          me%nkz = nk(3)
       case default
-         call stop_error("SpFFT not implemented for dimensions other than 2 or 3")
+         call stop_error("SpFFT not implemented for dimensions other than 2 or 3", root_flag=taskid==0)
       end select       
 
       me%nkpts = me%nkx * me%nky * me%nkz  
@@ -155,15 +164,16 @@ contains
 
    end subroutine Clean
 !--------------------------------------------------------------------------------------
-   subroutine GetHam(me,Hk,Ar)
+   subroutine GetHam(me,kdist,Hk,Ar)
       class(wann_spfft_t) :: me
+      type(dist_array1d_t),intent(in) :: kdist
       complex(dp),intent(inout) :: Hk(:,:,:)
       real(dp),intent(in),optional :: Ar(3)
-      integer :: i,j,ik,ir
+      integer :: i,j,ik,ik_glob
       integer :: errorCode = 0
       complex(C_DOUBLE_COMPLEX), pointer :: spaceDomainPtr(:)
 
-      call assert_shape(Hk, [me%nwan,me%nwan,me%nkpts], "GetHam", "Hk")
+      call assert_shape(Hk, [me%nwan,me%nwan,me%nkpts_loc], "GetHam", "Hk")
 
       do j=1,me%nwan
          do i=1,j
@@ -182,8 +192,9 @@ contains
 
             call c_f_pointer(me%realValuesPtr, spaceDomainPtr, [me%nkpts])
 
-            do ik=1,me%nkpts
-               Hk(i,j,ik) = spaceDomainPtr(ik)
+            do ik=1,me%nkpts_loc
+               ik_glob = kdist%Indx_Loc2Glob(taskid,ik)
+               Hk(i,j,ik) = spaceDomainPtr(ik_glob)
                if(i < j) Hk(j,i,ik) = conjg(Hk(i,j,ik))
             end do
          end do
@@ -191,15 +202,16 @@ contains
 
    end subroutine GetHam
 !--------------------------------------------------------------------------------------
-   subroutine GetGradHam(me,GradHk,Ar)
+   subroutine GetGradHam(me,kdist,GradHk,Ar)
       class(wann_spfft_t) :: me
+      type(dist_array1d_t),intent(in) :: kdist
       complex(dp),intent(inout) :: GradHk(:,:,:,:)
       real(dp),intent(in),optional :: Ar(3)
       integer :: i,j,idir,ik,ik_glob
       integer :: errorCode = 0
       complex(C_DOUBLE_COMPLEX), pointer :: spaceDomainPtr(:)
 
-      call assert_shape(GradHk, [me%nwan,me%nwan,3,me%nkpts], "GetGradHam", "GradHk")
+      call assert_shape(GradHk, [me%nwan,me%nwan,3,me%nkpts_loc], "GetGradHam", "GradHk")
 
       do j=1,me%nwan
          do i=1,j
@@ -215,8 +227,9 @@ contains
 
                call c_f_pointer(me%realValuesPtr, spaceDomainPtr, [me%nkpts])
 
-               do ik=1,me%nkpts
-                  GradHk(i,j,idir,ik) = spaceDomainPtr(ik)
+               do ik=1,me%nkpts_loc
+                  ik_glob = kdist%Indx_Loc2Glob(taskid,ik)
+                  GradHk(i,j,idir,ik) = spaceDomainPtr(ik_glob)
                   if(i < j) GradHk(j,i,idir,ik) = conjg(GradHk(i,j,idir,ik))
                end do
             end do
@@ -225,15 +238,16 @@ contains
 
    end subroutine GetGradHam
 !--------------------------------------------------------------------------------------
-     subroutine GetDipole(me,Dk,Ar)
+     subroutine GetDipole(me,kdist,Dk,Ar)
       class(wann_spfft_t) :: me
+      type(dist_array1d_t),intent(in) :: kdist
       complex(dp),intent(inout) :: Dk(:,:,:,:)
       real(dp),intent(in),optional :: Ar(3)
       integer :: i,j,idir,ik,ik_glob
       integer :: errorCode = 0
       complex(C_DOUBLE_COMPLEX), pointer :: spaceDomainPtr(:)
 
-      call assert_shape(Dk, [me%nwan,me%nwan,3,me%nkpts], "GetDipole", "Dk")
+      call assert_shape(Dk, [me%nwan,me%nwan,3,me%nkpts_loc], "GetDipole", "Dk")
 
       do j=1,me%nwan
          do i=1,j
@@ -253,8 +267,9 @@ contains
 
                call c_f_pointer(me%realValuesPtr, spaceDomainPtr, [me%nkpts])
 
-               do ik=1,me%nkpts
-                  Dk(i,j,idir,ik) = spaceDomainPtr(ik)
+               do ik=1,me%nkpts_loc
+                  ik_glob = kdist%Indx_Loc2Glob(taskid,ik)
+                  Dk(i,j,idir,ik) = spaceDomainPtr(ik_glob)
                   if(i < j) Dk(j,i,idir,ik) = conjg(Dk(i,j,idir,ik))
                end do
             end do
@@ -331,4 +346,4 @@ contains
 
 !======================================================================================
 
-end module wan_spfft_ham
+end module wan_spfft_ham_mpi
