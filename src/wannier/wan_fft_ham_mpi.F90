@@ -10,6 +10,9 @@ module wan_fft_ham_mpi
    use scitools_utils,only: str,stop_error
    use scitools_array1d_dist,only: dist_array1d_t
    use wan_hamiltonian,only: wann90_tb_t
+#ifdef WITHSPFFT
+   use spfft
+#endif
    implicit none
    include '../units_inc.f90'
    include '../formats.h'
@@ -25,6 +28,7 @@ module wan_fft_ham_mpi
       integer                                    :: nrpts
       integer                                    :: nkx,nky,nkz,nkpts,nkpts_loc,kdim
       integer,allocatable,dimension(:)           :: ndegen
+      integer,allocatable,dimension(:,:)         :: irvec
       real(dp),allocatable,dimension(:,:)        :: crvec
       complex(dp),allocatable,dimension(:)       :: HA_r
       complex(dp),allocatable,dimension(:,:)     :: gradH_R
@@ -58,9 +62,9 @@ module wan_fft_ham_mpi
 contains
 !--------------------------------------------------------------------------------------
 #ifdef WITHSPFFT
-   include 'wan_spfft_ham_mpi_inc.F90'
+   include 'spfft_mpi_inc.F90'
 #else
-   include 'wan_fftw_ham_mpi_inc.F90'
+   include 'fftw_mpi_inc.F90'
 #endif
 !--------------------------------------------------------------------------------------
    subroutine GetGradiant(crvec,OO_R,vec_R)

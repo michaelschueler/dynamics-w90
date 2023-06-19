@@ -271,12 +271,13 @@
 
       allocate(work_r(me%nkx),work_k(me%nkx))
       do j=1,me%nwan
-         do i=1,me%nwan
+         do i=1,j
             call Smooth2Dense_1d(me%nx, me%nkx, me%ham_r(:,i,j), work_r)
             call dfftw_execute_dft(me%plan_bw,work_r,work_k)
             !$OMP PARALLEL DO
             do ik=1,me%nkx
                Hk(i,j,ik) = work_k(ik)
+               if(i < j) Hk(j,i,ik)  = conjg(Hk(i,j,ik))
             end do
          end do
       end do
@@ -295,13 +296,14 @@
       allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
 
       do j=1,me%nwan
-         do i=1,me%nwan
+         do i=1,j
             call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, me%ham_r(:,i,j), work_r)
             call dfftw_execute_dft(me%plan_bw,work_r,work_k)
             work_1d = reshape(work_k, [me%nkpts])
             !$OMP PARALLEL DO
             do ik=1,me%nkpts
                Hk(i,j,ik) = work_1d(ik)
+               if(i < j) Hk(j,i,ik)  = conjg(Hk(i,j,ik))
             end do
          end do
       end do
@@ -319,13 +321,14 @@
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
 
       do j=1,me%nwan
-         do i=1,me%nwan
+         do i=1,j
             call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, me%ham_r(:,i,j), work_r)
             call dfftw_execute_dft(me%plan_bw,work_r,work_k)
             work_1d = reshape(work_k, [me%nkpts])
             !$OMP PARALLEL DO
             do ik=1,me%nkpts
                Hk(i,j,ik) = work_1d(ik)
+               if(i < j) Hk(j,i,ik)  = conjg(Hk(i,j,ik))
             end do
          end do
       end do
@@ -347,7 +350,7 @@
       allocate(work_r(me%nkx),work_k(me%nkx))
       allocate(gradH_R(me%nrpts,3))
       do j=1,me%nwan
-         do i=1,me%nwan
+         do i=1,j
             ! call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
             call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
@@ -356,6 +359,7 @@
                !$OMP PARALLEL DO
                do ik=1,me%nkx
                   GradHk(i,j,idir,ik) = work_k(ik)
+                  if(i < j) GradHk(j,i,idir,ik)   = conjg( GradHk(i,j,idir,ik) )
                end do
             end do
          end do
@@ -378,7 +382,7 @@
       allocate(gradH_R(me%nrpts,3))
 
       do j=1,me%nwan
-         do i=1,me%nwan
+         do i=1,j
             ! call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
             call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
@@ -388,6 +392,7 @@
                !$OMP PARALLEL DO
                do ik=1,me%nkpts
                   GradHk(i,j,idir,ik) = work_1d(ik)
+                  if(i < j) GradHk(j,i,idir,ik)   = conjg( GradHk(i,j,idir,ik) )
                end do
             end do
          end do
@@ -408,7 +413,7 @@
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
       allocate(gradH_R(me%nrpts,3))
       do j=1,me%nwan
-         do i=1,me%nwan
+         do i=1,j
             ! call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
             call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
@@ -418,6 +423,7 @@
                !$OMP PARALLEL DO
                do ik=1,me%nkpts
                   GradHk(i,j,idir,ik) = work_1d(ik)
+                  if(i < j) GradHk(j,i,idir,ik)   = conjg( GradHk(i,j,idir,ik) )
                end do
             end do
          end do
@@ -443,7 +449,7 @@
       allocate(work_r(me%nkx),work_k(me%nkx))
       allocate(gradH_R(me%nrpts,3))
       do j=1,me%nwan
-         do i=1,me%nwan
+         do i=1,j
             ! call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
             call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
@@ -454,6 +460,7 @@
                !$OMP PARALLEL DO
                do ik=1,me%nkx
                   GradHk(i,j,idir,ik) = work_k(ik)
+                  if(i < j) GradHk(j,i,idir,ik)   = conjg( GradHk(i,j,idir,ik) )
                end do
             end do
          end do
@@ -476,7 +483,7 @@
       allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
       allocate(gradH_R(me%nrpts,3))
       do j=1,me%nwan
-         do i=1,me%nwan
+         do i=1,j
             ! call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
             call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
@@ -488,6 +495,7 @@
                !$OMP PARALLEL DO
                do ik=1,me%nkpts
                   GradHk(i,j,idir,ik) = work_1d(ik)
+                  if(i < j) GradHk(j,i,idir,ik)   = conjg( GradHk(i,j,idir,ik) )
                end do
             end do
          end do
@@ -512,7 +520,7 @@
       allocate(gradH_R(me%nrpts,3))
 
       do j=1,me%nwan
-         do i=1,me%nwan
+         do i=1,j
             ! call me%DressCrvec(me%ham_r(:,i,j), gradH_R)
             call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
@@ -524,6 +532,7 @@
                !$OMP PARALLEL DO
                do ik=1,me%nkpts
                   GradHk(i,j,idir,ik) = work_1d(ik)
+                  if(i < j) GradHk(j,i,idir,ik)   = conjg( GradHk(i,j,idir,ik) )
                end do
             end do
          end do
@@ -547,7 +556,7 @@
 
       allocate(HA_r(me%nx),work_r(me%nkx),work_k(me%nkx))
       do j=1,me%nwan
-         do i=1,me%nwan
+         do i=1,j
             HA_r = me%ham_r(:,i,j)
             ! call me%DressPhase(Ar, HA_r)
             call ApplyPhaseFactor([me%nx], Ar, HA_r)
@@ -556,6 +565,7 @@
             !$OMP PARALLEL DO
             do ik=1,me%nkx
                Hk(i,j,ik) = work_k(ik)
+               if(i < j) Hk(j,i,ik)   = conjg( Hk(i,j,ik) )
             end do
          end do
       end do
@@ -577,7 +587,7 @@
       allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
 
       do j=1,me%nwan
-         do i=1,me%nwan
+         do i=1,j
             HA_r = me%ham_r(:,i,j)
             ! call me%DressPhase(Ar, HA_r)
             call ApplyPhaseFactor([me%nx,me%ny], Ar, HA_r)
@@ -587,6 +597,7 @@
             !$OMP PARALLEL DO
             do ik=1,me%nkpts
                Hk(i,j,ik) = work_1d(ik)
+               if(i < j) Hk(j,i,ik)   = conjg( Hk(i,j,ik) )
             end do
          end do
       end do
@@ -609,7 +620,7 @@
       allocate(work_r(me%nkx,me%nky,me%nkz),work_k(me%nkx,me%nky,me%nkz),work_1d(me%nkpts))
 
       do j=1,me%nwan
-         do i=1,me%nwan
+         do i=1,j
             HA_r = me%ham_r(:,i,j)
             call ApplyPhaseFactor([me%nx,me%ny,me%nz], Ar, HA_r)
             call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, HA_r, work_r)
@@ -618,6 +629,7 @@
             !$OMP PARALLEL DO
             do ik=1,me%nkpts
                Hk(i,j,ik) = work_1d(ik)
+               if(i < j) Hk(j,i,ik)   = conjg( Hk(i,j,ik) )
             end do
          end do
       end do
@@ -639,12 +651,13 @@
 
       do idir=1,3
          do j=1,me%nwan
-            do i=1,me%nwan
+            do i=1,j
                call Smooth2Dense_1d(me%nx, me%nkx, me%pos_r(:,i,j,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                !$OMP PARALLEL DO
                do ik=1,me%nkx
                   Dk(i,j,idir,ik) = work_k(ik)
+                  if(i < j) Dk(j,i,idir,ik) = conjg( Dk(i,j,idir,ik) )
                end do
             end do
          end do
@@ -666,13 +679,14 @@
 
       do idir=1,3
          do j=1,me%nwan
-            do i=1,me%nwan
+            do i=1,j
                call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, me%pos_r(:,i,j,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                work_1d = reshape(work_k, [me%nkpts])
                !$OMP PARALLEL DO
                do ik=1,me%nkpts
                   Dk(i,j,idir,ik) = work_1d(ik)
+                  if(i < j) Dk(j,i,idir,ik) = conjg( Dk(i,j,idir,ik) )
                end do
             end do
          end do
@@ -694,13 +708,14 @@
 
       do idir=1,3
          do j=1,me%nwan
-            do i=1,me%nwan
+            do i=1,j
                call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, me%pos_r(:,i,j,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                work_1d = reshape(work_k, [me%nkpts])
                !$OMP PARALLEL DO
                do ik=1,me%nkpts
                   Dk(i,j,idir,ik) = work_1d(ik)
+                  if(i < j) Dk(j,i,idir,ik) = conjg( Dk(i,j,idir,ik) )
                end do
             end do
          end do
@@ -725,7 +740,7 @@
 
       do idir=1,3
          do j=1,me%nwan
-            do i=1,me%nwan
+            do i=1,j
                DA_r = me%pos_r(:,i,j,idir)
                call ApplyPhaseFactor([me%nx], Ar, DA_r)
                ! call me%DressPhase(Ar,DA_r)
@@ -734,6 +749,7 @@
                !$OMP PARALLEL DO
                do ik=1,me%nkx
                   Dk(i,j,idir,ik) = work_k(ik)
+                  if(i < j) Dk(j,i,idir,ik) = conjg( Dk(i,j,idir,ik) )
                end do
             end do
          end do
@@ -759,7 +775,7 @@
 
       do idir=1,3
          do j=1,me%nwan
-            do i=1,me%nwan
+            do i=1,j
                DA_r = me%pos_r(:,i,j,idir)
                call ApplyPhaseFactor([me%nx,me%ny], Ar, DA_r)
                ! call me%DressPhase(Ar,DA_r)
@@ -769,6 +785,7 @@
                !$OMP PARALLEL DO
                do ik=1,me%nkpts
                   Dk(i,j,idir,ik) = work_1d(ik)
+                  if(i < j) Dk(j,i,idir,ik) = conjg( Dk(i,j,idir,ik) )
                end do
             end do
          end do
@@ -794,7 +811,7 @@
 
       do idir=1,3
          do j=1,me%nwan
-            do i=1,me%nwan
+            do i=1,j
                DA_r = me%pos_r(:,i,j,idir)
                call ApplyPhaseFactor([me%nx,me%ny,me%nz], Ar, DA_r)
                ! call me%DressPhase(Ar,DA_r)
@@ -804,6 +821,7 @@
                !$OMP PARALLEL DO
                do ik=1,me%nkpts
                   Dk(i,j,idir,ik) = work_1d(ik)
+                  if(i < j) Dk(j,i,idir,ik) = conjg( Dk(i,j,idir,ik) )
                end do
             end do
          end do

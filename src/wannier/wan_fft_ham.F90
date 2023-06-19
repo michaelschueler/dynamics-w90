@@ -48,9 +48,6 @@ module wan_fft_ham
       integer :: nx,ny,nz
       integer(kind=8) :: plan_fw,plan_bw
       complex(dp),allocatable,dimension(:)       :: work_r,work_k   
-      ! .. parallelization ..
-      logical :: fftw_omp
-      integer :: nthreads,nthreads_fft,nthreads_orb
 #endif
    contains
       procedure, public   :: InitFromW90
@@ -64,9 +61,9 @@ module wan_fft_ham
 contains
 !--------------------------------------------------------------------------------------
 #ifdef WITHSPFFT
-   include 'wan_spfft_ham_inc.F90'
+   include 'spfft_inc.F90'
 #else
-   include 'wan_fftw_ham_inc.F90'
+   include 'fftw_inc.F90'
 #endif
 !--------------------------------------------------------------------------------------
    subroutine GetGradiant(crvec,OO_R,vec_R)

@@ -1,9 +1,10 @@
 !--------------------------------------------------------------------------------------
-   subroutine InitFromW90(me,w90,nk,kdist)
+   subroutine InitFromW90(me,w90,nk,kdist,nthreads)
       class(wann_fft_t),target :: me
       type(wann90_tb_t),intent(in) :: w90
       integer,intent(in) :: nk(:)
       type(dist_array1d_t),intent(in) :: kdist
+      integer,intent(in),optional :: nthreads
       integer :: ir,irw,ix,iy,iz,i,j
       integer :: kx,ky
       integer :: ix_bound(2),iy_bound(2),iz_bound(2)
@@ -13,6 +14,8 @@
       
       call MPI_COMM_RANK(MPI_COMM_WORLD, taskid, ierr)
       call MPI_COMM_SIZE(MPI_COMM_WORLD, ntasks, ierr)
+
+      if(present(nthreads)) me%nthreads = nthreads
 
       me%nwan = w90%num_wann
       me%nwan2 = (me%nwan * (me%nwan + 1)) / 2
@@ -28,6 +31,13 @@
       me%nkx = 1
       me%nky = 1
       me%nkz = 1
+
+#ifdef WITHFFTWOMP
+      ierr = fftw_init_threads()
+      if(ierr == 0) call stop_error("Error in fftw_init_threads")
+
+      call FFTW_PLAN_WITH_NTHREADS(me%nthreads)      
+#endif
 
       select case(me%kdim)
       case(1)

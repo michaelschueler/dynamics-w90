@@ -118,8 +118,6 @@ program wann_evol
    type(TimeParams_t) :: par_time
    logical :: spin_current=.false.,Output_Occ_KPTS=.false.,save_dens=.false.
    namelist/OUTPUT/spin_current,Output_Occ_KPTS,save_dens
-   integer :: nthreads_fft=1,nthreads_orb=1
-   namelist/PARALLELIZATION/nthreads_fft,nthreads_orb
    ! -- internal variables --
    logical  :: file_ok
    logical  :: ApplyField=.false.
@@ -145,7 +143,6 @@ program wann_evol
    threadid = omp_get_thread_num()
    if(threadid == 0) then
       nthreads = omp_get_num_threads()
-      nthreads_orb = nthreads
       write(output_unit,fmt148) 'number of threads',nthreads
       write(output_unit,*)
    end if
@@ -217,12 +214,11 @@ program wann_evol
    if(par_time%restart_evolution) then
       call lattsys%Init(par_ham%Beta,par_ham%MuChem,ham,kp,par_ham%lm_gauge,&
          T1=par_time%T1_relax,T2=par_time%T2_relax,propagator=par_time%propagator,&
-         nthreads_fft=nthreads_fft,nthreads_orb=nthreads_orb,Rhok_start=Rhok,tstart=tstart)
+         Rhok_start=Rhok,tstart=tstart)
       deallocate(Rhok)
    else
       call lattsys%Init(par_ham%Beta,par_ham%MuChem,ham,kp,par_ham%lm_gauge,&
-         T1=par_time%T1_relax,T2=par_time%T2_relax,propagator=par_time%propagator,&
-         nthreads_fft=nthreads_fft,nthreads_orb=nthreads_orb)
+         T1=par_time%T1_relax,T2=par_time%T2_relax,propagator=par_time%propagator)
    end if
 
    call lattsys%SetLaserPulse(external_field)

@@ -9,9 +9,6 @@ module wan_fft_observables_mpi
    use scitools_array1d_dist,only: dist_array1d_t
    use wan_hamiltonian,only: wann90_tb_t
    use wan_fft_ham_mpi,only: wann_fft_t
-#ifdef WITHSPFFT
-   use wan_spfft_ham_mpi,only: wann_spfft_t
-#endif
    implicit none
    include '../formats.h'
 !--------------------------------------------------------------------------------------
@@ -22,11 +19,7 @@ contains
 !--------------------------------------------------------------------------------------
    subroutine Wann_FFT_Observables_dip(ham,ham_fft,kdist,AF,EF,Rhok,Ekin,Etot,Jcurr,Jgrad,Dip,dipole_current)
       type(wann90_tb_t),intent(in) :: ham
-#ifdef WITHSPFFT
-      type(wann_spfft_t),intent(in)  :: ham_fft
-#else
       type(wann_fft_t),intent(in)  :: ham_fft
-#endif
       type(dist_array1d_t),intent(in) :: kdist
       real(dp),intent(in)          :: AF(3)
       real(dp),intent(in)          :: EF(3)

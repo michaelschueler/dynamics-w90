@@ -7,9 +7,6 @@ module wan_fft_observables
    use scitools_linalg,only: get_large_size,util_matmul
    use wan_hamiltonian,only: wann90_tb_t
    use wan_fft_ham,only: wann_fft_t
-#ifdef WITHSPFFT
-   use wan_spfft_ham,only: wann_spfft_t
-#endif
    implicit none
    include '../formats.h'
 !--------------------------------------------------------------------------------------
@@ -20,11 +17,7 @@ contains
 !--------------------------------------------------------------------------------------
    subroutine Wann_FFT_Observables_dip(ham,ham_fft,AF,EF,Rhok,Ekin,Etot,Jcurr,Jgrad,Dip,dipole_current)
       type(wann90_tb_t),intent(in) :: ham
-#ifdef WITHSPFFT
-      type(wann_spfft_t),intent(in)  :: ham_fft
-#else
       type(wann_fft_t),intent(in)  :: ham_fft
-#endif
       real(dp),intent(in)          :: AF(3)
       real(dp),intent(in)          :: EF(3)
       complex(dp),intent(in)       :: Rhok(:,:,:)
@@ -59,15 +52,10 @@ contains
       allocate(grad_Hk(nbnd,nbnd,3,Nk))
       allocate(Dk(nbnd,nbnd,3,Nk))
 
-#ifdef WITHSPFFT
+
       call ham_fft%GetHam(Hk, Ar=Ared)
       call ham_fft%GetGradHam(grad_Hk, Ar=Ared)
       call ham_fft%GetDipole(Dk, Ar=Ared)
-#else
-      call ham_fft%GetHam_Dressed(Ared, Hk)
-      call ham_fft%GetGradHam_Dressed(Ared, grad_Hk)
-      call ham_fft%GetDipole_Dressed(Ared, Dk)
-#endif
 
       Ekin = 0.0_dp
       Etot = 0.0_dp

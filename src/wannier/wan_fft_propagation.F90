@@ -9,9 +9,6 @@ module wan_fft_propagation
    use wan_utils,only: Batch_Diagonalize_t
    use wan_hamiltonian,only: wann90_tb_t
    use wan_fft_ham,only: wann_fft_t
-#ifdef WITHSPFFT
-   use wan_spfft_ham,only: wann_spfft_t
-#endif
    implicit none
    include '../formats.h'
    include '../units_inc.f90'
@@ -36,11 +33,7 @@ contains
 !--------------------------------------------------------------------------------------
    subroutine Wann_FFT_UnitaryTimestep_dip(ham,ham_fft,tstp,dt,tstart,field,Rhok,Peierls_only)
       type(wann90_tb_t),intent(in) :: ham
-#ifdef WITHSPFFT
-      type(wann_spfft_t),intent(in)  :: ham_fft
-#else
       type(wann_fft_t),intent(in)  :: ham_fft
-#endif
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
       real(dp),intent(in)          :: tstart
@@ -77,13 +70,13 @@ contains
 
       allocate(Hk_1(nbnd,nbnd,Nk),Hk_2(nbnd,nbnd,Nk))
 
-      call ham_fft%GetHam_Dressed(Ared(:,1), Hk_1)
-      call ham_fft%GetHam_Dressed(Ared(:,2), Hk_2)
+      call ham_fft%GetHam(Hk_1, Ar=Ared(:,1))
+      call ham_fft%GetHam(Hk_2, Ar=Ared(:,2))
 
       if(.not.peierls_) then
          allocate(Dk_1(nbnd,nbnd,3,Nk),Dk_2(nbnd,nbnd,3,Nk))
-         call ham_fft%GetDipole_Dressed(Ared(:,1), Dk_1)
-         call ham_fft%GetDipole_Dressed(Ared(:,2), Dk_2)
+         call ham_fft%GetDipole(Dk_1, Ar=Ared(:,1))
+         call ham_fft%GetDipole(Dk_2, Ar=Ared(:,2))
          do ik=1,Nk
             do idir=1,3
                Hk_1(:,:,ik) = Hk_1(:,:,ik) - EF(idir,1) * Dk_1(:,:,idir,ik)
@@ -119,11 +112,7 @@ contains
    subroutine Wann_FFT_RelaxTimestep_dip(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,&
       Peierls_only,method)
       type(wann90_tb_t),intent(in) :: ham
-#ifdef WITHSPFFT
-      type(wann_spfft_t),intent(in)  :: ham_fft
-#else
       type(wann_fft_t),intent(in)  :: ham_fft
-#endif
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
       real(dp),intent(in)          :: tstart
@@ -158,11 +147,7 @@ contains
 !--------------------------------------------------------------------------------------
    subroutine RelaxTimestep_RK4(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,Peierls_only)
       type(wann90_tb_t),intent(in) :: ham
-#ifdef WITHSPFFT
-      type(wann_spfft_t),intent(in)  :: ham_fft
-#else
       type(wann_fft_t),intent(in)  :: ham_fft
-#endif
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
       real(dp),intent(in)          :: tstart
@@ -210,14 +195,14 @@ contains
 
       allocate(Hk_1(nbnd,nbnd,Nk),Hk_2(nbnd,nbnd,Nk),Hk_3(nbnd,nbnd,Nk))
 
-      call ham_fft%GetHam_Dressed(Ared(:,1), Hk_1)
-      call ham_fft%GetHam_Dressed(Ared(:,2), Hk_2)
-      call ham_fft%GetHam_Dressed(Ared(:,3), Hk_3)
+      call ham_fft%GetHam(Hk_1, Ar=Ared(:,1))
+      call ham_fft%GetHam(Hk_2, Ar=Ared(:,2))
+      call ham_fft%GetHam(Hk_3, Ar=Ared(:,3))
       if(.not.Peierls_only) then
          allocate(Dk_1(nbnd,nbnd,3,Nk),Dk_2(nbnd,nbnd,3,Nk),Dk_3(nbnd,nbnd,3,Nk))
-         call ham_fft%GetDipole_Dressed(Ared(:,1), Dk_1)
-         call ham_fft%GetDipole_Dressed(Ared(:,2), Dk_2)
-         call ham_fft%GetDipole_Dressed(Ared(:,3), Dk_3)
+         call ham_fft%GetDipole(Dk_1, Ar=Ared(:,1))
+         call ham_fft%GetDipole(Dk_2, Ar=Ared(:,2))
+         call ham_fft%GetDipole(Dk_3, Ar=Ared(:,3))
          !$OMP PARALLEL DO
          do ik=1,Nk
             do idir=1,3
@@ -291,11 +276,7 @@ contains
 !--------------------------------------------------------------------------------------
   subroutine RelaxTimestep_Hyb(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,Peierls_only)
       type(wann90_tb_t),intent(in) :: ham
-#ifdef WITHSPFFT
-      type(wann_spfft_t),intent(in)  :: ham_fft
-#else
       type(wann_fft_t),intent(in)  :: ham_fft
-#endif
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
       real(dp),intent(in)          :: tstart
@@ -339,10 +320,10 @@ contains
 
       allocate(Hk_12(nbnd,nbnd,Nk))
 
-      call ham_fft%GetHam_Dressed(Ared, Hk_12)
+      call ham_fft%GetHam(Hk_12, Ar=Ared)
       if(.not.Peierls_only) then
          allocate(Dk_12(nbnd,nbnd,3,Nk))
-         call ham_fft%GetDipole_Dressed(Ared, Dk_12)
+         call ham_fft%GetDipole(Dk_12, Ar=Ared)
          do ik=1,Nk
             do idir=1,3
                Hk_12(:,:,ik) = Hk_12(:,:,ik) - EF(idir) * Dk_12(:,:,idir,ik)

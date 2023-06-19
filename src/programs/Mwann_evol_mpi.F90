@@ -1,5 +1,6 @@
 module Mwann_evol_mpi
 !======================================================================================
+   use omp_lib
    use mpi
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
@@ -100,10 +101,18 @@ contains
       complex(dp),intent(in),optional :: Rhok_start(:,:,:)
       real(dp),intent(in),optional :: tstart
       integer :: ik,ik_glob
+      integer :: nthreads,tid
 
       call MPI_COMM_RANK(MPI_COMM_WORLD, taskid, ierr)
       call MPI_COMM_SIZE(MPI_COMM_WORLD, ntasks, ierr)
       on_root = taskid == master
+
+      !$OMP PARALLEL PRIVATE(tid) DEFAULT(SHARED)
+      tid = omp_get_thread_num()
+      if(tid == 0) then 
+         nthreads = omp_get_num_threads()
+      end if
+      !$OMP END PARALLEL   
 
       me%gauge = gauge
 
@@ -159,11 +168,11 @@ contains
 #ifdef WITHFFTW
       if(kp%kpoints_type == kp_fft_grid_2d) then
          if(on_root) write(output_unit,fmt_info) "Fourier transform: 2D FFT"
-         call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2], kdist)
+         call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2], kdist, nthreads=nthreads)
          me%fft_mode = .true.
       elseif(kp%kpoints_type == kp_fft_grid_3d) then
          if(on_root) write(output_unit,fmt_info) "Fourier transform: 3D FFT"
-         call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2, kp%nk3], kdist)   
+         call me%ham_fft%InitFromW90(me%ham, [kp%nk1, kp%nk2, kp%nk3], kdist, nthreads=nthreads)   
          me%fft_mode = .true.   
       else
          if(on_root) write(output_unit,fmt_info) "Fourier transform: DFT"
