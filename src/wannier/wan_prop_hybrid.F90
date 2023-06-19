@@ -192,10 +192,9 @@ contains
       tid_ = 0
       if(present(tid)) tid_ = tid
 
-      me%Hkt(:,:,tid_) = Hk(:,:,ik)
-      me%Hkt(:,:,tid_) = me%Hkt(:,:,tid_) - me%AF(1) * vk(:,:,1,ik) &
+      me%Hkt(:,:,tid_) = Hk(:,:,ik) - me%AF(1) * vk(:,:,1,ik) &
          - me%AF(2) * vk(:,:,2,ik) - me%AF(3) * vk(:,:,3,ik) 
-
+      
       ! call GenU_CF2(dt, me%Hkt, me%Udt)
 
       call me%batch_diag%Diagonalize(me%Hkt(:,:,tid_), tid=tid_)
@@ -220,6 +219,8 @@ contains
       end do
       me%Rho_off(:,:,tid_) = util_rotate_cc(me%nbnd,me%batch_diag%vect(:,:,tid_),me%Rho_tmp(:,:,tid_),large_size=me%large_size)      
 
+      me%Dscatt(:,:,tid_) = -me%Gmm(1) * (Rhok - me%Rho_eq(:,:,tid_)) + me%Gmm(3) * me%Rho_off(:,:,tid_)
+      
       me%Rho_tmp(:,:,tid_) = Rhok + dt6 * me%Dscatt(:,:,tid_)
       call UnitaryStepFBW(me%nbnd,me%Udt(:,:,tid_),me%Rho_tmp(:,:,tid_),Rhok,large_size=me%large_size)
 
