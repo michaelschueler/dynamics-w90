@@ -20,22 +20,6 @@ if(mpi)
 	)
 endif(mpi)
 
-if(spfft)
-    list(APPEND project_EXECUTABLES
-        test_spfft.x
-    )
-
-    set( EXE_test_spfft.x_SOURCES test_spfft.F90)
-
-    if(mpi)
-        list(APPEND mpi_EXECUTABLES
-            test_spfft_mpi.x
-        )
-
-        set( EXE_test_spfft_mpi.x_SOURCES test_spfft_mpi.F90)
-    endif(mpi)    
-
-endif(spfft)
 
 set( EXE_wann_evol.x_SOURCES Mwann_evol.F90 wann_evol.F90)
 set( EXE_wann_calc.x_SOURCES Mwannier_calc.F90 wann_calc.F90)

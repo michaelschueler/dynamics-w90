@@ -1,55 +1,6 @@
-module wan_spfft_ham
-!! Provides tools for reading/writing the Wannier Hamiltonian and for computing 
-!! band structures, observables, and Berry-phase properties.
-!======================================================================================
-   use,intrinsic::iso_fortran_env,only: output_unit,error_unit
-   use,intrinsic :: ISO_C_binding
-   use Mdebug
-   use scitools_def,only: dp,iu,zero,one
-   use scitools_utils,only: str,stop_error
-   use wan_hamiltonian,only: wann90_tb_t
-   use spfft
-   implicit none
-   include '../units_inc.f90'
-   include '../formats.h'
-   include 'fftw3.f03'
-!--------------------------------------------------------------------------------------
-   private
-   public :: wann_spfft_t
-!--------------------------------------------------------------------------------------
-   type :: wann_spfft_t
-      integer                                    :: nwan
-      integer                                    :: nrpts
-      integer                                    :: nkx,nky,nkz,nkpts,kdim
-      integer,allocatable,dimension(:)           :: ndegen
-      integer,allocatable,dimension(:,:)         :: irvec
-      real(dp),allocatable,dimension(:,:)        :: crvec
-      complex(dp),allocatable,dimension(:)       :: HA_r
-      complex(dp),allocatable,dimension(:,:)     :: gradH_R
-      complex(dp),allocatable,dimension(:,:,:)   :: ham_r
-      complex(dp),allocatable,dimension(:,:,:,:) :: pos_r
-      ! .. SpFFT .. 
-      integer :: processingUnit = 1
-      integer :: nthreads = 1
-      integer :: maxNumLocalZColumns
-      type(c_ptr) :: grid = c_null_ptr
-      type(c_ptr) :: transform = c_null_ptr
-      type(c_ptr) :: realValuesPtr
-      integer,allocatable,dimension(:)           :: indices
-      real(C_DOUBLE),allocatable,dimension(:)    :: spaceDomain
-   contains
-      procedure, public   :: InitFromW90
-      procedure, public   :: Clean
-      procedure, public   :: GetHam
-      procedure, public   :: GetGradHam
-      procedure, public   :: GetDipole
-      procedure, private  :: ApplyPhaseFactor
-   end type wann_spfft_t
-!--------------------------------------------------------------------------------------
-contains
 !--------------------------------------------------------------------------------------
    subroutine InitFromW90(me,w90,nk,nthreads)
-      class(wann_spfft_t),target :: me
+      class(wann_fft_t),target :: me
       type(wann90_tb_t),intent(in) :: w90
       integer,intent(in),optional :: nthreads
       integer,intent(in) :: nk(:)
@@ -142,7 +93,7 @@ contains
    end subroutine InitFromW90
 !--------------------------------------------------------------------------------------
    subroutine Clean(me)
-      class(wann_spfft_t) :: me
+      class(wann_fft_t) :: me
 
       if(allocated(me%ham_r)) deallocate(me%ham_r)
       if(allocated(me%pos_r)) deallocate(me%pos_r)
@@ -156,7 +107,7 @@ contains
    end subroutine Clean
 !--------------------------------------------------------------------------------------
    subroutine GetHam(me,Hk,Ar)
-      class(wann_spfft_t) :: me
+      class(wann_fft_t) :: me
       complex(dp),intent(inout) :: Hk(:,:,:)
       real(dp),intent(in),optional :: Ar(3)
       integer :: i,j,ik,ir
@@ -192,7 +143,7 @@ contains
    end subroutine GetHam
 !--------------------------------------------------------------------------------------
    subroutine GetGradHam(me,GradHk,Ar)
-      class(wann_spfft_t) :: me
+      class(wann_fft_t) :: me
       complex(dp),intent(inout) :: GradHk(:,:,:,:)
       real(dp),intent(in),optional :: Ar(3)
       integer :: i,j,idir,ik,ik_glob
@@ -226,7 +177,7 @@ contains
    end subroutine GetGradHam
 !--------------------------------------------------------------------------------------
      subroutine GetDipole(me,Dk,Ar)
-      class(wann_spfft_t) :: me
+      class(wann_fft_t) :: me
       complex(dp),intent(inout) :: Dk(:,:,:,:)
       real(dp),intent(in),optional :: Ar(3)
       integer :: i,j,idir,ik,ik_glob
@@ -263,33 +214,8 @@ contains
 
    end subroutine GetDipole
 !--------------------------------------------------------------------------------------
-   pure elemental function GetFFTIndex(Nx,ilat) result(ix)
-      integer,intent(in) :: Nx
-      integer,intent(in) :: ilat
-      integer :: ix
-
-      if(ilat >= 0) then
-         ix = ilat + 1 
-      else
-         ix = Nx + ilat + 1
-      end if
-
-   end function GetFFTIndex   
-!--------------------------------------------------------------------------------------
-   pure elemental function FFT_Freq(n,i) result(k)
-      integer,intent(in) :: n, i
-      integer :: k
-
-      if(i <= n/2) then
-         k = i - 1
-      else
-         k = -(n - i + 1)
-      end if
-
-   end function FFT_Freq
-!--------------------------------------------------------------------------------------
    pure subroutine ApplyPhaseFactor(me,Ar,OO_R)
-      class(wann_spfft_t),intent(in) :: me
+      class(wann_fft_t),intent(in) :: me
       real(dp),intent(in) :: Ar(3)
       complex(dp),target,intent(inout) :: OO_R(:)
       integer :: ir
@@ -314,21 +240,3 @@ contains
 
    end subroutine ApplyPhaseFactor
 !--------------------------------------------------------------------------------------
-   subroutine GetGradiant(crvec,OO_R,vec_R)
-      real(dp),intent(in) :: crvec(:,:)
-      complex(dp),intent(in) :: OO_R(:)      
-      complex(dp),intent(inout) :: vec_R(:,:)
-      integer :: nrpts,ir
-
-      nrpts = size(crvec, dim=1)
-      vec_R(1:nrpts,1) = iu * crvec(1:nrpts,1) * OO_R(1:nrpts)
-      vec_R(1:nrpts,2) = iu * crvec(1:nrpts,2) * OO_R(1:nrpts)
-      vec_R(1:nrpts,3) = iu * crvec(1:nrpts,3) * OO_R(1:nrpts)
-   
-   end subroutine GetGradiant
-!--------------------------------------------------------------------------------------
-
-
-!======================================================================================
-
-end module wan_spfft_ham

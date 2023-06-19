@@ -278,31 +278,6 @@ contains
 
    end subroutine GetDipole
 !--------------------------------------------------------------------------------------
-   pure elemental function GetFFTIndex(Nx,ilat) result(ix)
-      integer,intent(in) :: Nx
-      integer,intent(in) :: ilat
-      integer :: ix
-
-      if(ilat >= 0) then
-         ix = ilat + 1 
-      else
-         ix = Nx + ilat + 1
-      end if
-
-   end function GetFFTIndex   
-!--------------------------------------------------------------------------------------
-   pure elemental function FFT_Freq(n,i) result(k)
-      integer,intent(in) :: n, i
-      integer :: k
-
-      if(i <= n/2) then
-         k = i - 1
-      else
-         k = -(n - i + 1)
-      end if
-
-   end function FFT_Freq
-!--------------------------------------------------------------------------------------
    pure subroutine ApplyPhaseFactor(me,Ar,OO_R)
       class(wann_spfft_t),intent(in) :: me
       real(dp),intent(in) :: Ar(3)

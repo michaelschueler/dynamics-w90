@@ -9,6 +9,9 @@ module wan_fft_propagation
    use wan_utils,only: Batch_Diagonalize_t
    use wan_hamiltonian,only: wann90_tb_t
    use wan_fft_ham,only: wann_fft_t
+#ifdef WITHSPFFT
+   use wan_spfft_ham,only: wann_spfft_t
+#endif
    implicit none
    include '../formats.h'
    include '../units_inc.f90'
@@ -33,7 +36,11 @@ contains
 !--------------------------------------------------------------------------------------
    subroutine Wann_FFT_UnitaryTimestep_dip(ham,ham_fft,tstp,dt,tstart,field,Rhok,Peierls_only)
       type(wann90_tb_t),intent(in) :: ham
+#ifdef WITHSPFFT
+      type(wann_spfft_t),intent(in)  :: ham_fft
+#else
       type(wann_fft_t),intent(in)  :: ham_fft
+#endif
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
       real(dp),intent(in)          :: tstart
@@ -112,7 +119,11 @@ contains
    subroutine Wann_FFT_RelaxTimestep_dip(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,&
       Peierls_only,method)
       type(wann90_tb_t),intent(in) :: ham
+#ifdef WITHSPFFT
+      type(wann_spfft_t),intent(in)  :: ham_fft
+#else
       type(wann_fft_t),intent(in)  :: ham_fft
+#endif
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
       real(dp),intent(in)          :: tstart
@@ -147,7 +158,11 @@ contains
 !--------------------------------------------------------------------------------------
    subroutine RelaxTimestep_RK4(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,Peierls_only)
       type(wann90_tb_t),intent(in) :: ham
+#ifdef WITHSPFFT
+      type(wann_spfft_t),intent(in)  :: ham_fft
+#else
       type(wann_fft_t),intent(in)  :: ham_fft
+#endif
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
       real(dp),intent(in)          :: tstart
@@ -276,7 +291,11 @@ contains
 !--------------------------------------------------------------------------------------
   subroutine RelaxTimestep_Hyb(ham,ham_fft,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,Peierls_only)
       type(wann90_tb_t),intent(in) :: ham
+#ifdef WITHSPFFT
+      type(wann_spfft_t),intent(in)  :: ham_fft
+#else
       type(wann_fft_t),intent(in)  :: ham_fft
+#endif
       integer,intent(in)           :: tstp
       real(dp),intent(in)          :: dt
       real(dp),intent(in)          :: tstart

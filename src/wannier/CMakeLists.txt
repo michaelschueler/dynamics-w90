@@ -31,21 +31,20 @@ if(fftw)
         )
     endif(mpi)
 
+    if(spfft)
+        list(APPEND OBJECT_FILES 
+            wan_spfft_ham.F90
+        )
+
+        if(mpi)
+            list(APPEND OBJECT_FILES 
+                wan_spfft_ham_mpi.F90
+            )   
+        endif(mpi) 
+    endif(spfft)
+
 endif(fftw)
 
-
-
-if(spfft)
-    list(APPEND OBJECT_FILES 
-        wan_spfft_ham.F90
-    )
-
-    if(mpi)
-        list(APPEND OBJECT_FILES 
-            wan_spfft_ham_mpi.F90
-        )   
-    endif(mpi) 
-endif(spfft)
 
 
 # ~~ Installation targets ~~
