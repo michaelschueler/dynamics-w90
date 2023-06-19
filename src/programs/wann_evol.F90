@@ -159,11 +159,6 @@ program wann_evol
       call par_time%ReadFromFile(FlIn)
       open(newunit=unit_inp,file=trim(FlIn),STATUS='OLD',ACTION='READ')
       read(unit_inp,nml=OUTPUT); rewind(unit_inp)
-#ifdef WITHFFTWOMP   
-      read(unit_inp,nml=PARALLELIZATION)
-#endif
-      close(unit_inp)
-   else
       call stop_error('Please provide a namelist input file.')
    end if
 
