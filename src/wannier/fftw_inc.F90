@@ -37,14 +37,7 @@
 
       if(present(nthreads)) me%nthreads = nthreads
 
-#ifdef WITHFFTWOMP
-      ierr = fftw_init_threads()
-      if(ierr == 0) call stop_error("Error in fftw_init_threads")
-
-      me%fftw_omp = .true.
-
-      call FFTW_PLAN_WITH_NTHREADS(me%nthreads)      
-#endif
+      call Init_FFTOMP(me%nthreads)
 
       select case(me%kdim)
       case(1)
@@ -186,20 +179,20 @@
       if(present(Ar)) then
          select case(me%kdim)
          case(1)
-            call me%GetHam_Dressed_1d(Ar,Hk)
+            call GetHam_Dressed_1d(me, Ar,Hk)
          case(2)
-            call me%GetHam_Dressed_2d(Ar,Hk)
+            call GetHam_Dressed_2d(me, Ar,Hk)
          case(3)
-            call me%GetHam_Dressed_3d(Ar,Hk)
+            call GetHam_Dressed_3d(me, Ar,Hk)
          end select
       else
          select case(me%kdim)
          case(1)
-            call me%GetHam_1d(Hk)
+            call GetHam_1d(me, Hk)
          case(2)
-            call me%GetHam_2d(Hk)
+            call GetHam_2d(me, Hk)
          case(3)
-            call me%GetHam_3d(Hk)
+            call GetHam_3d(me, Hk)
          end select
       end if
 
@@ -215,20 +208,20 @@
       if(present(Ar)) then
          select case(me%kdim)
          case(1)
-            call me%GetGradHam_Dressed_1d(Ar,GradHk)
+            call GetGradHam_Dressed_1d(me, Ar,GradHk)
          case(2)
-            call me%GetGradHam_Dressed_2d(Ar,GradHk)
+            call GetGradHam_Dressed_2d(me, Ar,GradHk)
          case(3)
-            call me%GetGradHam_Dressed_3d(Ar,GradHk)
+            call GetGradHam_Dressed_3d(me, Ar,GradHk)
          end select
       else
          select case(me%kdim)
          case(1)
-            call me%GetGradHam_1d(GradHk)
+            call GetGradHam_1d(me, GradHk)
          case(2)
-            call me%GetGradHam_2d(GradHk)
+            call GetGradHam_2d(me, GradHk)
          case(3)
-            call me%GetGradHam_3d(GradHk)
+            call GetGradHam_3d(me, GradHk)
          end select
       end if
 
@@ -244,27 +237,27 @@
       if(present(Ar)) then
          select case(me%kdim)
          case(1)
-            call me%GetDipole_Dressed_1d(Ar,Dk)
+            call GetDipole_Dressed_1d(me, Ar,Dk)
          case(2)
-            call me%GetDipole_Dressed_2d(Ar,Dk)
+            call GetDipole_Dressed_2d(me, Ar,Dk)
          case(3)
-            call me%GetDipole_Dressed_3d(Ar,Dk)
+            call GetDipole_Dressed_3d(me, Ar,Dk)
          end select
       else
          select case(me%kdim)
          case(1)
-            call me%GetDipole_1d(Dk)
+            call GetDipole_1d(me, Dk)
          case(2)
-            call me%GetDipole_2d(Dk)
+            call GetDipole_2d(me, Dk)
          case(3)
-            call me%GetDipole_3d(Dk)
+            call GetDipole_3d(me, Dk)
          end select
       end if
 
    end subroutine GetDipole
 !--------------------------------------------------------------------------------------
    subroutine GetHam_1d(me,Hk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       complex(dp),intent(inout) :: Hk(:,:,:)
       integer :: i,j,ik
       complex(dp),allocatable :: work_r(:),work_k(:)
@@ -286,7 +279,7 @@
    end subroutine GetHam_1d
 !--------------------------------------------------------------------------------------
    subroutine GetHam_2d(me,Hk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       complex(dp),intent(inout) :: Hk(:,:,:)
       integer :: i,j,ik
       complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
@@ -313,7 +306,7 @@
    end subroutine GetHam_2d
 !--------------------------------------------------------------------------------------
    subroutine GetHam_3d(me,Hk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       complex(dp),intent(inout) :: Hk(:,:,:)
       integer :: i,j,ik
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
@@ -341,7 +334,7 @@
 
 !--------------------------------------------------------------------------------------
    subroutine GetGradHam_1d(me,GradHk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       complex(dp),intent(inout) :: GradHk(:,:,:,:)
       integer :: i,j,ik,idir
       complex(dp),allocatable :: work_r(:),work_k(:)
@@ -371,7 +364,7 @@
    end subroutine GetGradHam_1d
 !--------------------------------------------------------------------------------------
    subroutine GetGradHam_2d(me,GradHk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       complex(dp),intent(inout) :: GradHk(:,:,:,:)
       integer :: i,j,ik,idir
       complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
@@ -404,7 +397,7 @@
    end subroutine GetGradHam_2d
 !--------------------------------------------------------------------------------------
    subroutine GetGradHam_3d(me,GradHk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       complex(dp),intent(inout) :: GradHk(:,:,:,:)
       integer :: i,j,ik,idir
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
@@ -438,7 +431,7 @@
 
 !--------------------------------------------------------------------------------------
    subroutine GetGradHam_Dressed_1d(me,Ar,GradHk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: GradHk(:,:,:,:)
       integer :: i,j,ik,idir
@@ -454,7 +447,7 @@
             call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
                ! call me%DressPhase(Ar, gradH_R(:,idir))
-               call ApplyPhaseFactor([me%nx], Ar, gradH_R(:,idir))
+               call me%ApplyPhaseFactor(Ar, gradH_R(:,idir))
                call Smooth2Dense_1d(me%nx, me%nkx, gradH_R(:,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                !$OMP PARALLEL DO
@@ -472,7 +465,7 @@
    end subroutine GetGradHam_Dressed_1d
 !--------------------------------------------------------------------------------------
    subroutine GetGradHam_Dressed_2d(me,Ar,GradHk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: GradHk(:,:,:,:)
       integer :: i,j,ik,idir
@@ -488,7 +481,7 @@
             call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
                ! call me%DressPhase(Ar, gradH_R(:,idir))
-               call ApplyPhaseFactor([me%nx,me%ny], Ar, gradH_R(:,idir))
+               call me%ApplyPhaseFactor(Ar, gradH_R(:,idir))
                call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, gradH_R(:,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                work_1d = reshape(work_k, [me%nkpts])
@@ -508,7 +501,7 @@
    end subroutine GetGradHam_Dressed_2d
 !--------------------------------------------------------------------------------------
    subroutine GetGradHam_Dressed_3d(me,Ar,GradHk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: GradHk(:,:,:,:)
       integer :: i,j,ik,idir
@@ -525,7 +518,7 @@
             call GetGradiant(me%crvec, me%ham_r(:,i,j), gradH_R)
             do idir=1,3
                ! call me%DressPhase(Ar, gradH_R(:,idir))
-               call ApplyPhaseFactor([me%nx,me%ny,me%nz], Ar, gradH_R(:,idir))
+               call me%ApplyPhaseFactor(Ar, gradH_R(:,idir))
                call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, gradH_R(:,idir), work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
                work_1d = reshape(work_k, [me%nkpts])
@@ -547,7 +540,7 @@
 
 !--------------------------------------------------------------------------------------
    subroutine GetHam_Dressed_1d(me,Ar,Hk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: Hk(:,:,:)
       integer :: i,j,ik
@@ -559,7 +552,7 @@
          do i=1,j
             HA_r = me%ham_r(:,i,j)
             ! call me%DressPhase(Ar, HA_r)
-            call ApplyPhaseFactor([me%nx], Ar, HA_r)
+            call me%ApplyPhaseFactor(Ar, HA_r)
             call Smooth2Dense_1d(me%nx, me%nkx, HA_r, work_r)
             call dfftw_execute_dft(me%plan_bw,work_r,work_k)
             !$OMP PARALLEL DO
@@ -575,7 +568,7 @@
    end subroutine GetHam_Dressed_1d
 !--------------------------------------------------------------------------------------
    subroutine GetHam_Dressed_2d(me,Ar,Hk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: Hk(:,:,:)
       integer :: i,j,ik
@@ -590,7 +583,7 @@
          do i=1,j
             HA_r = me%ham_r(:,i,j)
             ! call me%DressPhase(Ar, HA_r)
-            call ApplyPhaseFactor([me%nx,me%ny], Ar, HA_r)
+            call me%ApplyPhaseFactor(Ar, HA_r)
             call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, HA_r, work_r)
             call dfftw_execute_dft(me%plan_bw,work_r,work_k)
             work_1d = reshape(work_k, [me%nkpts])
@@ -608,7 +601,7 @@
    end subroutine GetHam_Dressed_2d
 !--------------------------------------------------------------------------------------
    subroutine GetHam_Dressed_3d(me,Ar,Hk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: Hk(:,:,:)
       integer :: i,j,ik
@@ -622,7 +615,7 @@
       do j=1,me%nwan
          do i=1,j
             HA_r = me%ham_r(:,i,j)
-            call ApplyPhaseFactor([me%nx,me%ny,me%nz], Ar, HA_r)
+            call me%ApplyPhaseFactor(Ar, HA_r)
             call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, HA_r, work_r)
             call dfftw_execute_dft(me%plan_bw,work_r,work_k)
             work_1d = reshape(work_k, [me%nkpts])
@@ -641,7 +634,7 @@
    end subroutine GetHam_Dressed_3d
 !--------------------------------------------------------------------------------------
    subroutine GetDipole_1d(me,Dk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       complex(dp),intent(inout) :: Dk(:,:,:,:)
       integer :: i,j,idir,ik
       complex(dp),allocatable :: work_r(:),work_k(:)
@@ -669,7 +662,7 @@
    end subroutine GetDipole_1d
 !--------------------------------------------------------------------------------------
    subroutine GetDipole_2d(me,Dk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       complex(dp),intent(inout) :: Dk(:,:,:,:)
       integer :: i,j,idir,ik
       complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
@@ -698,7 +691,7 @@
    end subroutine GetDipole_2d
 !--------------------------------------------------------------------------------------
    subroutine GetDipole_3d(me,Dk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       complex(dp),intent(inout) :: Dk(:,:,:,:)
       integer :: i,j,idir,ik
       complex(dp),allocatable :: work_r(:,:,:),work_k(:,:,:),work_1d(:)
@@ -727,7 +720,7 @@
    end subroutine GetDipole_3d
 !--------------------------------------------------------------------------------------
    subroutine GetDipole_Dressed_1d(me,Ar,Dk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: Dk(:,:,:,:)
       integer :: i,j,idir,ik
@@ -742,7 +735,7 @@
          do j=1,me%nwan
             do i=1,j
                DA_r = me%pos_r(:,i,j,idir)
-               call ApplyPhaseFactor([me%nx], Ar, DA_r)
+               call me%ApplyPhaseFactor(Ar, DA_r)
                ! call me%DressPhase(Ar,DA_r)
                call Smooth2Dense_1d(me%nx, me%nkx, DA_r, work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
@@ -762,7 +755,7 @@
    end subroutine GetDipole_Dressed_1d
 !--------------------------------------------------------------------------------------
    subroutine GetDipole_Dressed_2d(me,Ar,Dk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: Dk(:,:,:,:)
       integer :: i,j,idir,ik
@@ -777,7 +770,7 @@
          do j=1,me%nwan
             do i=1,j
                DA_r = me%pos_r(:,i,j,idir)
-               call ApplyPhaseFactor([me%nx,me%ny], Ar, DA_r)
+               call me%ApplyPhaseFactor(Ar, DA_r)
                ! call me%DressPhase(Ar,DA_r)
                call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, DA_r, work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
@@ -798,7 +791,7 @@
    end subroutine GetDipole_Dressed_2d
 !--------------------------------------------------------------------------------------
    subroutine GetDipole_Dressed_3d(me,Ar,Dk)
-      class(wann_fft_t) :: me
+      type(wann_fft_t),intent(in) :: me
       real(dp),intent(in)       :: Ar(3)
       complex(dp),intent(inout) :: Dk(:,:,:,:)
       integer :: i,j,idir,ik
@@ -813,7 +806,7 @@
          do j=1,me%nwan
             do i=1,j
                DA_r = me%pos_r(:,i,j,idir)
-               call ApplyPhaseFactor([me%nx,me%ny,me%nz], Ar, DA_r)
+               call me%ApplyPhaseFactor(Ar, DA_r)
                ! call me%DressPhase(Ar,DA_r)
                call Smooth2Dense_3d(me%nx, me%ny, me%nz, me%nkx, me%nky, me%nkz, DA_r, work_r)
                call dfftw_execute_dft(me%plan_bw,work_r,work_k)
@@ -930,8 +923,8 @@
 
    end function FFT_Freq
 !--------------------------------------------------------------------------------------
-   subroutine ApplyPhaseFactor(nk,Ar,OO_R)
-      integer,intent(in)  :: nk(:)
+   subroutine ApplyPhaseFactor(me,Ar,OO_R)
+      class(wann_fft_t) :: me
       real(dp),intent(in) :: Ar(3)
       complex(dp),target,intent(inout) :: OO_R(:)
       integer :: kdim,nx,ny,nz,ix,iy,iz,kx,ky,kz
@@ -940,37 +933,32 @@
       complex(dp),pointer :: OO_2d(:,:)
       complex(dp),pointer :: OO_3d(:,:,:)
 
-      kdim = size(nk)
-
-      select case(kdim)
+      select case(me%kdim)
       case(1)
-         nx = nk(1)
-         OO_1d(1:nx) => OO_R
-         do ix=1,nx
-            kx = FFT_Freq(nx, ix)
+         OO_1d(1:me%nx) => OO_R
+         do ix=1,me%nx
+            kx = FFT_Freq(me%nx, ix)
             adot = Ar(1) * kx
             c = cos(DPI * adot)
             s = sin(DPI * adot)
             OO_1d(ix) = cmplx(c,-s,kind=dp) * OO_1d(ix)
          end do
       case(2)
-         nx = nk(1); ny = nk(2)
-         OO_2d(1:nx, 1:ny) => OO_R
-         do concurrent(iy=1:ny, ix=1:nx)
-            kx = FFT_Freq(nx, ix)
-            ky = FFT_Freq(ny, iy)
+         OO_2d(1:me%nx, 1:me%ny) => OO_R
+         do concurrent(iy=1:me%ny, ix=1:me%nx)
+            kx = FFT_Freq(me%nx, ix)
+            ky = FFT_Freq(me%ny, iy)
             adot = Ar(1) * kx + Ar(2) * ky
             c = cos(DPI * adot)
             s = sin(DPI * adot)
             OO_2d(ix,iy) = cmplx(c,-s,kind=dp) * OO_2d(ix,iy)
          end do         
       case(3)
-         nx = nk(1); ny = nk(2); nz = nk(3)
-         OO_3d(1:nx, 1:ny, 1:nz) => OO_R
-         do concurrent(iz=1:nz, iy=1:ny, ix=1:nx)
-            kx = FFT_Freq(nx, ix)
-            ky = FFT_Freq(ny, iy)
-            kz = FFT_Freq(nz, iz)
+         OO_3d(1:me%nx, 1:me%ny, 1:me%nz) => OO_R
+         do concurrent(iz=1:me%nz, iy=1:me%ny, ix=1:me%nx)
+            kx = FFT_Freq(me%nx, ix)
+            ky = FFT_Freq(me%ny, iy)
+            kz = FFT_Freq(me%nz, iz)
             adot = Ar(1) * kx + Ar(2) * ky  + Ar(3) * kz
             c = cos(DPI * adot)
             s = sin(DPI * adot)

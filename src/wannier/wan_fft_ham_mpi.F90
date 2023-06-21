@@ -67,6 +67,19 @@ contains
    include 'fftw_mpi_inc.F90'
 #endif
 !--------------------------------------------------------------------------------------
+   subroutine Init_FFTOMP(nthreads)
+      integer,intent(in) :: nthreads
+      integer :: ierr
+
+#ifdef WITHFFTWOMP
+      ierr = fftw_init_threads()
+      if(ierr == 0) call stop_error("Error in fftw_init_threads")
+
+      call FFTW_PLAN_WITH_NTHREADS(nthreads)      
+#endif
+
+   end subroutine Init_FFTOMP  
+!--------------------------------------------------------------------------------------
    subroutine GetGradiant(crvec,OO_R,vec_R)
       real(dp),intent(in) :: crvec(:,:)
       complex(dp),intent(in) :: OO_R(:)      

@@ -32,12 +32,7 @@
       me%nky = 1
       me%nkz = 1
 
-#ifdef WITHFFTWOMP
-      ierr = fftw_init_threads()
-      if(ierr == 0) call stop_error("Error in fftw_init_threads")
-
-      call FFTW_PLAN_WITH_NTHREADS(me%nthreads)      
-#endif
+      call Init_FFTOMP(me%nthreads)
 
       select case(me%kdim)
       case(1)
@@ -205,7 +200,7 @@
          do j=1,me%nwan
             do i=1,j
                me%HA_r = me%ham_r(:,i,j)
-               call ApplyPhaseFactor(rdims, Ar, me%HA_r)
+               call me%ApplyPhaseFactor(Ar, me%HA_r)
                call Smooth2Dense(rdims, kdims, me%HA_r, me%work_r)
                call dfftw_execute_dft(me%plan_bw,me%work_r,me%work_k)
                do ik=1,me%nkpts_loc
@@ -264,7 +259,7 @@
             do i=1,j
                call GetGradiant(me%crvec, me%ham_r(:,i,j), me%gradH_R)
                do idir=1,3
-                  call ApplyPhaseFactor(rdims, Ar, me%gradH_R(:,idir))
+                  call me%ApplyPhaseFactor(Ar, me%gradH_R(:,idir))
                   call Smooth2Dense(rdims, kdims, me%gradH_R(:,idir), me%work_r)
                   call dfftw_execute_dft(me%plan_bw,me%work_r,me%work_k)
                   do ik=1,me%nkpts_loc
@@ -328,7 +323,7 @@
             do i=1,j
                do idir=1,3
                   me%HA_r = me%pos_r(:,i,j,idir)
-                  call ApplyPhaseFactor(rdims, Ar, me%HA_r)
+                  call me%ApplyPhaseFactor(Ar, me%HA_r)
                   call Smooth2Dense(rdims, kdims, me%HA_r, me%work_r)
                   call dfftw_execute_dft(me%plan_bw,me%work_r,me%work_k)
                   do ik=1,me%nkpts_loc
