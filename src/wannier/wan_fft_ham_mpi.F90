@@ -16,7 +16,11 @@ module wan_fft_ham_mpi
    implicit none
    include '../units_inc.f90'
    include '../formats.h'
+#ifdef WITHFFTWMPI
+   include 'fftw3-mpi.f03'
+#else
    include 'fftw3.f03'
+#endif
 !--------------------------------------------------------------------------------------
    private
    public :: wann_fft_t
@@ -44,6 +48,13 @@ module wan_fft_ham_mpi
       type(c_ptr) :: realValuesPtr
       integer,allocatable,dimension(:)           :: indices
       real(C_DOUBLE),allocatable,dimension(:)    :: spaceDomain
+#elif WITHFFTWMPI
+      ! .. FFTW_MPI ..
+      integer :: nx,ny,nz
+      integer(C_INTPTR_T) :: local_n, local_offset
+      type(C_PTR) :: plan_fw, plan_bw
+      type(C_PTR) :: cdata
+      complex(C_DOUBLE_COMPLEX), pointer :: data(:)
 #else
       ! .. FFTW ..
       integer :: nx,ny,nz
@@ -63,6 +74,8 @@ contains
 !--------------------------------------------------------------------------------------
 #ifdef WITHSPFFT
    include 'spfft_mpi_inc.F90'
+#elif WITHFFTWMPI
+   include 'fftw_distributed_inc.F90'
 #else
    include 'fftw_mpi_inc.F90'
 #endif

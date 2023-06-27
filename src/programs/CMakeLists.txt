@@ -20,6 +20,20 @@ if(mpi)
 	)
 endif(mpi)
 
+if(mpi)
+    set(mpi_EXECUTABLES
+        wann_evol_mpi.x
+        arpes_mpi.x
+    )
+endif(mpi)
+
+if(fftw_mpi)
+    list(APPEND mpi_EXECUTABLES
+        test_fftw_mpi.x
+    )    
+    set( EXE_test_fftw_mpi.x_SOURCES test_fftw_mpi.F90)
+endif(fftw_mpi)
+
 
 set( EXE_wann_evol.x_SOURCES Mwann_evol.F90 wann_evol.F90)
 set( EXE_wann_calc.x_SOURCES Mwannier_calc.F90 wann_calc.F90)

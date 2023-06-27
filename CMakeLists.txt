@@ -55,6 +55,7 @@ endif (simd)
 
 
 # Require MPI for this project:
+option(mpi "Building with MPI" OFF)
 if(mpi)
    message(STATUS "Building with MPI")
    find_package(MPI REQUIRED)
@@ -67,6 +68,7 @@ endif(mpi)
 
 
 # ~~ Add HDF5 ~~
+option(hdf5 "Building with HDF5" OFF)
 if (hdf5)
     message(STATUS "Building with HDF5")
     if(hdf5_prefix)
@@ -124,6 +126,9 @@ if (compile_test)
 endif (compile_test)
 
 # ~~ Add FFT ~~
+option(fftw "Building with FFTW" OFF)
+option(fftw_omp "Building with FFTW + OMP" OFF)
+option(fftw_mpi "Building with FFTW + MPI" OFF)
 if (fftw)
     message(STATUS "Building with FFTW")
     if(fftw3_prefix)
@@ -148,6 +153,17 @@ if (fftw)
             set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DWITHFFTWOMP")
         endif(fftw_omp)
 
+         if(fftw_mpi)
+            find_library(FFTW_MPI_LIB
+                NAMES fftw3_mpi
+                HINTS "${fftw3_prefix}/lib"
+            )        
+
+            message(STATUS "FFTW-MPI found: ${FFTW_MPI_LIB} " )
+            list(APPEND COMMON_LIBS ${FFTW_MPI_LIB})
+            set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DWITHFFTWMPI")
+        endif(fftw_mpi)       
+
         link_directories(${fftw3_prefix}/lib)
         include_directories(${fftw3_prefix}/include)
 
@@ -161,7 +177,11 @@ if (fftw)
 
         if(fftw_omp)
             set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DWITHFFTWOMP")
-        endif()
+        endif(fftw_omp)
+
+        if(fftw_mpi)
+            set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -DWITHFFTWMPI")
+        endif(fftw_mpi)
 
     endif(fftw3_prefix)
 endif(fftw)
