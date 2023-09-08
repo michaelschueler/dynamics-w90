@@ -17,8 +17,9 @@ module Mwann_evol_mpi
    use wan_dynamics
 #ifdef WITHFFTW
    use wan_fft_ham_mpi,only: wann_fft_t
-   use wan_fft_propagation_mpi,only: Wann_FFT_UnitaryTimestep_dip, Wann_FFT_RelaxTimestep_dip
-   use wan_fft_observables_mpi,only: Wann_FFT_Observables_dip
+   use wan_fft_propagation_mpi,only: Wann_FFT_UnitaryTimestep_dip_mpi, &
+      Wann_FFT_RelaxTimestep_dip_mpi
+   use wan_fft_observables_mpi,only: Wann_FFT_Observables_dip_mpi
 #endif
    implicit none
    include '../formats.h'
@@ -289,7 +290,7 @@ contains
             ! me%Rhok_Eq,me%Rhok)
          if(me%fft_mode) then
 #ifdef WITHFFTW
-            call Wann_FFT_RelaxTimestep_dip(me%ham,me%ham_fft,kdist,tstp,dt,me%tstart,field,me%T1,me%T2,&
+            call Wann_FFT_RelaxTimestep_dip_mpi(me%ham,me%ham_fft,kdist,tstp,dt,me%tstart,field,me%T1,me%T2,&
                me%Beta,me%MuChem,me%Rhok,method=me%propagator)
 #endif
          else
@@ -299,7 +300,7 @@ contains
       case(dip_emp_gauge)
          if(me%fft_mode) then
 #ifdef WITHFFTW
-            call Wann_FFT_RelaxTimestep_dip(me%ham,me%ham_fft,kdist,tstp,dt,me%tstart,field,me%T1,me%T2,&
+            call Wann_FFT_RelaxTimestep_dip_mpi(me%ham,me%ham_fft,kdist,tstp,dt,me%tstart,field,me%T1,me%T2,&
                me%Beta,me%MuChem,me%Rhok,Peierls_only=.true.,method=me%propagator)       
 #endif  
          else
@@ -334,7 +335,7 @@ contains
          case(dipole_gauge)
             if(me%fft_mode) then
 #ifdef WITHFFTW
-               call Wann_FFT_UnitaryTimestep_dip(me%ham,me%ham_fft,kdist,tstp,dt,me%tstart,field,me%Rhok)
+               call Wann_FFT_UnitaryTimestep_dip_mpi(me%ham,me%ham_fft,kdist,tstp,dt,me%tstart,field,me%Rhok)
 #endif
             else
                call Wann_Rhok_timestep_dip(me%ham,me%Nk_loc,me%kcoord_loc,tstp,dt,me%tstart,&
@@ -343,7 +344,7 @@ contains
          case(dip_emp_gauge)
             if(me%fft_mode) then
 #ifdef WITHFFTW
-               call Wann_FFT_UnitaryTimestep_dip(me%ham,me%ham_fft,kdist,tstp,dt,me%tstart,field,me%Rhok,&
+               call Wann_FFT_UnitaryTimestep_dip_mpi(me%ham,me%ham_fft,kdist,tstp,dt,me%tstart,field,me%Rhok,&
                   Peierls_only=.true.)
 #endif
             else
@@ -524,10 +525,10 @@ contains
 
 #ifdef WITHFFTW
          if(me%gauge == dipole_gauge) then
-            call Wann_FFT_Observables_dip(me%ham,me%ham_fft,kdist,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
+            call Wann_FFT_Observables_dip_mpi(me%ham,me%ham_fft,kdist,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
                dipole_current=.true.)
          else
-            call Wann_FFT_Observables_dip(me%ham,me%ham_fft,kdist,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
+            call Wann_FFT_Observables_dip_mpi(me%ham,me%ham_fft,kdist,AF,EF,me%Rhok,Ekin,Etot,Jcurr,Jhk,Dip,&
                dipole_current=.false.)            
          end if
 #endif

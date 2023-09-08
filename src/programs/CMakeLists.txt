@@ -52,6 +52,13 @@ foreach( exe ${project_EXECUTABLES} )
         add_dependencies(${exe} basic iotools wannier pes scitools)
     endif(scitools_prefix)
     target_link_libraries(${exe} basic iotools wannier pes scitools ${COMMON_LIBS})
+    
+    if(CMAKE_INSTALL_PREFIX)
+        INSTALL( TARGETS ${exe} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)   
+    else(CMAKE_INSTALL_PREFIX)
+        INSTALL( TARGETS ${exe} DESTINATION ${PROJECT_SOURCE_DIR}/bin)
+    endif(CMAKE_INSTALL_PREFIX)
+    
 endforeach()
 
 # ---- MPI programs ----
@@ -67,4 +74,16 @@ foreach( exe ${mpi_EXECUTABLES} )
         add_dependencies(${exe} basic iotools wannier pes scitools)
     endif(scitools_prefix)
     target_link_libraries(${exe} basic iotools wannier pes scitools ${COMMON_LIBS})
+    
+    if(CMAKE_INSTALL_PREFIX)
+        INSTALL( TARGETS ${exe} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)   
+    else(CMAKE_INSTALL_PREFIX)
+        INSTALL( TARGETS ${exe} DESTINATION ${PROJECT_SOURCE_DIR}/bin)
+    endif(CMAKE_INSTALL_PREFIX)
+    
 endforeach()
+
+
+
+
+

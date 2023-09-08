@@ -29,11 +29,11 @@ module wan_fft_propagation_mpi
    end interface
 !--------------------------------------------------------------------------------------
    private
-   public :: Wann_FFT_UnitaryTimestep_dip, Wann_FFT_RelaxTimestep_dip
+   public :: Wann_FFT_UnitaryTimestep_dip_mpi, Wann_FFT_RelaxTimestep_dip_mpi
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Wann_FFT_UnitaryTimestep_dip(ham,ham_fft,kdist,tstp,dt,tstart,field,Rhok,Peierls_only)
+   subroutine Wann_FFT_UnitaryTimestep_dip_mpi(ham,ham_fft,kdist,tstp,dt,tstart,field,Rhok,Peierls_only)
       type(wann90_tb_t),intent(in) :: ham
       type(wann_fft_t),intent(in)  :: ham_fft
       type(dist_array1d_t),intent(in) :: kdist
@@ -109,9 +109,9 @@ contains
       if(allocated(Dk_2)) deallocate(Dk_2)
 
 
-   end subroutine Wann_FFT_UnitaryTimestep_dip
+   end subroutine Wann_FFT_UnitaryTimestep_dip_mpi
 !--------------------------------------------------------------------------------------
-   subroutine Wann_FFT_RelaxTimestep_dip(ham,ham_fft,kdist,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,&
+   subroutine Wann_FFT_RelaxTimestep_dip_mpi(ham,ham_fft,kdist,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,&
       Peierls_only,method)
       type(wann90_tb_t),intent(in) :: ham
       type(wann_fft_t),intent(in)  :: ham_fft
@@ -147,7 +147,7 @@ contains
          call RelaxTimestep_RK4(ham,ham_fft,kdist,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,peierls_)
       end select
 
-   end subroutine Wann_FFT_RelaxTimestep_dip
+   end subroutine Wann_FFT_RelaxTimestep_dip_mpi
 !--------------------------------------------------------------------------------------
    subroutine RelaxTimestep_RK4(ham,ham_fft,kdist,tstp,dt,tstart,field,T1,T2,Beta,Mu,Rhok,Peierls_only)
       type(wann90_tb_t),intent(in) :: ham

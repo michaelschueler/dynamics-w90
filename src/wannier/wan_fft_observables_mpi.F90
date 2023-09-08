@@ -13,11 +13,11 @@ module wan_fft_observables_mpi
    include '../formats.h'
 !--------------------------------------------------------------------------------------
    private
-   public :: Wann_FFT_Observables_dip
+   public :: Wann_FFT_Observables_dip_mpi
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Wann_FFT_Observables_dip(ham,ham_fft,kdist,AF,EF,Rhok,Ekin,Etot,Jcurr,Jgrad,Dip,dipole_current)
+   subroutine Wann_FFT_Observables_dip_mpi(ham,ham_fft,kdist,AF,EF,Rhok,Ekin,Etot,Jcurr,Jgrad,Dip,dipole_current)
       type(wann90_tb_t),intent(in) :: ham
       type(wann_fft_t),intent(in)  :: ham_fft
       type(dist_array1d_t),intent(in) :: kdist
@@ -114,7 +114,7 @@ contains
       deallocate(grad_Hk)
       deallocate(Dk)
 
-   end subroutine Wann_FFT_Observables_dip
+   end subroutine Wann_FFT_Observables_dip_mpi
 !--------------------------------------------------------------------------------------
    pure real(dp) function DTRAB(n,A,B)
    !! Computes \(\mathrm{Tr}[A B]\) for two square matrices \(A,B\).

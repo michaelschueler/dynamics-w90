@@ -35,7 +35,7 @@ endif(fftw)
 
 
 # ~~ Installation targets ~~
-add_library(wannier STATIC ${OBJECT_FILES})
+add_library(wannier OBJECT ${OBJECT_FILES})
 target_link_libraries(wannier basic scitools ${COMMON_LIBS})
 
 if(scitools_prefix)
@@ -55,9 +55,9 @@ if(wannier_lib)
     target_link_libraries(hamw90 basic scitools ${COMMON_LIBS})
 
     if(scitools_prefix)
-        add_dependencies(hamw90 basic wannier)
+        add_dependencies(hamw90 basic)
     else(scitools_prefix)
-        add_dependencies(hamw90 basic wannier scitools)
+        add_dependencies(hamw90 basic scitools)
     endif(scitools_prefix)
 
     install(TARGETS hamw90 LIBRARY DESTINATION lib)
