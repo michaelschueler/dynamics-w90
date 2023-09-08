@@ -71,9 +71,11 @@ contains
       Jpol_loc = 0.0_dp
       Dip_loc = 0.0_dp
 
+      !$OMP PARALLEL PRIVATE(Hkt,DRhok_dt)
       allocate(Hkt(nbnd,nbnd))
       allocate(DRhok_dt(nbnd,nbnd))
 
+      !$OMP DO REDUCTION(+:Ekin_loc,Etot_loc,Jgrad_loc,Dip_loc,Jpol_loc)
       do ik=1,Nk_loc
          Hkt = Hk(:,:,ik)
          do idir=1,3
@@ -100,7 +102,9 @@ contains
          end if
 
       end do
+      !$OMP END DO
       deallocate(Hkt,DRhok_dt)
+      !$OMP END PARALLEL
 
       call MPI_ALLREDUCE(Ekin_loc,Ekin,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
       call MPI_ALLREDUCE(Etot_loc,Etot,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD, ierr)
