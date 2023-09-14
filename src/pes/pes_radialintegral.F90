@@ -35,8 +35,58 @@ module pes_radialintegral
       procedure,public :: Init => radialinteg_gen_init
       procedure,public :: Eval => radialinteg_gen_eval
    end type radialinteg_gen_t
+
+   type :: integ_wrapper_t
+      integer  :: l
+      real(dp) :: k
+      type(scattwf_t) :: swf
+      type(radialwf_t) :: rwf
+   end type integ_wrapper_t
+
+   type(integ_wrapper_t) :: iwrap
 !--------------------------------------------------------------------------------------
 contains
+!--------------------------------------------------------------------------------------
+   subroutine InitIntegWrapper(rwf,swf)
+      type(radialwf_t),intent(in) :: rwf
+      type(scattwf_t),intent(in)  :: swf
+
+      call iwrap%rwf%Copy(rwf)
+      call iwrap%swf%Init(swf%wf_type,swf%Z)
+
+   end subroutine InitIntegWrapper
+!--------------------------------------------------------------------------------------
+   subroutine CleanIntegWrapper()
+      call iwrap%rwf%Clean()
+   end subroutine CleanIntegWrapper
+!--------------------------------------------------------------------------------------
+   real(dp) function radfunc_len(r) result(f)
+      real(dp),intent(in) :: r
+
+      f = r**3 * iwrap%rwf%Eval(r) * iwrap%swf%Eval(iwrap%l, iwrap%k, r)
+
+   end function radfunc_len
+!--------------------------------------------------------------------------------------
+   real(dp) function radfunc_mom1(r) result(f)
+      real(dp),intent(in) :: r
+
+      f = r**2 * iwrap%swf%Eval(iwrap%l, iwrap%k, r) * iwrap%rwf%Eval(r,idx=1)
+
+   end function radfunc_mom1
+!--------------------------------------------------------------------------------------
+   real(dp) function radfunc_mom2(r) result(f)
+      real(dp),intent(in) :: r
+
+      f = r * iwrap%swf%Eval(iwrap%l, iwrap%k, r) * iwrap%rwf%Eval(r)
+
+   end function radfunc_mom2
+!--------------------------------------------------------------------------------------
+   real(dp) function radfunc_gen(r) result(f)
+      real(dp),intent(in) :: r
+
+      f = r**2 * iwrap%rwf%Eval(r) * iwrap%swf%Eval(iwrap%l, iwrap%k, r)
+
+   end function radfunc_gen
 !--------------------------------------------------------------------------------------
    subroutine radialinteg_Init(me,l0,kmin,kmax,swf,rwf,nk,gauge)
       use scitools_utils,only: linspace
@@ -49,9 +99,8 @@ contains
       integer,intent(in),optional :: nk
       integer,intent(in),optional :: gauge      
       integer :: nk_,gauge_
-      integer :: l_indx,ik
+      integer :: ik,l_indx
       integer :: iflag
-      real(dp) :: knrm
       real(dp),allocatable :: ks(:),rint(:),rint1(:),rint2(:)
 
       nk_ = 50
@@ -65,14 +114,17 @@ contains
       me%kmin = kmin; me%kmax = kmax
       ks = linspace(kmin, kmax, nk_)
 
+      call InitIntegWrapper(rwf,swf)
+
       select case(gauge_)
       case(gauge_len)
          allocate(rint(nk_))
 
          l_indx = l0 - 1
+         iwrap%l = l_indx
          if(l_indx >= 0) then
             do ik=1,nk_
-               knrm = ks(ik)
+               iwrap%k = ks(ik)
                call integral_1d(radfunc_len,0.0_dp,rwf%Rmax,quad_tol,rint(ik))  
             end do
          else
@@ -83,8 +135,9 @@ contains
          call me%len_spl_m1%Init(ks,rint,kx,iflag)
 
          l_indx = l0 + 1
+         iwrap%l = l_indx
          do ik=1,nk_
-            knrm = ks(ik)
+            iwrap%k = ks(ik)
             call integral_1d(radfunc_len,0.0_dp,rwf%Rmax,quad_tol,rint(ik))  
          end do
 
@@ -96,9 +149,10 @@ contains
       case(gauge_mom)
          allocate(rint1(nk_),rint2(nk_))
          l_indx = l0 - 1
+         iwrap%l = l_indx
          if(l_indx >= 0) then
             do ik=1,nk_
-               knrm = ks(ik)
+               iwrap%k = ks(ik)
                call integral_1d(radfunc_mom1,0.0_dp,rwf%Rmax,quad_tol,rint1(ik))  
                call integral_1d(radfunc_mom2,0.0_dp,rwf%Rmax,quad_tol,rint2(ik))
             end do
@@ -113,8 +167,9 @@ contains
          call me%mom2_spl_m1%Init(ks,rint2,kx,iflag)
 
          l_indx = l0 + 1
+         iwrap%l = l_indx
          do ik=1,nk_
-            knrm = ks(ik)
+            iwrap%k = ks(ik)
             call integral_1d(radfunc_mom1,0.0_dp,rwf%Rmax,quad_tol,rint1(ik))  
             call integral_1d(radfunc_mom2,0.0_dp,rwf%Rmax,quad_tol,rint2(ik))
          end do         
@@ -127,31 +182,9 @@ contains
          deallocate(rint1,rint2)         
       end select
 
+      call CleanIntegWrapper()
+
       deallocate(ks)
-      !.................................................
-      contains
-      !.................................................
-      real(dp) function radfunc_len(r)
-         real(dp),intent(in) :: r
-
-         radfunc_len = r**3 * rwf%Eval(r) * swf%Eval(l_indx, knrm, r)
-
-      end function radfunc_len
-      !.................................................
-      real(dp) function radfunc_mom1(r)
-         real(dp),intent(in) :: r
-
-         radfunc_mom1 = r**2 * swf%Eval(l_indx,knrm,r) * rwf%Eval(r,idx=1)
-
-      end function radfunc_mom1
-      !.................................................
-      real(dp) function radfunc_mom2(r)
-         real(dp),intent(in) :: r
-
-         radfunc_mom2 = r * swf%Eval(l_indx,knrm,r) * rwf%Eval(r)
-
-      end function radfunc_mom2
-      !.................................................
 
    end subroutine radialinteg_Init
 !--------------------------------------------------------------------------------------
@@ -223,9 +256,8 @@ contains
       type(radialwf_t),intent(in) :: rwf
       integer,intent(in),optional :: nk
       integer :: nk_
-      integer :: l,n,l_indx,ik
+      integer :: l,n,ik
       integer :: iflag
-      real(dp) :: knrm
       real(dp),allocatable :: ks(:),rint(:)
 
       nk_ = 40
@@ -239,28 +271,23 @@ contains
       allocate(me%spl(0:Lmax))
       allocate(rint(nk_))
 
+      call InitIntegWrapper(rwf,swf)
+
       do l=0,me%Lmax
-         l_indx = l
+         iwrap%l = l
          do ik=1,nk_
-            knrm = ks(ik)
-            call integral_1d(radfunc,0.0_dp,rwf%Rmax,quad_tol,rint(ik))  
+            iwrap%k = ks(ik)
+            call integral_1d(radfunc_gen,0.0_dp,rwf%Rmax,quad_tol,rint(ik))  
          end do         
          iflag = 0
          call me%spl(l)%Init(ks,rint,kx,iflag)         
       end do
 
+      call CleanIntegWrapper()
+
       deallocate(rint)
       deallocate(ks)
-      !.................................................
-      contains
-      !.................................................
-      real(dp) function radfunc(r)
-         real(dp),intent(in) :: r
 
-         radfunc = r**2 * rwf%Eval(r) * swf%Eval(l_indx, knrm, r)
-
-      end function radfunc
-      !.................................................
    end subroutine radialinteg_gen_Init
 !--------------------------------------------------------------------------------------
    function radialinteg_gen_eval(me,l,k) result(integ)

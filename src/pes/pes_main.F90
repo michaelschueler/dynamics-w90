@@ -28,7 +28,7 @@ module pes_main
 #endif
 
    interface PES_MatrixElements
-      module procedure PES_MatrixElements_comp, PES_MatrixElements_precomp, PES_MatrixElements_besselinteg
+      module procedure PES_MatrixElements_precomp, PES_MatrixElements_besselinteg
    end interface PES_MatrixElements
 
    interface PES_Slab_MatrixElements
@@ -36,7 +36,7 @@ module pes_main
    end interface PES_Slab_MatrixElements
 
    interface PES_Intensity
-      module procedure PES_Intensity_comp, PES_Intensity_precomp, PES_Intensity_besselinteg
+      module procedure PES_Intensity_precomp, PES_Intensity_besselinteg
    end interface PES_Intensity   
 
    interface PES_Slab_Intensity
@@ -417,84 +417,6 @@ contains
 !--------------------------------------------------------------------------------------
 
 !--------------------------------------------------------------------------------------
-   subroutine PES_MatrixElements_comp(orbs,wann,scwfs,kvec,vectk,lam,Matel,gauge)
-      type(wannier_orbs_t),intent(in) :: orbs
-      type(wann90_tb_t),intent(in)    :: wann
-      type(scattwf_t),intent(in)      :: scwfs(:)
-      real(dp),intent(in)             :: kvec(3)
-      complex(dp),intent(in)          :: vectk(:,:)
-      real(dp),intent(in)             :: lam
-      complex(dp),intent(inout)       :: matel(:,:)
-      integer,intent(in),optional     :: gauge
-      integer :: gauge_
-      logical :: large_size
-      integer :: norb,nbnd,iorb,ibnd,mabs,idir
-      complex(dp) :: mat_m(3),mat_mm(3)
-      complex(dp),allocatable :: matomic(:,:)  
-      complex(dp),allocatable :: vectk_phase(:,:)    
-      type(radialwf_t) :: rwf
-
-      gauge_ = gauge_len
-      if(present(gauge)) gauge_ = gauge
-
-      norb = wann%num_wann
-      large_size = get_large_size(norb)
-
-      nbnd = norb
-      call assert(orbs%norb == norb, "PES_MatrixElements: orbs%norb == norb")
-      call assert_shape(matel, [norb,3], "PES_MatrixElements", "matel")
-      call assert_shape(vectk, [norb,norb], "PES_MatrixElements", "vectk")      
-
-      allocate(matomic(norb,3)); matomic = zero
-      do iorb=1,norb
-         if(orbs%weight(iorb) < 1.0e-5_dp) cycle
-         call WannOrb_to_RadialWF(orbs,iorb,rwf)
-
-         select case(gauge_)
-         case(gauge_len)
-            if(orbs%real_lm) then
-               mabs = abs(orbs%M_indx(iorb))
-               mat_m(1:3) = ScattMatrixElement_Length(scwfs(iorb),rwf,orbs%L_indx(iorb),mabs,kvec)
-               mat_mm(1:3) = ScattMatrixElement_Length(scwfs(iorb),rwf,orbs%L_indx(iorb),-mabs,kvec)
-               do idir=1,3
-                  Matomic(iorb,idir) = Transform_Y2X(orbs%M_indx(iorb),mat_m(idir),mat_mm(idir))
-               end do
-            else
-               matomic(iorb,1:3) = ScattMatrixElement_Length(scwfs(iorb),rwf,orbs%L_indx(iorb),&
-                  orbs%M_indx(iorb),kvec)
-            end if
-         case(gauge_mom)
-            if(orbs%real_lm) then
-               mabs = abs(orbs%M_indx(iorb))
-               mat_m(1:3) = ScattMatrixElement_Momentum(scwfs(iorb),rwf,orbs%L_indx(iorb),mabs,kvec)
-               mat_mm(1:3) = ScattMatrixElement_Momentum(scwfs(iorb),rwf,orbs%L_indx(iorb),-mabs,kvec)
-               do idir=1,3
-                  Matomic(iorb,idir) = Transform_Y2X(orbs%M_indx(iorb),mat_m(idir),mat_mm(idir))
-               end do
-            else
-               matomic(iorb,1:3) = ScattMatrixElement_Momentum(scwfs(iorb),rwf,orbs%L_indx(iorb),&
-                  orbs%M_indx(iorb),kvec)
-            end if         
-         end select
-
-         matomic(iorb,1:3) = matomic(iorb,1:3) * orbs%weight(iorb)
-
-         call rwf%Clean()
-
-      end do
-
-      call VectorPhase(norb,wann%coords,kvec,lam,vectk,vectk_phase)
-
-      matel = zero
-      call util_zgemm(vectk_phase, matomic, matel, transa_opt='T')
-      ! call util_matmul(vectk(1:norb,1:norb), matomic(1:norb,1:3), matel(1:norb,1:3), &
-      !    large_size=large_size)
-
-      deallocate(matomic)
-      deallocate(vectk_phase)
-
-   end subroutine PES_MatrixElements_comp
-!--------------------------------------------------------------------------------------
    subroutine PES_MatrixElements_precomp(orbs,wann,scwfs,radints,kvec,vectk,lam,Matel,gauge)
       type(wannier_orbs_t),intent(in)   :: orbs
       type(wann90_tb_t),intent(in)      :: wann
@@ -729,80 +651,6 @@ contains
       deallocate(vectk_phase)
 
    end subroutine PES_Slab_MatrixElements_besselinteg
-!--------------------------------------------------------------------------------------
-
-
-
-!--------------------------------------------------------------------------------------
-   function PES_Intensity_comp(orbs,wann,scwfs,kpar,wphot,pol,Epe,epsk,vectk,mu,lam,eta,&
-      gauge,qphot) result(inten)
-      type(wannier_orbs_t),intent(in) :: orbs
-      type(wann90_tb_t),intent(in)    :: wann
-      type(scattwf_t),intent(in)      :: scwfs(:)
-      real(dp),intent(in)             :: kpar(2)
-      real(dp),intent(in)             :: wphot    
-      complex(dp),intent(in)          :: pol(3)  
-      real(dp),intent(in)             :: Epe
-      real(dp),intent(in)             :: epsk(:)   
-      complex(dp),intent(in)          :: vectk(:,:)        
-      real(dp),intent(in)             :: mu      
-      real(dp),intent(in)             :: lam       
-      real(dp),intent(in)             :: eta           
-      integer,intent(in),optional     :: gauge
-      real(dp),intent(in),optional    :: qphot(3)
-      real(dp)                        :: inten
-      integer :: gauge_    
-      integer :: idir,nbnd,ibnd
-      real(dp) :: Ez,kvec(3)
-      complex(dp),allocatable :: matel(:,:),matel_pol(:)
-
-      gauge_ = gauge_len
-      if(present(gauge)) gauge_ = gauge
-
-      nbnd = wann%num_wann
-      call assert(orbs%norb == nbnd, "PES_Intensity: orbs%norb == nbnd")
-      call assert_shape(vectk,[nbnd,nbnd],"PES_Intensity","vectk")
-
-      Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2)
-      if(Ez < 1.0e-5_dp) then
-         inten = 0.0_dp
-         return
-      end if
-
-      kvec(1:2) = kpar
-      kvec(3) = sqrt(2.0_dp * Ez)
-      if(present(qphot)) then
-         kvec = kvec - qphot
-      end if
-      if(kvec(3) < 1.0e-5_dp) then
-         inten = 0.0_dp
-         return
-      end if     
-
-      if(all(abs(epsk + wphot - Epe) > 6 * eta)) then
-         inten = 0.0_dp
-         return
-      end if
-
-      allocate(matel(nbnd,3),matel_pol(nbnd))
-
-      call PES_MatrixElements(orbs,wann,scwfs,kvec,vectk,lam,matel,gauge=gauge_)
-
-      matel_pol = zero
-      do idir=1,3
-         matel_pol(:) = matel_pol(:) + pol(idir) * matel(:,idir)
-      end do
-
-      inten = 0.0_dp
-      do ibnd=1,nbnd
-         if(epsk(ibnd) > mu) cycle
-         inten = inten + abs(matel_pol(ibnd))**2 * gauss(eta, epsk(ibnd) + wphot - Epe)   
-      end do
-
-      deallocate(matel,matel_pol)
-
-
-   end function PES_Intensity_comp
 !--------------------------------------------------------------------------------------
 
 !--------------------------------------------------------------------------------------

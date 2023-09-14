@@ -21,6 +21,7 @@ module pes_radialwf
    contains
       procedure,public :: InitGrid => radialwf_InitGrid
       procedure,public :: InitSlater => radialwf_InitSlater
+      procedure,public :: Copy => radialwf_Copy
       procedure,public :: Eval => radialwf_Eval
       procedure,public :: Clean => radialwf_Clean
    end type radialwf_t
@@ -65,6 +66,30 @@ contains
       me%Rmax = (me%neff - me%L) * (me%L + 1) * 30.0_dp/me%Zeff
 
    end subroutine radialwf_InitSlater
+!--------------------------------------------------------------------------------------
+   subroutine radialwf_Copy(me,rwf)
+      class(radialwf_t)   :: me 
+      type(radialwf_t),intent(in) :: rwf
+
+      me%wf_type = rwf%wf_type
+      me%Rmax = rwf%Rmax
+
+      if(rwf%wf_type == wf_slater) then
+         me%Zeff = rwf%Zeff
+         me%neff = rwf%neff
+         me%L = rwf%L     
+      else
+         if(.not.allocated(me%spl%tx)) &
+            allocate(me%spl%tx(size(rwf%spl%tx))) 
+
+         if(.not.allocated(me%spl%Cff)) &
+            allocate(me%spl%Cff( size(rwf%spl%Cff) ) )
+
+         me%spl%tx = rwf%spl%tx
+         me%spl%Cff = rwf%spl%Cff
+      end if
+
+   end subroutine radialwf_Copy
 !--------------------------------------------------------------------------------------
    subroutine radialwf_Clean(me)
       class(radialwf_t)   :: me   
