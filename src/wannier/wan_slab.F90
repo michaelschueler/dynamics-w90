@@ -5,11 +5,12 @@ module wan_slab
    use scitools_def,only: dp,zero
    use wan_utils,only: utility_recip_lattice, utility_recip_reduced
    use wan_hamiltonian,only: wann90_tb_t
+   use wan_overlap,only: wann90_ovlp_t
    implicit none
    include "../formats.h"
 !--------------------------------------------------------------------------------------
    private
-   public :: Wannier_BulkToSlab
+   public :: Wannier_BulkToSlab, Overlap_BulkToSlab
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
@@ -87,7 +88,7 @@ contains
          i2 = bulk_w90%irvec(irpt,2)
          i3 = bulk_w90%irvec(irpt,3)    
          if(abs(i3) < ijmax) then
-            irpt2d = get_index_i3(bulk_w90,i1,i2)
+            irpt2d = get_index_i3(bulk_w90%irvec,i1,i2)
             Hij(:,:,i3+ijmax+1,irpt2d) = bulk_w90%ham_r(:,:,irpt)
             Dij(:,:,i3+ijmax+1,irpt2d,1) = pos_r(:,:,irpt,1)
             Dij(:,:,i3+ijmax+1,irpt2d,2) = pos_r(:,:,irpt,2)
@@ -138,6 +139,79 @@ contains
 
    end subroutine Wannier_BulkToSlab
 !--------------------------------------------------------------------------------------
+   subroutine Overlap_BulkToSlab(bulk_w90,nlayer,slab_w90)
+   !! Given a bulk Wannier overlap matrix, constructs a slab Wannier overlap matrix.
+   !! .We assume the slab is constructed along the 
+   !! \(\mathbf{c} = \mathbf{a}\_1\times \mathbf{a}\_2\) direction, where 
+   !! \(\mathbf{a}_{1,2}\) are the in-plane lattice vectors of the bulk Hamiltonian.
+   !! Restriction: we assume the \(\mathbf{a}_{1,2}\) are in the \(x\)-\(y\) plane:
+   !! \(\mathbf{a}_{1,2} \cdot \hat{z} = 0\), where \(\hat{z}\) is the unit vector
+   !! in \(z\)-direction.
+      type(wann90_ovlp_t),intent(in)  :: bulk_w90 !! The bulk Wannier overlap
+      integer,intent(in)              :: nlayer   !! number of layers
+      type(wann90_ovlp_t),intent(out) :: slab_w90 !! The slab Wannier overlap with 
+                                                  !! enlarged orbital space.
+      integer :: ijmax
+      integer :: nwan,nrpts_2d,irpt,irpt2d
+      integer :: i1,i2,i3,i,j,idir
+      real(dp) :: e3p(3),oop_vec(3),Ua(3,3),pos_r_slab(3)
+      complex(dp),allocatable :: Sij(:,:,:,:)
+
+      ijmax = nint(nlayer/2.0_dp) + 1
+
+      nwan = bulk_w90%num_wann
+      slab_w90%real_lattice = bulk_w90%real_lattice
+      call GetDipoleRotation(bulk_w90%real_lattice,e3p,Ua)
+      ! slab_w90%real_lattice = matmul(bulk_w90%real_lattice, Ua)
+      ! slab_w90%real_lattice(3,:) = e3p
+
+      ! call GetOutOfPlaneVector(bulk_w90%real_lattice,oop_vec)
+      !!! CHECK
+      oop_vec = e3p * dot_product(bulk_w90%real_lattice(3,:),  e3p)
+
+      slab_w90%num_wann = nlayer * bulk_w90%num_wann
+
+      nrpts_2d =&
+         (maxval(bulk_w90%irvec(:,1))-minval(bulk_w90%irvec(:,1))+1) &
+         *(maxval(bulk_w90%irvec(:,2))-minval(bulk_w90%irvec(:,2))+1) 
+
+      slab_w90%nrpts = nrpts_2d
+      allocate(slab_w90%irvec(nrpts_2d,3))
+      allocate(slab_w90%ndegen(nrpts_2d))
+
+      !! S_{ij} [num_wann, num_wann, (2*ijmax+1), nrpts_2d]
+      allocate(Sij(bulk_w90%num_wann,bulk_w90%num_wann,2*ijmax+1,nrpts_2d))
+      Sij = zero
+
+      slab_w90%irvec = 0
+      slab_w90%ndegen = 1
+      do irpt=1,bulk_w90%nrpts
+         i1 = bulk_w90%irvec(irpt,1)
+         i2 = bulk_w90%irvec(irpt,2)
+         i3 = bulk_w90%irvec(irpt,3)    
+         if(abs(i3) < ijmax) then
+            irpt2d = get_index_i3(bulk_w90%irvec,i1,i2)
+            Sij(:,:,i3+ijmax+1,irpt2d) = bulk_w90%S_r(:,:,irpt)
+            slab_w90%irvec(irpt2d,1) = i1
+            slab_w90%irvec(irpt2d,2) = i2
+            slab_w90%irvec(irpt2d,3) = i3
+         end if     
+      end do
+
+      allocate(slab_w90%S_r(slab_w90%num_wann,slab_w90%num_wann,nrpts_2d))
+      do irpt2d=1,nrpts_2d
+         do i=1,nlayer
+            do j=1,nlayer
+               slab_w90%S_r((j-1)*nwan+1:j*nwan,(i-1)*nwan+1:i*nwan,irpt2d) = &
+                  Sij(:,:,i-j+ijmax+1,irpt2d)
+            end do
+         end do
+      end do
+
+      deallocate(Sij)
+
+   end subroutine Overlap_BulkToSlab
+!--------------------------------------------------------------------------------------
    subroutine GetDipoleRotation(real_lattice,e3p,Ua)
       real(dp),intent(in)    :: real_lattice(3,3)
       real(dp),intent(out)   :: e3p(3)
@@ -159,18 +233,18 @@ contains
 
    end subroutine GetDipoleRotation
 !--------------------------------------------------------------------------------------
-   function get_index_i3(wann,i1,i2) result(index_2d_i3)
+   function get_index_i3(irvec,i1,i2) result(index_2d_i3)
       !! For some i3, index the 2D nrpts by following method
       !! 1 : (min_1,min_2); 2:(min_1, min_2+1) .....
       !! max_1-min_1+2 : (min_1+1,min_2)....
-      type(wann90_tb_t),intent(in) :: wann
+      integer,intent(in) :: irvec(:,:)
       integer,intent(in) :: i1,i2
       integer :: min_1,max_1,min_2,max_2,index_2d_i3
 
-      min_1 = minval(wann%irvec(:,1))
-      max_1 = maxval(wann%irvec(:,1))
-      min_2 = minval(wann%irvec(:,2))
-      max_2 = maxval(wann%irvec(:,2))
+      min_1 = minval(irvec(:,1))
+      max_1 = maxval(irvec(:,1))
+      min_2 = minval(irvec(:,2))
+      max_2 = maxval(irvec(:,2))
 
       index_2d_i3 = (i1 - min_1) * (max_2 - min_2 + 1) + (i2 - min_2 + 1)
 

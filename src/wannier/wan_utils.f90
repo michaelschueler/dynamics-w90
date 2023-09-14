@@ -20,11 +20,12 @@ module wan_utils
       complex(dp),allocatable,dimension(:,:,:)        :: vect
       integer,allocatable,dimension(:,:)              :: iwork,ifail
       real(dp),allocatable,dimension(:,:)             :: rwork
-      complex(dp),allocatable,dimension(:,:)          :: mat_pack, cwork
+      complex(dp),allocatable,dimension(:,:)          :: mat_pack, S_pack, cwork
    contains
       procedure, public :: Init => Batch_Diag_Init
       procedure, public :: Clean => Batch_Diag_Clean
       procedure, public :: Diagonalize => Batch_Diag_Diagonalize
+      procedure, public :: DiagonalizeGen => Batch_Diag_DiagonalizeGen
    end type Batch_Diagonalize_t
 !-------------------------------------------------------------------------------------- 
 contains
@@ -45,7 +46,8 @@ contains
       allocate(me%ifail(me%nbnd,0:me%nthreads-1))
       allocate(me%rwork(7*me%nbnd,0:me%nthreads-1))
       allocate(me%cwork(5*me%nbnd,0:me%nthreads-1))   
-      allocate(me%mat_pack((me%nbnd*(me%nbnd + 1))/2,0:me%nthreads-1))   
+      allocate(me%mat_pack((me%nbnd*(me%nbnd + 1))/2,0:me%nthreads-1))  
+      allocate(me%S_pack((me%nbnd*(me%nbnd + 1))/2,0:me%nthreads-1))  
 
    end subroutine Batch_Diag_Init
 !-------------------------------------------------------------------------------------- 
@@ -101,6 +103,49 @@ contains
       if(present(info)) info = info_
 
    end subroutine Batch_Diag_Diagonalize
+!-------------------------------------------------------------------------------------- 
+   subroutine Batch_Diag_DiagonalizeGen(me,Hk,Sk,epsk,vectk,info,tid)
+      class(Batch_Diagonalize_t) :: me
+      complex(dp),intent(in)     :: Hk(:,:)
+      complex(dp),intent(in)     :: Sk(:,:)
+      real(dp),intent(inout),optional :: epsk(:)
+      complex(dp),intent(inout),optional :: vectk(:,:)
+      integer,intent(out),optional :: info
+      integer,intent(in),optional  :: tid
+      integer :: i,j
+      integer :: info_,nfound
+      integer :: tid_
+
+      tid_ = 0
+      if(present(tid)) tid_ = tid
+
+      do j = 1, me%nbnd
+         do i = 1, j
+            me%mat_pack(i + ((j - 1)*j)/2, tid_) = Hk(i, j)
+            me%S_pack(i + ((j - 1)*j)/2, tid_) = Hk(i, j)
+         end do
+      end do
+      me%vect(:,:,tid_) = zero; me%eps(:,tid_) = 0.0_dp
+      me%cwork(:,tid_) = zero; me%rwork(:,tid_) = 0.0_dp; me%iwork(:,tid_) = 0
+      call ZHPGVX(1, 'V', 'A', 'U', me%nbnd, me%mat_pack(1,tid_), me%S_pack(1,tid_), &
+         0.0_dp, 0.0_dp, 0, 0, -1.0_dp, &
+         nfound, me%eps(1,tid_), me%vect(1,1,tid_), me%nbnd, me%cwork(1,tid_), me%rwork(1,tid_), &
+         me%iwork(1,tid_), me%ifail(1,tid_), info_)
+      if (info_ < 0) then
+         write(output_unit, '(a,i3,a)') 'THE ', -info_, &
+         ' ARGUMENT OF ZHPEVX HAD AN ILLEGAL VALUE'
+         write(error_unit,*) 'Error in utility_diagonalize'
+      end if
+      if (info_ > 0) then
+         write(output_unit, '(i3,a)') info_, ' EIGENVECTORS FAILED TO CONVERGE'
+         write(error_unit,*) 'Error in utility_diagonalize'
+      end if
+
+      if(present(epsk)) epsk = me%eps(:,tid_)
+      if(present(vectk)) vectk = me%vect(:,:,tid_)
+      if(present(info)) info = info_
+
+   end subroutine Batch_Diag_DiagonalizeGen
 !-------------------------------------------------------------------------------------- 
    subroutine utility_recip_lattice(real_lat, recip_lat, volume)  
       !==================================================================!

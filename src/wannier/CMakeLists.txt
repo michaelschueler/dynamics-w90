@@ -11,9 +11,11 @@ set(OBJECT_FILES
     wan_compress.F90
     wan_equilibrium.F90
     wan_dynamics.F90
+    wan_fourier.F90
     wan_slab.F90
     wan_soc.F90
     wan_orbitals.F90
+    wan_overlap.F90
     wan_prop_hybrid.F90
 )
 
@@ -47,7 +49,9 @@ endif(scitools_prefix)
 
 if(wannier_lib)
     set(LIB_FILES
+        wan_fourier.F90
         wan_read_xyz.F90
+        wan_overlap.F90
         wan_hamiltonian.F90
         wan_utils.f90    
     )

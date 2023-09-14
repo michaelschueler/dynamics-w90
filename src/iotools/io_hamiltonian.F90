@@ -7,12 +7,14 @@ module io_hamiltonian
    use scitools_def,only: dp,iu,zero
    use scitools_utils,only: get_file_ext, check_file_ext
    use wan_hamiltonian,only: wann90_tb_t
+   use wan_overlap,only: wann90_ovlp_t
    use wan_soc,only: ham_soc_t
    implicit none
    include "../formats.h"
 !--------------------------------------------------------------------------------------  
    private
    public :: ReadHamiltonian, WriteHamiltonian, Read_SOC_Hamiltonian, Read_SOC_lambda
+   public :: ReadOverlap, WriteOverlap
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
@@ -71,6 +73,55 @@ contains
       end if         
 
    end subroutine WriteHamiltonian
+!--------------------------------------------------------------------------------------
+   subroutine ReadOverlap(file_ovlp,ovlp)
+      !! Reads the Wannier overlap matrix from file. If the file extension is `tb` or `dat`,
+      !! we assume the overlaps follow the conventions from `Wannier90` (`*_tb.dat` file).
+      !! If the file extension is `h5` we read from hdf5 if `dynamics-w90` has been
+      !! build with hdf5 support.
+      character(len=*),intent(in)              :: file_ovlp !! file name for the overlaps
+      type(wann90_ovlp_t),intent(out)          :: ovlp !! Wannier class to be initialized from the input
+
+      if(check_file_ext(file_ovlp, "tb") .or. check_file_ext(file_ovlp, "dat")) then
+         call ovlp%ReadFromW90(file_ovlp)
+      elseif(check_file_ext(file_ovlp, "h5")) then
+#ifdef WITHHDF5
+         call ovlp%ReadFromHDF5(file_ovlp)
+#else
+      write(error_unit,fmt900) "No HDF5 support. Can't read "//trim(file_ovlp)
+      stop         
+#endif
+      else
+         write(error_unit,fmt900) "Unrecognized file extension: "//get_file_ext(file_ovlp)
+         stop
+      end if     
+
+   end subroutine ReadOverlap
+!--------------------------------------------------------------------------------------
+   subroutine WriteOverlap(ovlp,file_ovlp)
+      !! Writes the overlaps stored in the Wannier class `ovlp` to file.
+      !! If the file extension of `file_ovlp` is `tb` or `dat` a text file in 
+      !! `Wannier90`-style format will be produced. If the file extension is `h5`, the 
+      !! Hamiltonian will be written in hdf5 format if `dynamics-w90` has been
+      !! build with hdf5 support.
+      type(wann90_ovlp_t),intent(in) :: ovlp !! Wannier class
+      character(len=*),intent(in)    :: file_ovlp !! file name for the output
+
+      if(check_file_ext(file_ovlp, "tb") .or. check_file_ext(file_ovlp, "dat")) then
+         call ovlp%SaveToW90(file_ovlp)
+      elseif(check_file_ext(file_ovlp, "h5")) then
+#ifdef WITHHDF5
+         call ovlp%SaveToHDF5(file_ovlp)
+#else
+      write(error_unit,fmt900) "No HDF5 support. Can't save "//trim(file_ovlp)
+      stop         
+#endif
+      else
+         write(error_unit,fmt900) "Unrecognized file extension: "//get_file_ext(file_ovlp)
+         stop
+      end if         
+
+   end subroutine WriteOverlap
 !--------------------------------------------------------------------------------------
    subroutine Read_SOC_lambda(fname,lam)
       !! Reads the spin-orbit coupling (SOC) constants from a simple text file. We assume

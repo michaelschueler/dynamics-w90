@@ -62,6 +62,7 @@ module io_params
    !! Options and parameters for the Wannier Hamiltonian
       character(len=256) :: file_ham="" !! file name for the Wannier Hamiltonian
       character(len=256) :: file_xyz="" !! file name for the Wannier centers
+      character(len=256) :: file_ovlp="" !! file name for the ovlap matrices
       character(len=256) :: file_lam="" !! file name for SOC constants
       character(len=256) :: file_soc="" !! file name for SOC Hamiltonian
       character(len=256) :: file_elpot="" !! file name for scalar electrostatic potential
@@ -84,6 +85,8 @@ module io_params
                                              !! the input chemical potential `MuChem`
       real(dp)           :: energy_thresh=0.0_dp !! Hopping amplitudes smaller than `energy_thresh` will 
                                                  !! be disregarded when compressing the Hamiltonian
+      real(dp)           :: ovlp_thresh=0.0_dp !! overlap amplitudes smaller than `ovlp_thresh` will 
+                                                 !! be disregarded when compressing the overlaps
       real(dp)           :: Efield(3)=[0.0_dp,0.0_dp,0.0_dp] !! static electric field
       logical            :: use_degen_pert=.false. !! [Expert] triggers the use of degenerate 
                                                    !! perturbation theory when calculating Berry phase
@@ -222,6 +225,7 @@ contains
       character(len=*),intent(in)  :: fname
       character(len=256) :: file_ham=""
       character(len=256) :: file_xyz=""
+      character(len=256) :: file_ovlp=""
       character(len=256) :: file_lam=""
       character(len=256) :: file_soc=""
       character(len=256) :: file_elpot=""
@@ -242,7 +246,7 @@ contains
       real(dp)           :: degen_thresh=1.0e-5_dp  
       integer            :: lm_gauge=0
       character(len=256) :: exclude_orbitals=""
-      namelist/HAMILTONIAN/file_ham,file_xyz,file_lam,file_soc,file_elpot,slab_mode,w90_with_soc,&
+      namelist/HAMILTONIAN/file_ham,file_xyz,file_ovlp,file_lam,file_soc,file_elpot,slab_mode,w90_with_soc,&
          energy_thresh,use_degen_pert,force_herm,force_antiherm,degen_thresh,apply_field,&
          field_mode,Efield,Beta,Filling,MuChem,FixMuChem,lm_gauge,exclude_orbitals
       integer :: slab_nlayer=0
@@ -257,6 +261,7 @@ contains
 
       me%file_ham = file_ham
       me%file_xyz = file_xyz
+      me%file_ovlp = file_ovlp
       me%file_lam = file_lam
       me%file_soc = file_soc
       me%file_elpot = file_elpot
