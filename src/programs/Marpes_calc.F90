@@ -7,16 +7,18 @@ module Marpes_calc
    use scitools_vector_bsplines,only: cplx_matrix_spline_t
    use wan_latt_kpts,only: kpoints_t
    use wan_hamiltonian,only: wann90_tb_t
+   use wan_overlap,only: wann90_ovlp_t
    use wan_compress,only: PruneHoppings
-   use wan_slab,only: Wannier_BulkToSlab
+   use wan_slab,only: Wannier_BulkToSlab, Overlap_BulkToSlab
    use wan_orbitals,only: wannier_orbs_t
+   use wan_utils,only: Batch_Diagonalize_t
    use pes_radialwf,only: radialwf_t
    use pes_scattwf,only: scattwf_t
    use pes_radialintegral,only: radialinteg_t
    use pes_main,only: PES_Intensity, PES_Slab_Intensity, &
       PES_AtomicIntegrals_lambda
    use io_params,only: HamiltonianParams_t, PESParams_t
-   use io_hamiltonian,only: ReadHamiltonian
+   use io_hamiltonian,only: ReadHamiltonian, ReadOverlap
    use io_orbitals,only: ReadWannierOrbitals
    implicit none
    include "../formats.h"
@@ -24,8 +26,9 @@ module Marpes_calc
    private
    public :: arpes_calc_t
 !--------------------------------------------------------------------------------------
-   type arpes_calc_t
+   type :: arpes_calc_t
       logical     :: lambda_mode=.false.,slab_mode=.false.,dipole_approx=.true.
+      logical     :: orthogonal_basis=.true.
       integer     :: nbnd,norb
       integer     :: nlayer=0
       integer     :: gauge
@@ -38,6 +41,7 @@ module Marpes_calc
       real(dp),allocatable,dimension(:)   :: Epe
       real(dp),allocatable,dimension(:,:) :: kpts,spect
       type(wann90_tb_t)    :: ham
+      type(wann90_ovlp_t)  :: ovlp
       type(wannier_orbs_t) :: orbs
       type(scattwf_t),allocatable,dimension(:)            :: chis
       type(radialinteg_t),allocatable,dimension(:)        :: radints
@@ -86,6 +90,7 @@ contains
       real(dp) :: comp_rate
       real(dp) :: kvec(3),kred(3)
       type(wann90_tb_t) :: ham_tmp
+      type(wann90_ovlp_t) :: ovlp_tmp
 
       call ReadHamiltonian(par_ham%file_ham,ham_tmp,file_xyz=par_ham%file_xyz)
       if(par_ham%energy_thresh > 0.0_dp) then
@@ -96,14 +101,33 @@ contains
       end if
       call ham_tmp%Clean()
 
+      if(len_trim(par_ham%file_ovlp) > 0) then
+         call ReadOverlap(par_ham%file_ovlp,ovlp_tmp)
+         if(par_ham%ovlp_thresh > 0.0_dp) then
+            call PruneHoppings(par_ham%ovlp_thresh,ovlp_tmp,me%ovlp,comp_rate)
+            write(output_unit,fmt_info) "overlap compression rate: "//str(nint(100 * comp_rate)) // "%"
+         else
+            call me%ovlp%Set(ovlp_tmp)
+         end if
+         call ovlp_tmp%Clean()   
+         me%orthogonal_basis = .false.      
+      end if
+
       if(par_ham%slab_mode .and. par_ham%slab_nlayer > 0) then
          write(output_unit,fmt_info) "building slab with "//str(par_ham%slab_nlayer)//" layers"
          call ham_tmp%Set(me%ham)
          call Wannier_BulkToSlab(ham_tmp,par_ham%slab_nlayer,me%ham)
          me%slab_mode = .true.
          me%nlayer = par_ham%slab_nlayer
+         call ham_tmp%Clean()
+
+         if(.not.me%orthogonal_basis) then
+            call ovlp_tmp%Set(me%ovlp)
+            call Overlap_BulkToSlab(ovlp_tmp,par_ham%slab_nlayer,me%ovlp)
+            call ovlp_tmp%Clean()
+         end if
+
       end if
-      call ham_tmp%Clean()
 
       me%nbnd = me%ham%num_wann
       me%MuChem = par_ham%MuChem
@@ -217,15 +241,19 @@ contains
    end subroutine CalcIntegrals_lambda
 !--------------------------------------------------------------------------------------
    subroutine CalcPES(me)
-      use scitools_linalg,only: EigH
       class(arpes_calc_t) :: me
       integer :: ik,iepe
       real(dp) :: kpar(2),kqpar(2),kpt(3),kqpt(3)
       real(dp),allocatable :: epsk(:)
-      complex(dp),allocatable :: Hk(:,:),vectk(:,:)
+      complex(dp),allocatable :: Hk(:,:),Sk(:,:),vectk(:,:)
+      type(Batch_Diagonalize_t) :: batch_diag
 
       allocate(epsk(me%nbnd),Hk(me%nbnd,me%nbnd),vectk(me%nbnd,me%nbnd))
       allocate(me%spect(me%Nepe,me%Nk))
+
+      if(.not. me%orthogonal_basis) allocate(Sk(me%nbnd,me%nbnd))
+
+      call batch_diag%Init(me%nbnd)
 
       kpt = 0.0_dp
       do ik=1,me%Nk
@@ -240,7 +268,12 @@ contains
             Hk = me%ham%get_ham(kpt)
          end if
 
-         call EigH(Hk,epsk,vectk)
+         if(me%orthogonal_basis) then
+            call batch_diag%Diagonalize(Hk,epsk,vectk)
+         else
+            Sk = me%ovlp%get_Smat(kpt)
+            call batch_diag%DiagonalizeGen(Hk,Sk,epsk,vectk)
+         end if
          epsk = epsk + me%Eshift
 
          if(me%slab_mode) then
@@ -291,6 +324,9 @@ contains
       end do
 
       deallocate(epsk,Hk,vectk)
+      if(allocated(Sk)) deallocate(Sk)
+
+      call batch_diag%Clean()
 
    end subroutine CalcPES
 !--------------------------------------------------------------------------------------

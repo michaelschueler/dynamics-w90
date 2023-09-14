@@ -28,7 +28,7 @@ module Marpes_calc_mpi
    private
    public :: arpes_calc_t
 !--------------------------------------------------------------------------------------
-   type arpes_calc_t
+   type :: arpes_calc_t
       logical     :: lambda_mode=.false.,slab_mode=.false.,dipole_approx=.true.
       logical     :: orthogonal_basis=.true.
       integer     :: nbnd,norb
