@@ -62,6 +62,7 @@ contains
          read(unit_inp,*) me%Zorb
          read(unit_inp,*) me%Zscatt
       case(wf_grid) 
+         read(unit_inp,*) me%Zscatt
          read(unit_inp,*) me%nr         
          allocate(me%rs(me%nr),me%Rrad(me%nr,me%norb))
          do ir=1,me%nr
