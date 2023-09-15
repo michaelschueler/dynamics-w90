@@ -208,9 +208,9 @@ contains
       allocate(rdata(me%num_wann,me%num_wann,me%nrpts))
       allocate(me%S_r(me%num_wann,me%num_wann,me%nrpts))
 
-      call hdf_read_dataset(file_id,'S_r_real',rdata)
+      call hdf_read_dataset(file_id,'ovlp_r_real',rdata)
       me%S_r = rdata
-      call hdf_read_dataset(file_id,'S_r_imag',rdata)
+      call hdf_read_dataset(file_id,'ovlp_r_imag',rdata)
       me%S_r = me%S_r + iu * rdata
 
       deallocate(rdata)

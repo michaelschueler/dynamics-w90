@@ -103,6 +103,9 @@ contains
       integer :: iflag
       real(dp),allocatable :: ks(:),rint(:),rint1(:),rint2(:)
 
+      integer :: ir
+      real(dp) :: rr
+
       nk_ = 50
       if(present(nk)) nk_ = nk
 
@@ -153,8 +156,8 @@ contains
          if(l_indx >= 0) then
             do ik=1,nk_
                iwrap%k = ks(ik)
-               call integral_1d(radfunc_mom1,0.0_dp,rwf%Rmax,quad_tol,rint1(ik))  
-               call integral_1d(radfunc_mom2,0.0_dp,rwf%Rmax,quad_tol,rint2(ik))
+               call integral_1d(radfunc_mom1,0.0_dp,rwf%Rmax,quad_tol,rint1(ik),meth=12)  
+               call integral_1d(radfunc_mom2,0.0_dp,rwf%Rmax,quad_tol,rint2(ik),meth=12)
             end do
          else
             rint1 = 0.0_dp
@@ -170,8 +173,8 @@ contains
          iwrap%l = l_indx
          do ik=1,nk_
             iwrap%k = ks(ik)
-            call integral_1d(radfunc_mom1,0.0_dp,rwf%Rmax,quad_tol,rint1(ik))  
-            call integral_1d(radfunc_mom2,0.0_dp,rwf%Rmax,quad_tol,rint2(ik))
+            call integral_1d(radfunc_mom1,0.0_dp,rwf%Rmax,quad_tol,rint1(ik),meth=12)  
+            call integral_1d(radfunc_mom2,0.0_dp,rwf%Rmax,quad_tol,rint2(ik),meth=12)
          end do         
 
          iflag = 0

@@ -85,6 +85,8 @@ contains
          if(.not.allocated(me%spl%Cff)) &
             allocate(me%spl%Cff( size(rwf%spl%Cff) ) )
 
+         me%spl%nx = rwf%spl%nx
+         me%spl%kx = rwf%spl%kx
          me%spl%tx = rwf%spl%tx
          me%spl%Cff = rwf%spl%Cff
       end if
@@ -122,7 +124,7 @@ contains
             Rr = 0.0_dp
          end select
       case(wf_grid)
-          if(r < me%Rmax) then
+         if(r < me%Rmax) then
             inbvx = 1
             Rr = me%spl%Eval(r,idx_,iflag,inbvx)
          else

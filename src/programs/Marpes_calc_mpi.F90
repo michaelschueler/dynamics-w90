@@ -184,7 +184,7 @@ contains
       do iorb=1,me%norb
          call me%chis(iorb)%Init(par_pes%scatt_type,me%orbs%Zscatt(iorb))
       end do
-
+    
       me%Nk = kp%Nk
       allocate(me%kpts(me%Nk,2))
       if(par_pes%kpts_reduced) then
@@ -291,18 +291,20 @@ contains
             kqpar(1:2) = kpar(1:2) - me%qphot(1:2)
             kqpt(1:2) = me%ham%get_kreduced(kqpar(1:2))
             Hk = me%ham%get_ham(kqpt)
+            if(.not.me%orthogonal_basis) Sk = me%ovlp%get_Smat(kqpt)
          else
             kpt(1:2) = me%ham%get_kreduced(kpar(1:2))
             Hk = me%ham%get_ham(kpt)
+            if(.not.me%orthogonal_basis) Sk = me%ovlp%get_Smat(kpt)
          end if
 
          if(me%orthogonal_basis) then
             call batch_diag%Diagonalize(Hk,epsk,vectk)
          else
-            Sk = me%ovlp%get_Smat(kpt)
             call batch_diag%DiagonalizeGen(Hk,Sk,epsk,vectk)
          end if
          epsk = epsk + me%Eshift
+
 
          if(me%slab_mode) then
             if(me%lambda_mode) then

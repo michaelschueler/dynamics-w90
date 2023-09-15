@@ -122,7 +122,7 @@ contains
       do j = 1, me%nbnd
          do i = 1, j
             me%mat_pack(i + ((j - 1)*j)/2, tid_) = Hk(i, j)
-            me%S_pack(i + ((j - 1)*j)/2, tid_) = Hk(i, j)
+            me%S_pack(i + ((j - 1)*j)/2, tid_) = Sk(i, j)
          end do
       end do
       me%vect(:,:,tid_) = zero; me%eps(:,tid_) = 0.0_dp

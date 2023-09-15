@@ -9,13 +9,14 @@ module Mwannier_calc
    use wan_utils,only: Batch_Diagonalize_t
    use wan_latt_kpts,only: kpoints_t
    use wan_hamiltonian,only: wann90_tb_t
+   use wan_overlap,only: wann90_ovlp_t
 #ifdef WITHFFTW
    use wan_fft_ham,only: wann_fft_t
 #endif
    use wan_compress,only: PruneHoppings
-   use wan_slab,only: Wannier_BulkToSlab
+   use wan_slab,only: Wannier_BulkToSlab, Overlap_BulkToSlab
    use io_params,only: WannierCalcParams_t, HamiltonianParams_t
-   use io_hamiltonian,only: ReadHamiltonian
+   use io_hamiltonian,only: ReadHamiltonian, ReadOverlap
    implicit none
    include "../formats.h"
 !--------------------------------------------------------------------------------------
@@ -24,6 +25,7 @@ module Mwannier_calc
 !--------------------------------------------------------------------------------------
    type wannier_calc_t
       logical :: soc_mode=.false., berry_valence=.false., static_potential=.false.
+      logical :: orthogonal_basis=.true.
       integer :: nbnd,nwan,Nk,Nomega=0
       real(dp) :: muchem,DeltaE
       integer,allocatable,dimension(:) :: orbs_excl
@@ -31,6 +33,7 @@ module Mwannier_calc
       real(dp),allocatable,dimension(:,:) :: kpts,epsk
       complex(dp),allocatable,dimension(:,:,:) :: vectk
       type(wann90_tb_t) :: ham
+      type(wann90_ovlp_t)  :: ovlp
 #ifdef WITHFFTW
       type(wann_fft_t)  :: ham_fft
 #endif
@@ -63,8 +66,9 @@ contains
       !......................................
       integer :: ik,norbs_excl
       real(dp) :: comp_rate
-      complex(dp),allocatable :: Hk(:,:)
+      complex(dp),allocatable :: Hk(:,:),Sk(:,:)
       type(wann90_tb_t) :: ham_tmp
+      type(wann90_ovlp_t) :: ovlp_tmp
       type(Batch_Diagonalize_t) :: batch_diag
       logical :: use_fft
       complex(dp),allocatable  :: Hk_fft(:,:,:)
@@ -80,6 +84,18 @@ contains
          call me%ham%Set(ham_tmp)
       end if
       call ham_tmp%Clean()
+
+      if(len_trim(par_ham%file_ovlp) > 0) then
+         call ReadOverlap(par_ham%file_ovlp,ovlp_tmp)
+         if(par_ham%ovlp_thresh > 0.0_dp) then
+            call PruneHoppings(par_ham%ovlp_thresh,ovlp_tmp,me%ovlp,comp_rate)
+            write(output_unit,fmt_info) "overlap compression rate: "//str(nint(100 * comp_rate)) // "%"
+         else
+            call me%ovlp%Set(ovlp_tmp)
+         end if
+         call ovlp_tmp%Clean()   
+         me%orthogonal_basis = .false.      
+      end if
 
       me%static_potential = (len_trim(par_ham%file_elpot) > 0)
 
@@ -104,8 +120,15 @@ contains
          write(output_unit,fmt_info) "building slab with "//str(par_ham%slab_nlayer)//" layers"
          call ham_tmp%Set(me%ham)
          call Wannier_BulkToSlab(ham_tmp,par_ham%slab_nlayer,me%ham)
+         call ham_tmp%Clean()
+
+         if(.not.me%orthogonal_basis) then
+            call ovlp_tmp%Set(me%ovlp)
+            call Overlap_BulkToSlab(ovlp_tmp,par_ham%slab_nlayer,me%ovlp)
+            call ovlp_tmp%Clean()
+         end if
+
       end if
-      call ham_tmp%Clean()
 
       call me%ham%SetExpertParams(use_degen_pert=par_ham%use_degen_pert,&
          degen_thresh=par_ham%degen_thresh,&
@@ -167,28 +190,53 @@ contains
          case(field_mode_berry)
             write(output_unit,fmt_info) "field couples to Berry connection"
          end select 
-         !$OMP PARALLEL PRIVATE(tid,Hk)
+         !$OMP PARALLEL PRIVATE(tid,Hk,Sk)
          tid = omp_get_thread_num()
          allocate(Hk(me%nbnd,me%nbnd))
-         !$OMP DO
-         do ik=1,me%Nk
-            Hk = me%Ham%get_ham_field(me%kpts(ik,:),par_ham%Efield,par_ham%field_mode)
-            call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik),tid=tid)
-         end do
-         !$OMP END DO
+         if(.not.me%orthogonal_basis) then
+            allocate(Sk(me%nbnd,me%nbnd))
+            !$OMP DO
+            do ik=1,me%Nk
+               Hk = me%Ham%get_ham_field(me%kpts(ik,:),par_ham%Efield,par_ham%field_mode)
+               Sk = me%ovlp%get_Smat(me%kpts(ik,:))
+               call batch_diag%DiagonalizeGen(Hk,Sk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik),tid=tid)
+            end do
+            !$OMP END DO    
+            deallocate(Sk)        
+         else
+            !$OMP DO
+            do ik=1,me%Nk
+               Hk = me%Ham%get_ham_field(me%kpts(ik,:),par_ham%Efield,par_ham%field_mode)
+               call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik),tid=tid)
+            end do
+            !$OMP END DO
+         end if
          deallocate(Hk)
          !$OMP END PARALLEL
       elseif(me%static_potential) then
-         !$OMP PARALLEL PRIVATE(tid,Hk)
+         !$OMP PARALLEL PRIVATE(tid,Hk,Sk)
          tid = omp_get_thread_num()
          allocate(Hk(me%nbnd,me%nbnd))
-         !$OMP DO
-         do ik=1,me%Nk
-            Hk = me%Ham%get_ham_elpot(me%kpts(ik,:),elpot_func)
-            call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik),tid=tid)
-         end do
-         !$OMP END DO
+         if(.not.me%orthogonal_basis) then
+            allocate(Sk(me%nbnd,me%nbnd))
+            !$OMP DO
+            do ik=1,me%Nk
+               Hk = me%Ham%get_ham_elpot(me%kpts(ik,:),elpot_func)
+               Sk = me%ovlp%get_Smat(me%kpts(ik,:))
+               call batch_diag%DiagonalizeGen(Hk,Sk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik),tid=tid)
+            end do
+            !$OMP END DO            
+            deallocate(Sk)
+            else
+            !$OMP DO
+            do ik=1,me%Nk
+               Hk = me%Ham%get_ham_elpot(me%kpts(ik,:),elpot_func)
+               call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik),tid=tid)
+            end do
+            !$OMP END DO
+         end if
          deallocate(Hk)
+
          !$OMP END PARALLEL         
       else
          if(use_fft) then
@@ -209,16 +257,29 @@ contains
             deallocate(Hk_fft)
 #endif
          else
-            !$OMP PARALLEL PRIVATE(tid,Hk)
+            !$OMP PARALLEL PRIVATE(tid,Hk,Sk)
             tid = omp_get_thread_num()
             allocate(Hk(me%nbnd,me%nbnd))
-            !$OMP DO
-            do ik=1,me%Nk
-               Hk = me%Ham%get_ham(me%kpts(ik,:))
-               call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik),&
-                  tid=tid)
-            end do
-            !$OMP END DO
+            if(me%orthogonal_basis) then
+               !$OMP DO
+               do ik=1,me%Nk
+                  Hk = me%Ham%get_ham(me%kpts(ik,:))
+                  call batch_diag%Diagonalize(Hk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik),&
+                     tid=tid)
+               end do
+               !$OMP END DO
+            else
+               allocate(Sk(me%nbnd,me%nbnd))
+               !$OMP DO
+               do ik=1,me%Nk
+                  Hk = me%Ham%get_ham(me%kpts(ik,:))
+                  Sk = me%ovlp%get_Smat(me%kpts(ik,:))
+                  call batch_diag%DiagonalizeGen(Hk,Sk,epsk=me%epsk(:,ik),vectk=me%vectk(:,:,ik),&
+                     tid=tid)
+               end do
+               !$OMP END DO               
+               deallocate(Sk)
+            end if
             deallocate(Hk)
             !$OMP END PARALLEL
          end if
