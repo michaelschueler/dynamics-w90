@@ -180,13 +180,13 @@ contains
          me%Epe = linspace(par_pes%Epe_min, par_pes%Epe_max, me%Nepe)
       end if
 
+     call MPI_Finalize(ierr); stop
+
       allocate(me%chis(me%norb))
       do iorb=1,me%norb
          call me%chis(iorb)%Init(par_pes%scatt_type,me%orbs%Zscatt(iorb))
       end do
     
-      call MPI_Finalize(ierr); stop
-
       me%Nk = kp%Nk
       allocate(me%kpts(me%Nk,2))
       if(par_pes%kpts_reduced) then
