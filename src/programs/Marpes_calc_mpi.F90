@@ -136,11 +136,11 @@ contains
          me%slab_mode = .true.
          me%nlayer = par_ham%slab_nlayer
 
-         ! if(.not.me%orthogonal_basis) then
-         !    call ovlp_tmp%Set(me%ovlp)
-         !    call Overlap_BulkToSlab(ovlp_tmp,par_ham%slab_nlayer,me%ovlp)
-         !    call ovlp_tmp%Clean()
-         ! end if
+         if(.not.me%orthogonal_basis) then
+            call ovlp_tmp%Set(me%ovlp)
+            call Overlap_BulkToSlab(ovlp_tmp,par_ham%slab_nlayer,me%ovlp)
+            call ovlp_tmp%Clean()
+         end if
 
       end if
 
