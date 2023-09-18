@@ -144,8 +144,6 @@ contains
 
       end if
 
-      call MPI_Finalize(ierr); stop
-  
       me%nbnd = me%ham%num_wann
       me%MuChem = par_ham%MuChem
 
@@ -187,6 +185,8 @@ contains
          call me%chis(iorb)%Init(par_pes%scatt_type,me%orbs%Zscatt(iorb))
       end do
     
+      call MPI_Finalize(ierr); stop
+
       me%Nk = kp%Nk
       allocate(me%kpts(me%Nk,2))
       if(par_pes%kpts_reduced) then
