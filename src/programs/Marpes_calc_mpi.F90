@@ -144,6 +144,10 @@ contains
 
       end if
 
+
+     call MPI_Finalize(ierr); stop
+
+
       me%nbnd = me%ham%num_wann
       me%MuChem = par_ham%MuChem
 
@@ -179,8 +183,6 @@ contains
       else
          me%Epe = linspace(par_pes%Epe_min, par_pes%Epe_max, me%Nepe)
       end if
-
-     call MPI_Finalize(ierr); stop
 
       allocate(me%chis(me%norb))
       do iorb=1,me%norb
