@@ -130,19 +130,21 @@ contains
          if(on_root) then 
             write(output_unit,fmt_info) "building slab with "//str(par_ham%slab_nlayer)//" layers"
          end if
-         call ham_tmp%Set(me%ham)
-         call Wannier_BulkToSlab(ham_tmp,par_ham%slab_nlayer,me%ham)
-         call ham_tmp%Clean()
-         me%slab_mode = .true.
-         me%nlayer = par_ham%slab_nlayer
+         ! call ham_tmp%Set(me%ham)
+         ! call Wannier_BulkToSlab(ham_tmp,par_ham%slab_nlayer,me%ham)
+         ! call ham_tmp%Clean()
+         ! me%slab_mode = .true.
+         ! me%nlayer = par_ham%slab_nlayer
 
-         if(.not.me%orthogonal_basis) then
-            call ovlp_tmp%Set(me%ovlp)
-            call Overlap_BulkToSlab(ovlp_tmp,par_ham%slab_nlayer,me%ovlp)
-            call ovlp_tmp%Clean()
-         end if
+         ! if(.not.me%orthogonal_basis) then
+         !    call ovlp_tmp%Set(me%ovlp)
+         !    call Overlap_BulkToSlab(ovlp_tmp,par_ham%slab_nlayer,me%ovlp)
+         !    call ovlp_tmp%Clean()
+         ! end if
 
       end if
+
+      call MPI_Finalize(ierr); stop
   
       me%nbnd = me%ham%num_wann
       me%MuChem = par_ham%MuChem
