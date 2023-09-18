@@ -144,15 +144,15 @@ contains
 
       end if
 
-
-     call MPI_Finalize(ierr); stop
-
-
       me%nbnd = me%ham%num_wann
       me%MuChem = par_ham%MuChem
 
 
       call ReadWannierOrbitals(par_pes%file_orbs,me%orbs)
+
+     call MPI_Finalize(ierr); stop
+
+      
       me%gauge = par_pes%gauge
       me%Nepe = par_pes%Nepe
       me%wphot = par_pes%wphot
