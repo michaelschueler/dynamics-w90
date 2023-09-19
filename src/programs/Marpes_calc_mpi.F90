@@ -144,9 +144,12 @@ contains
 
       end if
 
+      if(abs(par_pes%angle_rot_z) > 1.0e-5_dp) then
+         call me%ham%RotateZ(par_pes%angle_rot_z)
+      end if
+
       me%nbnd = me%ham%num_wann
       me%MuChem = par_ham%MuChem
-
 
       call ReadWannierOrbitals(par_pes%file_orbs,me%orbs)
       me%gauge = par_pes%gauge

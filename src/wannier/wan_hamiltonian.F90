@@ -42,6 +42,7 @@ module wan_hamiltonian
       procedure,public  :: SaveToW90
       procedure,public  :: SetExpertParams
       procedure,public  :: Set
+      procedure,public  :: RotateZ
       procedure,public  :: get_kcart
       procedure,public  :: get_kreduced
       procedure,public  :: get_eig
@@ -134,6 +135,25 @@ contains
       me%crvec = w90%crvec
 
    end subroutine Set
+!--------------------------------------------------------------------------------------
+   subroutine RotateZ(me,phi)
+      class(wann90_tb_t)  :: me
+      real(dp),intent(in) :: phi
+      real(dp) :: a1(2),a2(2)
+
+      a1 = me%real_lattice(1,1:2)
+      a2 = me%real_lattice(2,1:2)
+
+      me%real_lattice(1,1) = cos(phi) * a1(1) - sin(phi) * a1(2)
+      me%real_lattice(1,2) = sin(phi) * a1(1) + cos(phi) * a1(2)
+      me%real_lattice(2,1) = cos(phi) * a2(1) - sin(phi) * a2(2)
+      me%real_lattice(2,2) = sin(phi) * a2(1) + cos(phi) * a2(2)     
+
+      call utility_recip_lattice(me%real_lattice, me%recip_lattice)
+      call utility_recip_reduced(me%recip_lattice, me%recip_reduced)
+      call get_crvec(me%irvec,me%real_lattice,me%crvec)
+
+   end subroutine RotateZ
 !--------------------------------------------------------------------------------------
    function get_kcart(me,kpt) result(kvec)
       class(wann90_tb_t)  :: me

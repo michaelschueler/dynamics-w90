@@ -129,6 +129,7 @@ module io_params
                                           !! \(\varepsilon_i(\mathbf{k}) \rightarrow \varepsilon_i(\mathbf{k}) + \Delta E\),
                                           !! where \(\Delta E\) is given by `Eshift`. 
       real(dp)           :: Epe_min,Epe_max  !! Interval of final state energies.
+      real(dp)           :: angle_rot_z=0.0_dp !! angle of rotation of the system around the z axis 
       real(dp)           :: lambda_esc=0.0_dp  !! Escape depth. For `lambda_orbital_term=.true.` this also determines
                                                !! the imaginary part of the wave-vector
       real(dp)           :: eta_smear=1.0e-3_dp !! Gaussian smearing of the energy conservation in Fermis Golden rule.
@@ -318,6 +319,7 @@ contains
       real(dp)           :: wphot=1.0_dp
       real(dp)           :: Eshift=0.0_dp
       real(dp)           :: Epe_min,Epe_max  
+      real(dp)           :: angle_rot_z=0.0_dp
       real(dp)           :: lambda_esc=0.0_dp      
       real(dp)           :: eta_smear=1.0e-3_dp
       real(dp)           :: polvec_real(3),polvec_imag(3)
@@ -325,7 +327,7 @@ contains
       namelist/PESPARAMS/file_orbs,gauge,Nepe,wphot,Eshift,Epe_min,Epe_max,lambda_esc,&
          eta_smear,polvec_real,polvec_imag,kpts_reduced,scatt_type,radint_numpoints_k,&
          radint_numpoints_r,lambda_orbital_term,expansion_lmax,dipole_approximation,&
-         qmom_phot
+         qmom_phot,angle_rot_z
       integer :: unit_inp
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
@@ -345,6 +347,7 @@ contains
       me%Eshift = Eshift
       me%Epe_min = Epe_min
       me%Epe_max = Epe_max
+      me%angle_rot_z = angle_rot_z
       me%lambda_esc = lambda_esc
       me%eta_smear = eta_smear
       me%polvec = polvec_real + iu * polvec_imag
