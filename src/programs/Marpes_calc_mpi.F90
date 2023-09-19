@@ -243,6 +243,9 @@ contains
       type(radialwf_t) :: rwf
       real(dp) :: kmin,kmax
 
+      integer :: Nr,Nk,ir,ik
+      real(dp) :: rr,kk,rint(2)
+
       kmin = 0.95_dp * sqrt(2.0_dp * minval(me%Epe))
       kmax = 1.05_dp * sqrt(2.0_dp * maxval(me%Epe))  
 
@@ -252,6 +255,24 @@ contains
          call WannOrb_to_RadialWF(me%orbs,iorb,rwf)
          call me%radints(iorb)%Init(me%orbs%L_indx(iorb),kmin,kmax,me%chis(iorb),rwf,&
             nk=me%radint_nk,gauge=me%gauge)
+
+         Nr = 1000
+         open(10, file="radialwf_orb"//str(iorb)//".dat")
+         do ir=1,Nr
+            rr = rwf%Rmax * (ir-1)/dble(Nr-1)
+            write(10,*) rr, rwf%Eval(rr), rwf%Eval(rr,idx=1)
+         end do
+         close(10)
+
+         Nk = 20
+         open(11, file="radialintegral"//str(iorb)//".dat")
+         do ik=1, Nk
+            kk = kmin + (kmax - kmin) * (ik - 1) / dble(Nk-1)
+            call me%radints(iorb)%Eval_len(kk,rint)
+            write(11, *) kk, rint
+         end do
+         close(11)
+
          call rwf%Clean()
       end do
 
