@@ -139,7 +139,8 @@ contains
    subroutine RotateZ(me,phi)
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: phi
-      real(dp) :: a1(2),a2(2)
+      integer :: i
+      real(dp) :: a1(2),a2(2),rv(2)
 
       a1 = me%real_lattice(1,1:2)
       a2 = me%real_lattice(2,1:2)
@@ -152,6 +153,12 @@ contains
       call utility_recip_lattice(me%real_lattice, me%recip_lattice)
       call utility_recip_reduced(me%recip_lattice, me%recip_reduced)
       call get_crvec(me%irvec,me%real_lattice,me%crvec)
+
+      do i=1,me%num_wann
+         rv(1:2) = me%coords(i,1:2)
+         me%coords(i,1) = cos(phi) * rv(1) - sin(phi) * rv(2)
+         me%coords(i,2) = sin(phi) * rv(1) + cos(phi) * rv(2)
+      end do
 
    end subroutine RotateZ
 !--------------------------------------------------------------------------------------
