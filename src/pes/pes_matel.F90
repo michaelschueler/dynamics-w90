@@ -97,18 +97,24 @@ contains
 
    end function AngularMatrixElement
 !--------------------------------------------------------------------------------------
-   function ScattMatrixElement_Momentum(swf,radialinteg,l0,m0,kvec) result(Md)
+   function ScattMatrixElement_Momentum(swf,radialinteg,l0,m0,kvec,phi) result(Md)
       type(scattwf_t),intent(in)        :: swf
       type(radialinteg_t),intent(in)    :: radialinteg
       integer,intent(in)                :: l0,m0
       real(dp),intent(in)               :: kvec(3)
       complex(dp),dimension(3)          :: Md
+      real(dp),intent(in),optional      :: phi
       integer :: l,m
       real(dp) :: knrm,rint(2)
-      complex(dp) :: mel_ang(3),exphi
+      complex(dp) :: mel_ang(3),exphi,rphase
 
       Md = zero
       knrm = norm2(kvec)
+
+      rphase = one
+      if(present(phi)) then
+         rphase = exp(iu * m0 * phi)
+      end if
 
       call radialinteg%Eval_mom(knrm,rint)
 
@@ -116,7 +122,7 @@ contains
       exphi = conjg(swf%Phase(l,knrm))
       if(l >= 0) then
          do m=-l,l
-            mel_ang = AngularMatrixElement(l,m,l0,m0)
+            mel_ang = rphase * AngularMatrixElement(l,m,l0,m0)
             Md(1:3) = Md(1:3) + exphi * mel_ang(1:3) * rint(1) * Ylm_cart(l,m,kvec)
          end do         
       end if
@@ -124,7 +130,7 @@ contains
       l = l0 + 1
       exphi = conjg(swf%Phase(l,knrm))
       do m=-l,l
-         mel_ang = AngularMatrixElement(l,m,l0,m0)
+         mel_ang = rphase * AngularMatrixElement(l,m,l0,m0)
          Md(1:3) = Md(1:3) + exphi * mel_ang(1:3) * rint(2) * Ylm_cart(l,m,kvec)
       end do          
 
@@ -132,19 +138,27 @@ contains
 
    end function ScattMatrixElement_Momentum
 !-------------------------------------------------------------------------------------- 
-   function ScattMatrixElement_Length(swf,radialinteg,l0,m0,kvec) result(Mk)
+   function ScattMatrixElement_Length(swf,radialinteg,l0,m0,kvec,phi) result(Mk)
       type(scattwf_t),intent(in)        :: swf
       type(radialinteg_t),intent(in)    :: radialinteg
       integer,intent(in)                :: l0,m0
       real(dp),intent(in)               :: kvec(3)
       complex(dp)                       :: Mk(3)
+      real(dp),intent(in),optional      :: phi
       integer :: l
       real(dp) :: knrm,rint(2)
       real(dp) :: gnt(3)
-      complex(dp) :: exphi
+      complex(dp) :: exphi,rphase(3)
 
       Mk = zero
       knrm = norm2(kvec)
+
+      rphase = one
+      if(present(phi)) then
+         rphase(1) = exp(iu * (m0-1) * phi)
+         rphase(2) = exp(iu * (m0+1) * phi)
+         rphase(3) = exp(iu * m0 * phi)
+      end if
 
       call radialinteg%Eval_len(knrm,rint)
 
@@ -158,13 +172,13 @@ contains
          gnt(3) = minusone_n(-m0) * ThreeYlm(l,-m0,1,0,l0,m0)
          exphi = conjg(swf%Phase(l,knrm))
 
-         Mk(1) = Mk(1) + exphi * rint(1) * (gnt(1) * Ylm_cart(l,m0-1,kvec) &
-            - gnt(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
+         Mk(1) = Mk(1) + exphi * rint(1) * (gnt(1) * rphase(1) * Ylm_cart(l,m0-1,kvec) &
+            - gnt(2) * rphase(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
 
-         Mk(2) = Mk(2) + iu * exphi * rint(1) * (gnt(1) * Ylm_cart(l,m0-1,kvec) &
-            + gnt(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
+         Mk(2) = Mk(2) + iu * exphi * rint(1) * (gnt(1) * rphase(1) * Ylm_cart(l,m0-1,kvec) &
+            + gnt(2) * rphase(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
 
-         Mk(3) = Mk(3) + exphi * rint(1) * gnt(3) * Ylm_cart(l,m0,kvec)
+         Mk(3) = Mk(3) + exphi * rint(1) * gnt(3) * rphase(3) * Ylm_cart(l,m0,kvec)
 
          ! Mk(1) = Mk(1) + exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
          !    - gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(1) / sqrt(2.0d0)
@@ -190,47 +204,61 @@ contains
       !    + gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(2) / sqrt(2.0d0)
       ! Mk(3) = Mk(3) + exphi * gnt(3) * rint(2) * conjg(Ylm_cart(l,-m0,kvec))              
 
-      Mk(1) = Mk(1) + exphi * rint(2) * (gnt(1) * Ylm_cart(l,m0-1,kvec) &
-         - gnt(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
+      Mk(1) = Mk(1) + exphi * rint(2) * (gnt(1) * rphase(1) * Ylm_cart(l,m0-1,kvec) &
+         - gnt(2) * rphase(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
 
-      Mk(2) = Mk(2) + iu * exphi * rint(2) * (gnt(1) * Ylm_cart(l,m0-1,kvec) &
-         + gnt(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
+      Mk(2) = Mk(2) + iu * exphi * rint(2) * (gnt(1) * rphase(1) * Ylm_cart(l,m0-1,kvec) &
+         + gnt(2) * rphase(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
 
-      Mk(3) = Mk(3) + exphi * rint(2) * gnt(3) * Ylm_cart(l,m0,kvec)
+      Mk(3) = Mk(3) + exphi * rint(2) * gnt(3) * rphase(3) * Ylm_cart(l,m0,kvec)
 
       Mk = QPI * sqrt(QPI/3.0d0) * Mk
 
    end function ScattMatrixElement_Length
 !-------------------------------------------------------------------------------------- 
-   subroutine ApplyDipoleOp(rwf,l0,m0,dipwf_m1,dipwf_p1,gauge)
+   subroutine ApplyDipoleOp(rwf,l0,m0,dipwf_m1,dipwf_p1,gauge,phi)
       integer,parameter :: gauge_len=0, gauge_mom=1
       type(radialwf_t),intent(in)            :: rwf
       integer,intent(in)                     :: l0,m0
       type(cplx_matrix_spline_t),intent(out) :: dipwf_m1,dipwf_p1
       integer,intent(in)                     :: gauge
+      real(dp),intent(in),optional           :: phi
+      real(dp) :: phi_
+
+      phi_ = 0.0_dp
+      if(present(phi)) phi_ = phi
 
       select case(gauge)
       case(gauge_len)
-         call ApplyLengthOp(rwf,l0,m0,dipwf_m1,dipwf_p1)
+         call ApplyLengthOp(rwf,l0,m0,dipwf_m1,dipwf_p1,phi=phi_)
       case(gauge_mom)
-         call ApplyMomentumOp(rwf,l0,m0,dipwf_m1,dipwf_p1)
+         call ApplyMomentumOp(rwf,l0,m0,dipwf_m1,dipwf_p1,phi=phi_)
       end select
 
    end subroutine ApplyDipoleOp
 !-------------------------------------------------------------------------------------- 
-   subroutine ApplyLengthOp(rwf,l0,m0,dipwf_m1,dipwf_p1)
+   subroutine ApplyLengthOp(rwf,l0,m0,dipwf_m1,dipwf_p1,phi)
       integer,parameter :: Nr=400
       type(radialwf_t),intent(in)            :: rwf
       integer,intent(in)                     :: l0,m0
       type(cplx_matrix_spline_t),intent(out) :: dipwf_m1,dipwf_p1
+      real(dp),intent(in),optional           :: phi
       integer :: l,m,i,ir,sig
       real(dp) :: rmax,rv
       real(dp) :: gnt(3)
+      complex(dp) :: rphase(3)
       real(dp),allocatable :: rs(:)
       complex(dp),allocatable :: Rfun(:,:,:)
 
       Rmax = rwf%Rmax
       rs = linspace(0.0_dp, Rmax, Nr)
+
+      rphase = one
+      if(present(phi)) then
+         rphase(1) = exp(iu * (m0-1) * phi)
+         rphase(2) = exp(iu * (m0+1) * phi)
+         rphase(3) = exp(iu * m0 * phi)
+      end if
 
       !.......................................
       !            l = l0 + 1
@@ -248,19 +276,19 @@ contains
          if(m == m0-1) then
             do ir=1,Nr
                rv = rs(ir) * rwf%Eval(rs(ir))
-               Rfun(ir,i,1) = Rfun(ir,i,1) + sig * gnt(1) * rv / sqrt(2.0d0)
-               Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(1) * rv / sqrt(2.0d0)
+               Rfun(ir,i,1) = Rfun(ir,i,1) + sig * gnt(1) * rphase(1) * rv / sqrt(2.0d0)
+               Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(1) * rphase(1) * rv / sqrt(2.0d0)
             end do
          elseif(m == m0 + 1) then
             do ir=1,Nr
                rv = rs(ir) * rwf%Eval(rs(ir))
-               Rfun(ir,i,1) = Rfun(ir,i,1) - sig * gnt(2) * rv / sqrt(2.0d0)
-               Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(2) * rv / sqrt(2.0d0)
+               Rfun(ir,i,1) = Rfun(ir,i,1) - sig * gnt(2) * rphase(2) * rv / sqrt(2.0d0)
+               Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(2) * rphase(2) * rv / sqrt(2.0d0)
             end do            
          elseif(m == m0) then
             do ir=1,Nr
                rv = rs(ir) * rwf%Eval(rs(ir))
-               Rfun(ir,i,3) = Rfun(ir,i,3) + sig * gnt(3) * rv
+               Rfun(ir,i,3) = Rfun(ir,i,3) + sig * gnt(3) * rphase(3) * rv
             end do
          end if
       end do
@@ -288,19 +316,19 @@ contains
             if(m == m0-1) then
                do ir=1,Nr
                   rv = rs(ir) * rwf%Eval(rs(ir))
-                  Rfun(ir,i,1) = Rfun(ir,i,1) + sig * gnt(1) * rv / sqrt(2.0d0)
-                  Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(1) * rv / sqrt(2.0d0)
+                  Rfun(ir,i,1) = Rfun(ir,i,1) + sig * gnt(1) * rphase(1) * rv / sqrt(2.0d0)
+                  Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(1) * rphase(1) * rv / sqrt(2.0d0)
                end do
             elseif(m == m0 + 1) then
                do ir=1,Nr
                   rv = rs(ir) * rwf%Eval(rs(ir))
-                  Rfun(ir,i,1) = Rfun(ir,i,1) - sig * gnt(2) * rv / sqrt(2.0d0)
-                  Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(2) * rv / sqrt(2.0d0)
+                  Rfun(ir,i,1) = Rfun(ir,i,1) - sig * gnt(2) * rphase(2) * rv / sqrt(2.0d0)
+                  Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(2) * rphase(2) * rv / sqrt(2.0d0)
                end do            
             elseif(m == m0) then
                do ir=1,Nr
                   rv = rs(ir) * rwf%Eval(rs(ir))
-                  Rfun(ir,i,3) = Rfun(ir,i,3) + sig * gnt(3) * rv
+                  Rfun(ir,i,3) = Rfun(ir,i,3) + sig * gnt(3) * rphase(3) * rv
                end do
             end if
          end do
@@ -319,20 +347,25 @@ contains
 !-------------------------------------------------------------------------------------- 
 
 !-------------------------------------------------------------------------------------- 
-   subroutine ApplyMomentumOp(rwf,l0,m0,dipwf_m1,dipwf_p1)
+   subroutine ApplyMomentumOp(rwf,l0,m0,dipwf_m1,dipwf_p1,phi)
       integer,parameter :: Nr=400
       real(dp),parameter :: rsmall=1.0e-6_dp
       type(radialwf_t),intent(in)            :: rwf
       integer,intent(in)                     :: l0,m0
       type(cplx_matrix_spline_t),intent(out) :: dipwf_m1,dipwf_p1
+      real(dp),intent(in),optional           :: phi
       integer :: l,m,i,ir,idir
       real(dp) :: rmax,rv1,rv2
+      complex(dp) :: rphase
       complex(dp) :: mel_ang(3)
       real(dp),allocatable :: rs(:)
       complex(dp),allocatable :: Rfun(:,:,:)
 
       Rmax = rwf%Rmax
       rs = linspace(0.0_dp, Rmax, Nr)
+
+      rphase = one
+      if(present(phi)) rphase = exp(iu * m0 * phi)
 
       !.......................................
       !            l = l0 + 1
@@ -342,7 +375,7 @@ contains
       allocate(Rfun(Nr,2*l+1,3)); Rfun = zero
       do m= -l, l
          i = m + l + 1
-         mel_ang = AngularMatrixElement(l,m,l0,m0)
+         mel_ang = rphase * AngularMatrixElement(l,m,l0,m0)
          do ir=1,Nr
             rv1 = rwf%Eval(rs(ir),idx=1)
             if(rs(ir) < rsmall) then
@@ -370,7 +403,7 @@ contains
          allocate(Rfun(Nr,2*l+1,3)); Rfun = zero
          do m= -l, l
             i = m + l + 1
-            mel_ang = AngularMatrixElement(l,m,l0,m0)
+            mel_ang = rphase * AngularMatrixElement(l,m,l0,m0)
             do ir=1,Nr
                rv1 = rwf%Eval(rs(ir),idx=1)
                if(rs(ir) < rsmall) then

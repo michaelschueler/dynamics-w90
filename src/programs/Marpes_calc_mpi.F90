@@ -37,6 +37,7 @@ module Marpes_calc_mpi
       integer     :: Nepe      
       integer     :: lmax,radint_nk,radint_nr
       real(dp)    :: wphot,MuChem,Eshift,lambda_esc,eta_smear
+      real(dp)    :: phi_rot=0.0_dp
       real(dp)    :: qphot(3)=[0.0_dp,0.0_dp,0.0_dp]
       complex(dp) :: polvec(3)       
       integer     :: Nk,Nk_loc
@@ -146,6 +147,7 @@ contains
 
       if(abs(par_pes%angle_rot_z) > 1.0e-5_dp) then
          call me%ham%RotateZ(par_pes%angle_rot_z)
+         me%phi_rot = par_pes%angle_rot_z
       end if
 
       me%nbnd = me%ham%num_wann
@@ -315,7 +317,7 @@ contains
                !$OMP DO
                do iepe=1,me%Nepe
                   me%spect(iepe,ik) = PES_Slab_Intensity(me%ham,me%nlayer,me%chis,me%lmax,me%bessel_integ,kpar,me%wphot,&
-                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,qphot=me%qphot)
+                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,qphot=me%qphot,phi=me%phi_rot)
                end do
                !$OMP END DO
                !$OMP END PARALLEL
@@ -324,7 +326,7 @@ contains
                !$OMP DO
                do iepe=1,me%Nepe
                   me%spect(iepe,ik) = PES_Slab_Intensity(me%orbs,me%ham,me%nlayer,me%chis,me%radints,kpar,me%wphot,&
-                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge,qphot=me%qphot)
+                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge,qphot=me%qphot,phi=me%phi_rot)
                end do
                !$OMP END DO
                !$OMP END PARALLEL
@@ -335,7 +337,7 @@ contains
                !$OMP DO
                do iepe=1,me%Nepe
                   me%spect(iepe,ik) = PES_Intensity(me%ham,me%chis,me%lmax,me%bessel_integ,kpar,me%wphot,&
-                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,qphot=me%qphot)
+                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,qphot=me%qphot,phi=me%phi_rot)
                end do
                !$OMP END DO
                !$OMP END PARALLEL
@@ -344,7 +346,7 @@ contains
                !$OMP DO
                do iepe=1,me%Nepe
                   me%spect(iepe,ik) = PES_Intensity(me%orbs,me%ham,me%chis,me%radints,kpar,me%wphot,&
-                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge,qphot=me%qphot)
+                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge,qphot=me%qphot,phi=me%phi_rot)
                end do
                !$OMP END DO
                !$OMP END PARALLEL
