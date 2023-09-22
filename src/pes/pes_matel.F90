@@ -148,17 +148,13 @@ contains
       integer :: l
       real(dp) :: knrm,rint(2)
       real(dp) :: gnt(3)
-      complex(dp) :: exphi,rphase(3)
+      complex(dp) :: exphi,rphase
 
       Mk = zero
       knrm = norm2(kvec)
 
       rphase = one
-      if(present(phi)) then
-         rphase(1) = exp(iu * (m0-1) * phi)
-         rphase(2) = exp(iu * (m0+1) * phi)
-         rphase(3) = exp(iu * m0 * phi)
-      end if
+      if(present(phi)) rphase = exp(iu * m0 * phi)
 
       call radialinteg%Eval_len(knrm,rint)
 
@@ -172,13 +168,13 @@ contains
          gnt(3) = minusone_n(-m0) * ThreeYlm(l,-m0,1,0,l0,m0)
          exphi = conjg(swf%Phase(l,knrm))
 
-         Mk(1) = Mk(1) + exphi * rint(1) * (gnt(1) * rphase(1) * Ylm_cart(l,m0-1,kvec) &
-            - gnt(2) * rphase(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
+         Mk(1) = Mk(1) + exphi * rint(1) * (gnt(1) * Ylm_cart(l,m0-1,kvec) &
+            - gnt(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
 
-         Mk(2) = Mk(2) + iu * exphi * rint(1) * (gnt(1) * rphase(1) * Ylm_cart(l,m0-1,kvec) &
-            + gnt(2) * rphase(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
+         Mk(2) = Mk(2) + iu * exphi * rint(1) * (gnt(1) * Ylm_cart(l,m0-1,kvec) &
+            + gnt(2)* Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
 
-         Mk(3) = Mk(3) + exphi * rint(1) * gnt(3) * rphase(3) * Ylm_cart(l,m0,kvec)
+         Mk(3) = Mk(3) + exphi * rint(1) * gnt(3) * Ylm_cart(l,m0,kvec)
 
          ! Mk(1) = Mk(1) + exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
          !    - gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(1) / sqrt(2.0d0)
@@ -204,15 +200,15 @@ contains
       !    + gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(2) / sqrt(2.0d0)
       ! Mk(3) = Mk(3) + exphi * gnt(3) * rint(2) * conjg(Ylm_cart(l,-m0,kvec))              
 
-      Mk(1) = Mk(1) + exphi * rint(2) * (gnt(1) * rphase(1) * Ylm_cart(l,m0-1,kvec) &
-         - gnt(2) * rphase(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
+      Mk(1) = Mk(1) + exphi * rint(2) * (gnt(1) * Ylm_cart(l,m0-1,kvec) &
+         - gnt(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
 
-      Mk(2) = Mk(2) + iu * exphi * rint(2) * (gnt(1) * rphase(1) * Ylm_cart(l,m0-1,kvec) &
-         + gnt(2) * rphase(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
+      Mk(2) = Mk(2) + iu * exphi * rint(2) * (gnt(1) * Ylm_cart(l,m0-1,kvec) &
+         + gnt(2) * Ylm_cart(l,m0+1,kvec)) / sqrt(2.0d0)
 
-      Mk(3) = Mk(3) + exphi * rint(2) * gnt(3) * rphase(3) * Ylm_cart(l,m0,kvec)
+      Mk(3) = Mk(3) + exphi * rint(2) * gnt(3) * Ylm_cart(l,m0,kvec)
 
-      Mk = QPI * sqrt(QPI/3.0d0) * Mk
+      Mk = QPI * sqrt(QPI/3.0d0) * Mk * rphase
 
    end function ScattMatrixElement_Length
 !-------------------------------------------------------------------------------------- 
@@ -246,7 +242,7 @@ contains
       integer :: l,m,i,ir,sig
       real(dp) :: rmax,rv
       real(dp) :: gnt(3)
-      complex(dp) :: rphase(3)
+      complex(dp) :: rphase
       real(dp),allocatable :: rs(:)
       complex(dp),allocatable :: Rfun(:,:,:)
 
@@ -254,12 +250,8 @@ contains
       rs = linspace(0.0_dp, Rmax, Nr)
 
       rphase = one
-      if(present(phi)) then
-         rphase(1) = exp(iu * (m0-1) * phi)
-         rphase(2) = exp(iu * (m0+1) * phi)
-         rphase(3) = exp(iu * m0 * phi)
-      end if
-
+      if(present(phi)) rphase = exp(iu * m0 * phi)
+      
       !.......................................
       !            l = l0 + 1
       !.......................................
@@ -276,23 +268,23 @@ contains
          if(m == m0-1) then
             do ir=1,Nr
                rv = rs(ir) * rwf%Eval(rs(ir))
-               Rfun(ir,i,1) = Rfun(ir,i,1) + sig * gnt(1) * rphase(1) * rv / sqrt(2.0d0)
-               Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(1) * rphase(1) * rv / sqrt(2.0d0)
+               Rfun(ir,i,1) = Rfun(ir,i,1) + sig * gnt(1) * rv / sqrt(2.0d0)
+               Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(1) * rv / sqrt(2.0d0)
             end do
          elseif(m == m0 + 1) then
             do ir=1,Nr
                rv = rs(ir) * rwf%Eval(rs(ir))
-               Rfun(ir,i,1) = Rfun(ir,i,1) - sig * gnt(2) * rphase(2) * rv / sqrt(2.0d0)
-               Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(2) * rphase(2) * rv / sqrt(2.0d0)
+               Rfun(ir,i,1) = Rfun(ir,i,1) - sig * gnt(2) * rv / sqrt(2.0d0)
+               Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(2) * rv / sqrt(2.0d0)
             end do            
          elseif(m == m0) then
             do ir=1,Nr
                rv = rs(ir) * rwf%Eval(rs(ir))
-               Rfun(ir,i,3) = Rfun(ir,i,3) + sig * gnt(3) * rphase(3) * rv
+               Rfun(ir,i,3) = Rfun(ir,i,3) + sig * gnt(3) * rv
             end do
          end if
       end do
-      Rfun = sqrt(QPI/3.0d0) * Rfun 
+      Rfun = sqrt(QPI/3.0d0) * Rfun * rphase
 
       call dipwf_p1%Init(rs, Rfun, 2*l+1, 3)
 
@@ -316,23 +308,23 @@ contains
             if(m == m0-1) then
                do ir=1,Nr
                   rv = rs(ir) * rwf%Eval(rs(ir))
-                  Rfun(ir,i,1) = Rfun(ir,i,1) + sig * gnt(1) * rphase(1) * rv / sqrt(2.0d0)
-                  Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(1) * rphase(1) * rv / sqrt(2.0d0)
+                  Rfun(ir,i,1) = Rfun(ir,i,1) + sig * gnt(1) * rv / sqrt(2.0d0)
+                  Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(1) * rv / sqrt(2.0d0)
                end do
             elseif(m == m0 + 1) then
                do ir=1,Nr
                   rv = rs(ir) * rwf%Eval(rs(ir))
-                  Rfun(ir,i,1) = Rfun(ir,i,1) - sig * gnt(2) * rphase(2) * rv / sqrt(2.0d0)
-                  Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(2) * rphase(2) * rv / sqrt(2.0d0)
+                  Rfun(ir,i,1) = Rfun(ir,i,1) - sig * gnt(2) * rv / sqrt(2.0d0)
+                  Rfun(ir,i,2) = Rfun(ir,i,2) + sig * iu * gnt(2) * rv / sqrt(2.0d0)
                end do            
             elseif(m == m0) then
                do ir=1,Nr
                   rv = rs(ir) * rwf%Eval(rs(ir))
-                  Rfun(ir,i,3) = Rfun(ir,i,3) + sig * gnt(3) * rphase(3) * rv
+                  Rfun(ir,i,3) = Rfun(ir,i,3) + sig * gnt(3) * rv
                end do
             end if
          end do
-         Rfun = sqrt(QPI/3.0d0) * Rfun 
+         Rfun = sqrt(QPI/3.0d0) * Rfun * rphase
 
          call dipwf_m1%Init(rs, Rfun, 2*l+1, 3)
       else
