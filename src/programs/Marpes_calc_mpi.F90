@@ -147,7 +147,7 @@ contains
 
       if(abs(par_pes%angle_rot_z) > 1.0e-5_dp) then
          call me%ham%RotateZ(par_pes%angle_rot_z)
-         me%phi_rot =  - par_pes%angle_rot_z
+         me%phi_rot =  par_pes%angle_rot_z
       end if
 
       me%nbnd = me%ham%num_wann
