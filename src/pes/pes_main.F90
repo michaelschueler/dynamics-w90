@@ -987,7 +987,8 @@ contains
 
       z0 = maxval(coords(:,3))
       do j=1,norb
-         phi = dot_product(kvec,coords(j,1:3))
+         ! phi = dot_product(kvec,coords(j,1:3))
+         phi = 0.0_dp
          xlam = lam * (coords(j,3) - z0)
          ! if(xlam < rthresh) cycle
          do ibnd=1,norb
