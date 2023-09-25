@@ -581,7 +581,6 @@ contains
       end do
       deallocate(matomic_layer)
 
-      print*, "band:", nbnd, shape(wann%coords), shape(vectk), shape(vectk_phase)
       call VectorPhase(nbnd,wann%coords,kvec,lam,vectk,vectk_phase)
 
       matel = zero
@@ -984,12 +983,7 @@ contains
       integer :: j,ibnd
       real(dp) :: z0,phi,xlam
 
-      print*, "norb = ", norb
-      print*, shape(vectk_phase)
-
       if(allocated(vectk_phase)) deallocate(vectk_phase)
-
-      print*, shape(vectk_phase)
       allocate(vectk_phase(norb,norb)); vectk_phase = zero
 
       z0 = maxval(coords(:,3))
