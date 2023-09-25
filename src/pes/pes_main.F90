@@ -979,10 +979,11 @@ contains
       real(dp),intent(in) :: kvec(3)
       real(dp),intent(in) :: lam
       complex(dp),intent(in) :: vectk(:,:)
-      complex(dp),allocatable,intent(out) :: vectk_phase(:,:)
+      complex(dp),allocatable,intent(inout) :: vectk_phase(:,:)
       integer :: j,ibnd
       real(dp) :: z0,phi,xlam
 
+      if(allocated(vectk_phase)) deallocate(vectk_phase)
       allocate(vectk_phase(norb,norb)); vectk_phase = zero
 
       z0 = maxval(coords(:,3))
