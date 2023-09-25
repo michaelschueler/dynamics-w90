@@ -987,13 +987,11 @@ contains
 
       z0 = maxval(coords(:,3))
       do j=1,norb
-         ! phi = dot_product(kvec,coords(j,1:3))
-         phi = 0.0_dp
+         phi = dot_product(kvec,coords(j,1:3))
          xlam = lam * (coords(j,3) - z0)
          ! if(xlam < rthresh) cycle
          do ibnd=1,norb
-            ! vectk_phase(j,ibnd) = exp(-iu * phi) * save_exp(xlam) * vectk(j,ibnd) 
-            vectk_phase(j,ibnd) = vectk(j,ibnd) 
+            vectk_phase(j,ibnd) = exp(-iu * phi) * save_exp(xlam) * vectk(j,ibnd) 
          end do
       end do
 
