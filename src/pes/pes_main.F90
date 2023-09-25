@@ -986,7 +986,7 @@ contains
       if(allocated(vectk_phase)) deallocate(vectk_phase)
       allocate(vectk_phase(norb,norb)); vectk_phase = zero
 
-      print(shape(coords))
+      print*, shape(coords)
 
       z0 = maxval(coords(:,3))
       do j=1,norb
