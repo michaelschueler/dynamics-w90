@@ -983,10 +983,11 @@ contains
       integer :: j,ibnd
       real(dp) :: z0,phi,xlam
 
+      print*, "norb = ", norb
+      print*, shape(vectk_phase)
+
       if(allocated(vectk_phase)) deallocate(vectk_phase)
       allocate(vectk_phase(norb,norb)); vectk_phase = zero
-
-      print*, shape(coords)
 
       z0 = maxval(coords(:,3))
       do j=1,norb
