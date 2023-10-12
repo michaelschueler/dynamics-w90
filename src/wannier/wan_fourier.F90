@@ -78,7 +78,7 @@ contains
       nrpts = size(irvec, dim=1)
       num_wann = size(OO_R, dim=1)
       call assert_shape(OO_R, [num_wann, num_wann, nrpts], "fourier_R_to_k_deriv", "OO_R")
-      call assert_shape(OO, [num_wann, num_wann], "fourier_R_to_k_deriv", "OO")
+      call assert_shape(OO, [num_wann, num_wann, 3], "fourier_R_to_k_deriv", "OO")
 
       ! compute the number of chuncks
       numblock  = (nrpts+blocksize-1)/blocksize
@@ -214,7 +214,7 @@ contains
 
       nrpts = size(irvec, dim=1)
       num_wann = size(OO_R, dim=1)
-      call assert_shape(OO_R, [num_wann, num_wann, nrpts], "fourier_R_to_k_truevec", "OO_R")
+      call assert_shape(OO_R, [num_wann, num_wann, 3, nrpts], "fourier_R_to_k_truevec", "OO_R")
       call assert_shape(OO_true, [num_wann, num_wann, 3], "fourier_R_to_k_truevec", "OO_true")
 
       ! compute the number of chuncks

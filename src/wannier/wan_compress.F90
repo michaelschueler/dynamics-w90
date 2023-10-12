@@ -43,12 +43,14 @@ contains
 
       if(allocated(wann_pruned%ndegen)) deallocate(wann_pruned%ndegen)
       if(allocated(wann_pruned%irvec)) deallocate(wann_pruned%irvec)
+      if(allocated(wann_pruned%crvec)) deallocate(wann_pruned%crvec)
       if(allocated(wann_pruned%ham_r)) deallocate(wann_pruned%ham_r)
       if(allocated(wann_pruned%pos_r)) deallocate(wann_pruned%pos_r)
       if(allocated(wann_pruned%coords)) deallocate(wann_pruned%coords)
 
       allocate(wann_pruned%ndegen(wann_pruned%nrpts))
       allocate(wann_pruned%irvec(wann_pruned%nrpts,3))
+      allocate(wann_pruned%crvec(wann_pruned%nrpts,3))
       allocate(wann_pruned%ham_r(wann%num_wann,wann%num_wann,wann_pruned%nrpts))
       allocate(wann_pruned%pos_r(wann%num_wann,wann%num_wann,3,wann_pruned%nrpts))
       allocate(wann_pruned%coords(wann%num_wann,3))
@@ -59,6 +61,7 @@ contains
          ir_old = ir_indc_pruned(ir)
          wann_pruned%ndegen(ir) = wann%ndegen(ir_old)
          wann_pruned%irvec(ir,1:3) = wann%irvec(ir_old,1:3)
+         wann_pruned%crvec(ir,1:3) = wann%crvec(ir_old,1:3)
          wann_pruned%ham_r(:,:,ir) = wann%ham_r(:,:,ir_old)
          wann_pruned%pos_r(:,:,:,ir) = wann%pos_r(:,:,:,ir_old)
       end do

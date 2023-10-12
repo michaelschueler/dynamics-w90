@@ -556,7 +556,7 @@ contains
    end function get_spin_velocity
 !--------------------------------------------------------------------------------------
    function get_berry_connection(me,kpt,orbs_excl) result(AA)
-      class(wann90_tb_t)  :: me
+      class(wann90_tb_t),intent(in)  :: me
       real(dp),intent(in) :: kpt(3)
       integer,intent(in),optional :: orbs_excl(:)
       complex(dp)         :: AA(me%num_wann,me%num_wann,3)
@@ -1707,9 +1707,9 @@ contains
 !--------------------------------------------------------------------------------------
    subroutine get_crvec(irvec,real_lattice,crvec)
       !! returns the array of hopping vectors in cartesian coordiands
-      integer,intent(in)               :: irvec(:,:)
-      real(dp),intent(in)              :: real_lattice(:,:)
-      real(dp),allocatable,intent(out) :: crvec(:,:)
+      integer,intent(in)                 :: irvec(:,:)
+      real(dp),intent(in)                :: real_lattice(:,:)
+      real(dp),allocatable,intent(inout) :: crvec(:,:)
       integer :: nrpts,ir
 
       nrpts = size(irvec, dim=1)
