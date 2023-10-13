@@ -75,8 +75,12 @@ module io_params
                                               !! a bulk Wannier Hamiltonian
       logical            :: exclude_orbitals=.false. !! if `.true.`, selected orbitals can be excluded
                                                      !! from the calculation
+      logical            :: exclude_layers=.false. !! if `.true.`, selected layers can be excluded
+                                                     !! from the calculation (only for slab mode)
       integer,allocatable,dimension(:) :: orbs_excl !! indices or excluded orbitals
-      integer            :: norb_exc=0 !! number of included orbitals
+      integer,allocatable,dimension(:) :: lays_excl !! indices or excluded layers
+      integer            :: norb_exc=0 !! number of excluded orbitals
+      integer            :: nlay_exc=0 !! number of excluded layers
       integer            :: field_mode=field_mode_positions !! How to include the effects of the   
                                                             !! static electric field
       real(dp)           :: Beta=1000.0_dp !! inverse temperature
@@ -247,13 +251,12 @@ contains
       logical            :: force_antiherm=.true.
       real(dp)           :: degen_thresh=1.0e-5_dp  
       integer            :: lm_gauge=0
-      character(len=1000) :: exclude_orbitals=""
+      character(len=1000) :: exclude_orbitals="",exclude_layers=""
       namelist/HAMILTONIAN/file_ham,file_xyz,file_ovlp,file_lam,file_soc,file_elpot,slab_mode,w90_with_soc,&
          energy_thresh,use_degen_pert,force_herm,force_antiherm,degen_thresh,apply_field,&
-         field_mode,Efield,Beta,Filling,MuChem,FixMuChem,lm_gauge,exclude_orbitals
+         field_mode,Efield,Beta,Filling,MuChem,FixMuChem,lm_gauge,exclude_orbitals,exclude_layers
       integer :: slab_nlayer=0
       namelist/SLAB/slab_nlayer
-      integer :: ncomma,ndash,nexc,iexc,iost,i,istart,iend,ppos
 
       integer :: unit_inp
 
@@ -284,36 +287,9 @@ contains
       me%lm_gauge = lm_gauge
 
       if(len_trim(exclude_orbitals) > 0) then
-         ncomma = count(transfer(exclude_orbitals, 'a', len(exclude_orbitals)) == ",")
-         ndash = count(transfer(exclude_orbitals, 'a', len(exclude_orbitals)) == "-")
-
-         if(ncomma > 0 .and. ndash == 0) then
-            nexc = ncomma + 1
-            allocate(me%orbs_excl(nexc)); me%orbs_excl = 0
-            read(exclude_orbitals, *, iostat=iost) me%orbs_excl
-            if(iost .ne. 0) then
-               write(output_unit,fmt700) "exclude_orbitals: invalid input"
-               me%orbs_excl = 0
-            end if
-            me%exclude_orbitals = all(me%orbs_excl .ne. 0)
-         elseif(ncomma ==0 .and. ndash == 1) then
-            ppos = scan(trim(exclude_orbitals),"-", BACK= .false.)
-            read(exclude_orbitals(1:ppos-1), *, iostat=iost) istart
-            if(iost .ne. 0) call stop_error("exclude_orbitals: invalid input")
-
-            read(exclude_orbitals(ppos+1:), *, iostat=iost) iend
-            if(iost .ne. 0) call stop_error("exclude_orbitals: invalid input")
-
-            nexc = iend - istart + 1
-            allocate(me%orbs_excl(nexc))
-            do i=1,nexc
-               me%orbs_excl(i) = i + istart - 1
-            end do
-            me%exclude_orbitals = all(me%orbs_excl .ne. 0)
-         else
-            call stop_error("exclude_orbitals: invalid input")
-         end if
-
+         call ReadList(exclude_orbitals, me%orbs_excl, "exclude_orbitals")
+         me%exclude_orbitals = all(me%orbs_excl .ne. 0)
+         me%norb_exc = size(me%orbs_excl)
       end if
 
       if(me%slab_mode) then
@@ -322,6 +298,12 @@ contains
          close(unit_inp)
 
          me%slab_nlayer = slab_nlayer
+
+         if(len_trim(exclude_layers) > 0) then
+            call ReadList(exclude_layers, me%lays_excl, "exclude_layers")
+            me%exclude_layers = all(me%lays_excl .ne. 0)
+            me%nlay_exc = size(me%lays_excl)    
+         end if        
       end if
 
    end subroutine Ham_ReadFromFile
@@ -380,7 +362,43 @@ contains
 
    end subroutine PES_ReadFromFile
 !--------------------------------------------------------------------------------------
+   subroutine ReadList(str,list,func_tag)
+      character(len=*),intent(in) :: str
+      integer,allocatable,intent(out) :: list(:)
+      character(len=*),intent(in) ::    func_tag
+      integer :: nl
+      integer :: iost
+      integer :: ncomma,ndash,i,istart,iend,ppos
 
+      ncomma = count(transfer(str, 'a', len(str)) == ",")
+      ndash = count(transfer(str, 'a', len(str)) == "-")
 
+      if(ncomma > 0 .and. ndash == 0) then
+         nl = ncomma + 1
+         allocate(list(nl)); list = 0
+         read(str, *, iostat=iost) list
+         if(iost .ne. 0) then
+            write(output_unit,fmt700) trim(func_tag)//": invalid input"
+            list = 0
+         end if
+      elseif(ncomma ==0 .and. ndash == 1) then
+         ppos = scan(trim(str),"-", BACK= .false.)
+         read(str(1:ppos-1), *, iostat=iost) istart
+         if(iost .ne. 0) call stop_error(trim(func_tag)//": invalid input")
+
+         read(str(ppos+1:), *, iostat=iost) iend
+         if(iost .ne. 0) call stop_error(trim(func_tag)//": invalid input")
+
+         nl = iend - istart + 1
+         allocate(list(nl))
+         do i=1,nl
+            list(i) = i + istart - 1
+         end do
+      else
+         call stop_error(trim(func_tag)//": invalid input")
+      end if
+
+   end subroutine ReadList
+!--------------------------------------------------------------------------------------
 !====================================================================================== 
 end module io_params
