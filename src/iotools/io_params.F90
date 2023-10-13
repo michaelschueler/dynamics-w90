@@ -373,7 +373,15 @@ contains
       ncomma = count(transfer(str, 'a', len(str)) == ",")
       ndash = count(transfer(str, 'a', len(str)) == "-")
 
-      if(ncomma > 0 .and. ndash == 0) then
+      if(ncomma == 0 .and. ndash == 0) then
+         nl = 1
+         allocate(list(nl)); list = 0
+         read(str, *, iostat=iost) list
+         if(iost .ne. 0) then
+            write(output_unit,fmt700) trim(func_tag)//": invalid input"
+            list = 0
+         end if
+      else(ncomma > 0 .and. ndash == 0) then
          nl = ncomma + 1
          allocate(list(nl)); list = 0
          read(str, *, iostat=iost) list
