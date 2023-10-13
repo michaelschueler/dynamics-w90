@@ -299,7 +299,7 @@ contains
             end if
             me%exclude_orbitals = all(me%orbs_excl .ne. 0)
          elseif(ncomma ==0 .and. ndash == 1) then
-            ppos = scan(trim(exclude_orbitals),".", BACK= .false.)
+            ppos = scan(trim(exclude_orbitals),"-", BACK= .false.)
             read(exclude_orbitals(1:ppos-1), *, iostat=iost) istart
             if(iost .ne. 0) call stop_error("exclude_orbitals: invalid input")
 
