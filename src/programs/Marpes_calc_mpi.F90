@@ -178,6 +178,9 @@ contains
          do iorb=1,size(par_ham%orbs_excl, dim=1)
             me%orbs%weight(par_ham%orbs_excl(iorb)) = 0.0_dp
          end do
+         do iorb=1,me%orbs%norb
+            print*, iorb, me%orbs%atom_indx(iorb), me%orbs%L_indx(iorb), me%orbs%weight(iorb)
+         end do
       end if
 
       me%norb = me%orbs%norb
