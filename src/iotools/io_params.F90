@@ -287,8 +287,6 @@ contains
          ncomma = count(transfer(exclude_orbitals, 'a', len(exclude_orbitals)) == ",")
          ndash = count(transfer(exclude_orbitals, 'a', len(exclude_orbitals)) == "-")
 
-         print*, "ncomma = ", ncomma
-         print*, "ndash = ", ndash
          if(ncomma > 0 .and. ndash == 0) then
             nexc = ncomma + 1
             allocate(me%orbs_excl(nexc)); me%orbs_excl = 0
@@ -310,7 +308,6 @@ contains
             allocate(me%orbs_excl(nexc))
             do i=1,nexc
                me%orbs_excl(i) = i + istart - 1
-               print*, i, me%orbs_excl(i)
             end do
             me%exclude_orbitals = all(me%orbs_excl .ne. 0)
          else
