@@ -4,6 +4,7 @@ module io_params
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
    use scitools_def,only: dp,iu,zero
+   use scitools_utils,only: stop_error
    implicit none
    include "../formats.h"  
 !--------------------------------------------------------------------------------------
@@ -246,13 +247,13 @@ contains
       logical            :: force_antiherm=.true.
       real(dp)           :: degen_thresh=1.0e-5_dp  
       integer            :: lm_gauge=0
-      character(len=256) :: exclude_orbitals=""
+      character(len=1000) :: exclude_orbitals=""
       namelist/HAMILTONIAN/file_ham,file_xyz,file_ovlp,file_lam,file_soc,file_elpot,slab_mode,w90_with_soc,&
          energy_thresh,use_degen_pert,force_herm,force_antiherm,degen_thresh,apply_field,&
          field_mode,Efield,Beta,Filling,MuChem,FixMuChem,lm_gauge,exclude_orbitals
       integer :: slab_nlayer=0
       namelist/SLAB/slab_nlayer
-      integer :: nexc,iexc,iost,i
+      integer :: ncomma,ndash,nexc,iexc,iost,i,istart,iend,ppos
 
       integer :: unit_inp
 
@@ -283,14 +284,35 @@ contains
       me%lm_gauge = lm_gauge
 
       if(len_trim(exclude_orbitals) > 0) then
-         nexc = count(transfer(exclude_orbitals, 'a', len(exclude_orbitals)) == ",") + 1
-         allocate(me%orbs_excl(nexc)); me%orbs_excl = 0
-         read(exclude_orbitals, *, iostat=iost) me%orbs_excl
-         if(iost .ne. 0) then
-            write(output_unit,fmt700) "exclude_orbitals: invalid input"
-            me%orbs_excl = 0
+         ncomma = count(transfer(exclude_orbitals, 'a', len(exclude_orbitals)) == ",")
+         ndash = count(transfer(exclude_orbitals, 'a', len(exclude_orbitals)) == "-")
+         if(ncomma > 0 .and. ndash == 0) then
+            nexc = ncomma + 1
+            allocate(me%orbs_excl(nexc)); me%orbs_excl = 0
+            read(exclude_orbitals, *, iostat=iost) me%orbs_excl
+            if(iost .ne. 0) then
+               write(output_unit,fmt700) "exclude_orbitals: invalid input"
+               me%orbs_excl = 0
+            end if
+            me%exclude_orbitals = all(me%orbs_excl .ne. 0)
+         elseif(ncomma ==0 .and. ndash == 1) then
+            ppos = scan(trim(exclude_orbitals),".", BACK= .false.)
+            read(exclude_orbitals(1:ppos-1), *, iostat=iost) istart
+            if(iost .ne. 0) call stop_error("exclude_orbitals: invalid input")
+
+            read(exclude_orbitals(ppos+1:), *, iostat=iost) iend
+            if(iost .ne. 0) call stop_error("exclude_orbitals: invalid input")
+
+            nexc = iend - istart + 1
+            allocate(me%orbs_excl(nexc))
+            do i=1,nexc
+               me%orbs_excl(i) = i + istart - 1
+            end do
+            me%exclude_orbitals = all(me%orbs_excl .ne. 0)
+         else
+            call stop_error("exclude_orbitals: invalid input")
          end if
-         me%exclude_orbitals = all(me%orbs_excl .ne. 0)
+
       end if
 
       if(me%slab_mode) then
