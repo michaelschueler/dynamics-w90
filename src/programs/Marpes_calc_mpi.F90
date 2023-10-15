@@ -41,6 +41,7 @@ module Marpes_calc_mpi
       real(dp)    :: qphot(3)=[0.0_dp,0.0_dp,0.0_dp]
       complex(dp) :: polvec(3)       
       integer     :: Nk,Nk_loc
+      integer,allocatable,dimension(:)    :: excluded_layers
       real(dp),allocatable,dimension(:)   :: Epe
       real(dp),allocatable,dimension(:,:) :: kpts,kpts_loc,spect
       type(wann90_tb_t)    :: ham
@@ -143,6 +144,10 @@ contains
             call ovlp_tmp%Clean()
          end if
 
+         if(par_ham%exclude_layers) then
+            allocate(me%excluded_layers(par_ham%nlay_exc))
+            me%excluded_layers = par_ham%lays_excl
+         end if
       end if
 
       if(abs(par_pes%angle_rot_z) > 1.0e-5_dp) then
@@ -313,23 +318,48 @@ contains
 
          if(me%slab_mode) then
             if(me%lambda_mode) then
-               !$OMP PARALLEL
-               !$OMP DO
-               do iepe=1,me%Nepe
-                  me%spect(iepe,ik) = PES_Slab_Intensity(me%ham,me%nlayer,me%chis,me%lmax,me%bessel_integ,kpar,me%wphot,&
-                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,qphot=me%qphot,phi=me%phi_rot)
-               end do
-               !$OMP END DO
-               !$OMP END PARALLEL
+               if(allocated(me%excluded_layers)) then
+                  !$OMP PARALLEL
+                  !$OMP DO
+                  do iepe=1,me%Nepe
+                     me%spect(iepe,ik) = PES_Slab_Intensity(me%ham,me%nlayer,me%chis,me%lmax,me%bessel_integ,kpar,me%wphot,&
+                        me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,qphot=me%qphot,phi=me%phi_rot,&
+                        excluded_layers=me%excluded_layers)
+                  end do
+                  !$OMP END DO
+                  !$OMP END PARALLEL
+               else
+                  !$OMP PARALLEL
+                  !$OMP DO
+                  do iepe=1,me%Nepe
+                     me%spect(iepe,ik) = PES_Slab_Intensity(me%ham,me%nlayer,me%chis,me%lmax,me%bessel_integ,kpar,me%wphot,&
+                        me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,qphot=me%qphot,phi=me%phi_rot)
+                  end do
+                  !$OMP END DO
+                  !$OMP END PARALLEL
+               end if
             else
-               !$OMP PARALLEL
-               !$OMP DO
-               do iepe=1,me%Nepe
-                  me%spect(iepe,ik) = PES_Slab_Intensity(me%orbs,me%ham,me%nlayer,me%chis,me%radints,kpar,me%wphot,&
-                     me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge,qphot=me%qphot,phi=me%phi_rot)
-               end do
-               !$OMP END DO
-               !$OMP END PARALLEL
+               if(allocated(me%excluded_layers)) then
+                  !$OMP PARALLEL
+                  !$OMP DO
+                  do iepe=1,me%Nepe
+                     me%spect(iepe,ik) = PES_Slab_Intensity(me%orbs,me%ham,me%nlayer,me%chis,me%radints,kpar,me%wphot,&
+                        me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge,qphot=me%qphot,&
+                        phi=me%phi_rot,excluded_layers=me%excluded_layers)
+                  end do
+                  !$OMP END DO
+                  !$OMP END PARALLEL
+               else
+                  !$OMP PARALLEL
+                  !$OMP DO
+                  do iepe=1,me%Nepe
+                     me%spect(iepe,ik) = PES_Slab_Intensity(me%orbs,me%ham,me%nlayer,me%chis,me%radints,kpar,me%wphot,&
+                        me%polvec,me%Epe(iepe),epsk,vectk,me%MuChem,me%lambda_esc,me%eta_smear,me%gauge,&
+                        qphot=me%qphot,phi=me%phi_rot)
+                  end do
+                  !$OMP END DO
+                  !$OMP END PARALLEL
+               end if
             end if
          else
             if(me%lambda_mode) then

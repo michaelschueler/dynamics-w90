@@ -503,7 +503,8 @@ contains
 
    end subroutine PES_MatrixElements_precomp
 !--------------------------------------------------------------------------------------
-   subroutine PES_Slab_MatrixElements_precomp(orbs,wann,nlayer,scwfs,radints,kvec,vectk,lam,Matel,gauge,phi)
+   subroutine PES_Slab_MatrixElements_precomp(orbs,wann,nlayer,scwfs,radints,kvec,vectk,&
+      lam,Matel,gauge,phi,excluded_layers)
       real(dp) :: rthresh=-20.0_dp
       type(wannier_orbs_t),intent(in)   :: orbs
       type(wann90_tb_t),intent(in)      :: wann
@@ -516,10 +517,11 @@ contains
       complex(dp),intent(inout)         :: matel(:,:)
       integer,intent(in),optional       :: gauge
       real(dp),intent(in),optional      :: phi
+      integer,intent(in),optional       :: excluded_layers(:)
       integer :: gauge_
       real(dp) :: phi_
       logical :: large_size
-      integer :: norb,nbnd,ibnd,iorb,mabs,idir,ilay,j
+      integer :: norb,nbnd,ibnd,iorb,mabs,idir,ilay,j,ipos
       complex(dp) :: mat_m(3),mat_mm(3)
       complex(dp),allocatable :: matomic(:,:),matomic_layer(:,:) 
       complex(dp),allocatable :: vectk_phase(:,:) 
@@ -575,10 +577,19 @@ contains
          matomic_layer(iorb,1:3) = matomic_layer(iorb,1:3) * orbs%weight(iorb)
       end do
 
-      allocate(matomic(nbnd,3))
-      do ilay=1,nlayer
-         matomic((ilay-1)*norb+1:ilay*norb,1:3) = matomic_layer(1:norb,1:3)
-      end do
+      allocate(matomic(nbnd,3)); matomic = zero
+
+      if(present(excluded_layers)) then
+         do ilay=1,nlayer
+            ipos = findloc(excluded_layers, ilay, dim=1)
+            if(ipos > 0) cycle
+            matomic((ilay-1)*norb+1:ilay*norb,1:3) = matomic_layer(1:norb,1:3)
+         end do
+      else
+         do ilay=1,nlayer
+            matomic((ilay-1)*norb+1:ilay*norb,1:3) = matomic_layer(1:norb,1:3)
+         end do
+      end if
       deallocate(matomic_layer)
 
       call VectorPhase(nbnd,wann%coords,kvec,lam,vectk,vectk_phase)
@@ -631,7 +642,8 @@ contains
 
    end subroutine PES_MatrixElements_besselinteg
 !--------------------------------------------------------------------------------------
-   subroutine PES_Slab_MatrixElements_besselinteg(wann,nlayer,scwfs,lmax,bessel_integ,kvec,vectk,lam,Matel)
+   subroutine PES_Slab_MatrixElements_besselinteg(wann,nlayer,scwfs,lmax,bessel_integ,kvec,&
+      vectk,lam,Matel,excluded_layers)
       type(wann90_tb_t),intent(in)           :: wann
       integer,intent(in)                     :: nlayer
       type(scattwf_t),intent(in)             :: scwfs(:)
@@ -641,8 +653,9 @@ contains
       complex(dp),intent(in)                 :: vectk(:,:)
       real(dp),intent(in)                    :: lam
       complex(dp),intent(inout)              :: matel(:,:)
+      integer,intent(in),optional            :: excluded_layers(:)
       logical :: large_size
-      integer :: norb,nbnd,ibnd,iorb,mabs,idir,ilay,j
+      integer :: norb,nbnd,ibnd,iorb,mabs,idir,ilay,j,ipos
       complex(dp),allocatable :: matomic(:,:),matomic_layer(:,:)   
       complex(dp),allocatable :: vectk_phase(:,:)
 
@@ -661,10 +674,19 @@ contains
          matomic_layer(iorb,1:3) = ScattMatrixElement_Lambda(lmax,scwfs(iorb),bessel_integ(iorb),kvec)
       end do
 
-      allocate(matomic(nbnd,3))
-      do ilay=1,nlayer
-         matomic((ilay-1)*norb+1:ilay*norb,1:3) = matomic_layer(1:norb,1:3)
-      end do
+      allocate(matomic(nbnd,3)); matomic = zero
+
+      if(present(excluded_layers)) then
+         do ilay=1,nlayer
+            ipos = findloc(excluded_layers, ilay, dim=1)
+            if(ipos > 0) cycle
+            matomic((ilay-1)*norb+1:ilay*norb,1:3) = matomic_layer(1:norb,1:3)
+         end do
+      else
+         do ilay=1,nlayer
+            matomic((ilay-1)*norb+1:ilay*norb,1:3) = matomic_layer(1:norb,1:3)
+         end do
+      end if
 
       call VectorPhase(nbnd,wann%coords,kvec,lam,vectk,vectk_phase)
 
@@ -756,7 +778,7 @@ contains
    end function PES_Intensity_precomp
 !--------------------------------------------------------------------------------------
    function PES_Slab_Intensity_precomp(orbs,wann,nlayer,scwfs,radints,kpar,wphot,pol,Epe,&
-      epsk,vectk,mu,lam,eta,gauge,qphot,phi) result(inten)
+      epsk,vectk,mu,lam,eta,gauge,qphot,phi,excluded_layers) result(inten)
       type(wannier_orbs_t),intent(in)   :: orbs
       type(wann90_tb_t),intent(in)      :: wann
       integer,intent(in)                :: nlayer
@@ -774,6 +796,7 @@ contains
       integer,intent(in),optional       :: gauge
       real(dp),intent(in),optional      :: qphot(3)
       real(dp),intent(in),optional      :: phi
+      integer,intent(in),optional       :: excluded_layers(:)
       real(dp)                          :: inten
       integer :: gauge_    
       real(dp) :: phi_
@@ -816,7 +839,13 @@ contains
 
       allocate(matel(nbnd,3),matel_pol(nbnd))
 
-      call PES_Slab_MatrixElements(orbs,wann,nlayer,scwfs,radints,kvec,vectk,lam,matel,gauge=gauge_,phi=phi_)
+      if(present(excluded_layers)) then
+         call PES_Slab_MatrixElements(orbs,wann,nlayer,scwfs,radints,kvec,vectk,lam,matel,&
+            gauge=gauge_,phi=phi_,excluded_layers=excluded_layers)
+      else
+         call PES_Slab_MatrixElements(orbs,wann,nlayer,scwfs,radints,kvec,vectk,lam,matel,&
+            gauge=gauge_,phi=phi_)
+      end if
 
       matel_pol = zero
       do idir=1,3
@@ -903,7 +932,7 @@ contains
    end function PES_Intensity_besselinteg
 !--------------------------------------------------------------------------------------
    function PES_Slab_Intensity_besselinteg(wann,nlayer,scwfs,lmax,bessel_integ,kpar,wphot,pol,Epe,epsk,&
-      vectk,mu,lam,eta,qphot,phi) result(inten)
+      vectk,mu,lam,eta,qphot,phi,excluded_layers) result(inten)
       type(wann90_tb_t),intent(in)           :: wann
       integer,intent(in)                     :: nlayer
       type(scattwf_t),intent(in)             :: scwfs(:)
@@ -920,6 +949,7 @@ contains
       real(dp),intent(in)                    :: eta      
       real(dp),intent(in),optional           :: qphot(3) 
       real(dp),intent(in),optional           :: phi    
+      integer,intent(in),optional            :: excluded_layers(:)  
       real(dp)                               :: inten
       real(dp) :: phi_
       integer :: idir,nbnd,ibnd,norb
@@ -954,7 +984,12 @@ contains
 
       allocate(matel(nbnd,3),matel_pol(nbnd))
 
-      call PES_Slab_MatrixElements(wann,nlayer,scwfs,lmax,bessel_integ,kvec,vectk,lam,Matel)
+     if(present(excluded_layers)) then
+         call PES_Slab_MatrixElements(wann,nlayer,scwfs,lmax,bessel_integ,kvec,vectk,lam,Matel,&
+            excluded_layers=excluded_layers)
+      else
+         call PES_Slab_MatrixElements(wann,nlayer,scwfs,lmax,bessel_integ,kvec,vectk,lam,Matel)
+      end if
 
       matel_pol = zero
       do idir=1,3
