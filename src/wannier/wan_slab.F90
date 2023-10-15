@@ -66,8 +66,8 @@ contains
 
       !! H_{ij} [num_wann, num_wann, (2*ijmax+1), nrpts_2d]
       allocate(Hij(bulk_w90%num_wann,bulk_w90%num_wann,2*ijmax+1,nrpts_2d))
-      allocate(Dij(bulk_w90%num_wann,bulk_w90%num_wann,2*ijmax+1,nrpts_2d,3))
-      allocate(pos_r(bulk_w90%num_wann,bulk_w90%num_wann,bulk_w90%nrpts,3))
+      allocate(Dij(bulk_w90%num_wann,bulk_w90%num_wann,3,2*ijmax+1,nrpts_2d))
+      allocate(pos_r(bulk_w90%num_wann,bulk_w90%num_wann,3,bulk_w90%nrpts))
       Hij = zero
       Dij = zero
 
@@ -76,7 +76,7 @@ contains
          do j=1,bulk_w90%num_wann
             do i=1,bulk_w90%num_wann
                ! pos_r(i,j,irpt,1:3) = matmul(bulk_w90%pos_r(i,j,irpt,1:3),Ua)
-               pos_r(i,j,irpt,1:3) = bulk_w90%pos_r(i,j,irpt,1:3)
+               pos_r(i,j,1:3,irpt) = bulk_w90%pos_r(i,j,1:3,irpt)
             end do
          end do
       end do
@@ -90,9 +90,9 @@ contains
          if(abs(i3) < ijmax) then
             irpt2d = get_index_i3(bulk_w90%irvec,i1,i2)
             Hij(:,:,i3+ijmax+1,irpt2d) = bulk_w90%ham_r(:,:,irpt)
-            Dij(:,:,i3+ijmax+1,irpt2d,1) = pos_r(:,:,irpt,1)
-            Dij(:,:,i3+ijmax+1,irpt2d,2) = pos_r(:,:,irpt,2)
-            Dij(:,:,i3+ijmax+1,irpt2d,3) = pos_r(:,:,irpt,3)
+            Dij(:,:,1,i3+ijmax+1,irpt2d) = pos_r(:,:,1,irpt)
+            Dij(:,:,2,i3+ijmax+1,irpt2d) = pos_r(:,:,2,irpt)
+            Dij(:,:,3,i3+ijmax+1,irpt2d) = pos_r(:,:,3,irpt)
             slab_w90%irvec(irpt2d,1) = i1
             slab_w90%irvec(irpt2d,2) = i2
             slab_w90%irvec(irpt2d,3) = i3
@@ -100,15 +100,15 @@ contains
       end do
 
       allocate(slab_w90%ham_r(slab_w90%num_wann,slab_w90%num_wann,nrpts_2d))
-      allocate(slab_w90%pos_r(slab_w90%num_wann,slab_w90%num_wann,nrpts_2d,3))
+      allocate(slab_w90%pos_r(slab_w90%num_wann,slab_w90%num_wann,3,nrpts_2d))
       do irpt2d=1,nrpts_2d
          do i=1,nlayer
             do j=1,nlayer
                slab_w90%ham_r((j-1)*nwan+1:j*nwan,(i-1)*nwan+1:i*nwan,irpt2d) = &
                   Hij(:,:,i-j+ijmax+1,irpt2d)
                do idir=1,3
-                  slab_w90%pos_r((j-1)*nwan+1:j*nwan,(i-1)*nwan+1:i*nwan,irpt2d,idir) = &
-                     Dij(:,:,i-j+ijmax+1,irpt2d,idir)
+                  slab_w90%pos_r((j-1)*nwan+1:j*nwan,(i-1)*nwan+1:i*nwan,idir,irpt2d) = &
+                     Dij(:,:,idir,i-j+ijmax+1,irpt2d)
                end do
             end do
          end do
@@ -116,8 +116,8 @@ contains
 
       do irpt=1,slab_w90%nrpts
          do i=1,nlayer
-            slab_w90%pos_r((i-1)*nwan+1:i*nwan,(i-1)*nwan+1:i*nwan,irpt,3) = &
-               slab_w90%pos_r((i-1)*nwan+1:i*nwan,(i-1)*nwan+1:i*nwan,irpt,3) - (i-1) * norm2(oop_vec)
+            slab_w90%pos_r((i-1)*nwan+1:i*nwan,(i-1)*nwan+1:i*nwan,3,irpt) = &
+               slab_w90%pos_r((i-1)*nwan+1:i*nwan,(i-1)*nwan+1:i*nwan,3,irpt) - (i-1) * norm2(oop_vec)
          end do
       end do
 
