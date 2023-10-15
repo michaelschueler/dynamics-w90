@@ -4,7 +4,7 @@ module wan_slab
    use Mdebug
    use scitools_def,only: dp,zero
    use wan_utils,only: utility_recip_lattice, utility_recip_reduced
-   use wan_hamiltonian,only: wann90_tb_t
+   use wan_hamiltonian,only: wann90_tb_t, get_crvec
    use wan_overlap,only: wann90_ovlp_t
    implicit none
    include "../formats.h"
@@ -39,7 +39,7 @@ contains
       complex(dp),allocatable :: Hij(:,:,:,:),pos_r(:,:,:,:)
       complex(dp),allocatable :: Dij(:,:,:,:,:)
 
-      ijmax = nint(nlayer/2.0_dp) + 1
+      ijmax = ceiling(nlayer/2.0_dp) + 1
 
       nwan = bulk_w90%num_wann
       slab_w90%real_lattice = bulk_w90%real_lattice
@@ -104,6 +104,7 @@ contains
       do irpt2d=1,nrpts_2d
          do i=1,nlayer
             do j=1,nlayer
+               if(abs(i-j) > ijmax) cycle
                slab_w90%ham_r((j-1)*nwan+1:j*nwan,(i-1)*nwan+1:i*nwan,irpt2d) = &
                   Hij(:,:,i-j+ijmax+1,irpt2d)
                do idir=1,3
@@ -134,6 +135,8 @@ contains
             end do
          end do
       end if
+
+      call get_crvec(slab_w90%irvec,slab_w90%real_lattice,slab_w90%crvec)
 
       deallocate(pos_r,Hij,Dij)
 

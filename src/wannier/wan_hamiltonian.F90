@@ -16,7 +16,7 @@ module wan_hamiltonian
    include '../formats.h'
 !--------------------------------------------------------------------------------------
    private
-   public :: wann90_tb_t,ReadTB_from_w90,utility_recip_lattice
+   public :: wann90_tb_t,ReadTB_from_w90,utility_recip_lattice,get_crvec
 !--------------------------------------------------------------------------------------
    integer,parameter :: field_mode_positions=0,field_mode_dipole=1,field_mode_berry=2
 !--------------------------------------------------------------------------------------
