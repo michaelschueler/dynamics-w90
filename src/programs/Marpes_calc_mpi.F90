@@ -4,7 +4,7 @@ module Marpes_calc_mpi
    use mpi
    use Mdebug
    use scitools_def,only: dp,iu,zero
-   use scitools_utils,only: str, linspace, savetxt
+   use scitools_utils,only: str, linspace, savetxt, stop_error
    use scitools_vector_bsplines,only: cplx_matrix_spline_t
    use scitools_array1d_dist,only: dist_array1d_t,GetDisplSize1D        
    use wan_latt_kpts,only: kpoints_t         
@@ -249,6 +249,10 @@ contains
       integer :: iorb,ilay
       type(radialwf_t) :: rwf
       real(dp) :: kmin,kmax
+
+      if(minval(me%Epe) < 1.0e-8_dp) then
+         call stop_error("photoelectron energy minimum is negative", on_root)
+      end if
 
       kmin = 0.95_dp * sqrt(2.0_dp * minval(me%Epe))
       kmax = 1.05_dp * sqrt(2.0_dp * maxval(me%Epe))  
