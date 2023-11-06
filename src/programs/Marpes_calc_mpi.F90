@@ -274,6 +274,11 @@ contains
       type(radialwf_t) :: rwf
       real(dp) :: kmin,kmax
 
+      if(minval(me%Epe) < 1.0e-8_dp) then
+         call stop_error("photoelectron energy minimum is negative", on_root)
+      end if
+
+
       kmin = 0.95_dp * sqrt(2.0_dp * minval(me%Epe))
       kmax = 1.05_dp * sqrt(2.0_dp * maxval(me%Epe))  
 
