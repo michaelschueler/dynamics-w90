@@ -3,10 +3,12 @@ module pes_radialintegral
    use,intrinsic::iso_fortran_env,only: output_unit, error_unit
    use Mdebug
    use scitools_def,only: dp
+   use scitools_utils,only: stop_error
    use scitools_bsplines,only: spline1d_t
    use scitools_quadrature,only: integral_1d
    use pes_radialwf,only: radialwf_t
    use pes_scattwf,only: scattwf_t
+   use pes_scatt_input,only: scatt_input_t
    implicit none
    include "../formats.h"
 !--------------------------------------------------------------------------------------
@@ -23,6 +25,7 @@ module pes_radialintegral
       type(spline1d_t) :: mom1_spl_m1,mom1_spl_p1,mom2_spl_m1,mom2_spl_p1
    contains
       procedure,public :: Init => radialinteg_init
+      procedure,public :: SetFromInput => radialinteg_SetFromInput
       procedure,public :: Eval_len => radialinteg_Eval_len
       procedure,public :: Eval_mom => radialinteg_Eval_mom
    end type radialinteg_t
@@ -190,6 +193,45 @@ contains
       deallocate(ks)
 
    end subroutine radialinteg_Init
+!--------------------------------------------------------------------------------------
+   subroutine radialinteg_SetFromInput(me,l0,scatt_input,iorb,gauge)
+      integer,parameter   :: kx=4
+      class(radialinteg_t)           :: me
+      integer,intent(in)             :: l0
+      type(scatt_input_t),intent(in) :: scatt_input
+      integer,intent(in)             :: iorb
+      integer,intent(in),optional    :: gauge  
+      integer :: gauge_
+      integer :: l,iflag
+      real(dp),allocatable :: ks(:),rzero(:)
+
+      gauge_ = gauge_len
+      if(present(gauge)) gauge_ = gauge
+
+      me%l0 = l0
+      allocate(ks(scatt_input%nE))
+      allocate(rzero(scatt_input%nE)); rzero = 0.0_dp
+      ks(:) = sqrt(2.0_dp * scatt_input%Ex)
+
+      select case(gauge_)
+      case(gauge_len)
+         l = l0 - 1
+         if(l >= 0) then
+            iflag = 0
+            call me%len_spl_m1%Init(ks,scatt_input%radint(:,l,iorb),kx,iflag)
+         else
+            iflag = 0
+            call me%len_spl_m1%Init(ks,rzero,kx,iflag)
+         end if
+
+         l = l0 + 1
+         iflag = 0
+         call me%len_spl_m1%Init(ks,scatt_input%radint(:,l,iorb),kx,iflag)
+      case default
+         call stop_error("radial integral input not compatible with chosen gauge")
+      end select
+
+   end subroutine radialinteg_SetFromInput
 !--------------------------------------------------------------------------------------
    subroutine radialinteg_Eval_len(me,k,rint)
       class(radialinteg_t)     :: me

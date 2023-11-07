@@ -4,17 +4,22 @@ module pes_scattwf
    use Mdebug
    use scitools_def,only: dp, one, iu
    use scitools_special,only: spherical_bessel_jn
+   use scitools_vector_bsplines,only: real_vector_spline_t
+   use pes_scatt_input,only: scatt_input_t
    implicit none
    include "../units_inc.f90"
 !--------------------------------------------------------------------------------------
    private
    public :: scattwf_t
 
-   integer,parameter :: wf_pw=0, wf_coul=1
+   integer,parameter :: wf_pw=0, wf_coul=1, wf_input=2
 !--------------------------------------------------------------------------------------   
    type scattwf_t   
+      logical  :: phase_from_input=.false.
       integer  :: wf_type = wf_pw
+      integer  :: lmax
       real(dp) :: Z=0.0_dp
+      type(real_vector_spline_t) :: phase_spl
    contains
       procedure,public :: Init
       procedure,public :: Eval
@@ -23,14 +28,26 @@ module pes_scattwf
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Init(me,wf_type,Z)
+   subroutine Init(me,wf_type,Z,scatt_input,scatt_iorb)
       class(scattwf_t)   :: me
       integer,intent(in) :: wf_type
       real(dp),intent(in),optional :: Z
+      type(scatt_input_t),intent(in),optional :: scatt_input
+      integer,intent(in),optional :: scatt_iorb
 
       me%wf_type = wf_type
 
       if(present(Z)) me%Z = Z
+
+      if(me%wf_type == wf_input .and. present(scatt_input) .and. present(scatt_iorb)) then
+
+         call me%phase_spl%Init(scatt_input%Ex, scatt_input%phase(:,0:,scatt_iorb), &
+            scatt_input%lmax+1)
+
+         me%lmax = scatt_input%lmax
+
+         me%phase_from_input = .true.
+      end if
 
    end subroutine Init
 !--------------------------------------------------------------------------------------
@@ -57,6 +74,9 @@ contains
             call COUL90(k*r, eta, 0.0_dp, l, FC, GC, FCP, GCP, 0, IFAIL)
             Rr = FC(l)
          end if
+
+         Rr = Rr / (r + small)
+
       case default
          Rr = 0.0_dp
       end select
@@ -67,7 +87,8 @@ contains
       class(scattwf_t),intent(in) :: me  
       integer,intent(in)          :: l
       real(dp),intent(in)         :: k   
-      real(dp) :: eta
+      real(dp) :: eta,Ek
+      real(dp) :: phase_l(me%lmax+1)
       complex(dp) :: zeta
 
       select case(me%wf_type)
@@ -75,6 +96,13 @@ contains
          eta = -me%Z / k
          zeta = lacz_gamma(l + 1.0_dp + iu*eta)
          phase = zeta/abs(zeta)
+      case(wf_input) 
+         phase = one
+         if(me%phase_from_input) then
+            Ek = 0.5_dp * k**2
+            phase_l(:) = me%phase_spl%Eval(Ek)
+            if(l <= me%lmax) phase = phase_l(l-1)
+         end if
       case default
          phase = one
       end select

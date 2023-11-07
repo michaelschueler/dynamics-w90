@@ -112,6 +112,7 @@ module io_params
 
    type :: PESParams_t
       character(len=256) :: file_orbs="" !! file name for Wannier orbitals
+      character(len=256) :: file_scatt="" !! file name for scattering input
       logical            :: kpts_reduced=.true. !! if .true. we assume the input k-points are in 
                                                 !! reduced coordinates
       logical            :: dipole_approximation=.true. !! if `.false.`, the finite momentum of the 
@@ -312,6 +313,7 @@ contains
       class(PESParams_t)  :: me
       character(len=*),intent(in)  :: fname
       character(len=256) :: file_orbs=""
+      character(len=256) :: file_scatt=""
       logical            :: kpts_reduced=.true.
       logical            :: dipole_approximation=.true.
       logical            :: lambda_orbital_term=.false.
@@ -332,7 +334,7 @@ contains
       namelist/PESPARAMS/file_orbs,gauge,Nepe,wphot,Eshift,Epe_min,Epe_max,lambda_esc,&
          eta_smear,polvec_real,polvec_imag,kpts_reduced,scatt_type,radint_numpoints_k,&
          radint_numpoints_r,lambda_orbital_term,expansion_lmax,dipole_approximation,&
-         qmom_phot,angle_rot_z
+         qmom_phot,angle_rot_z,file_scatt
       integer :: unit_inp
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
@@ -340,6 +342,7 @@ contains
       close(unit_inp)
 
       me%file_orbs = file_orbs
+      me%file_scatt = file_scatt
       me%kpts_reduced = kpts_reduced
       me%lambda_orbital_term = lambda_orbital_term
       me%gauge = gauge

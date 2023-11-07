@@ -14,6 +14,7 @@ module Marpes_calc_mpi
    use wan_slab,only: Wannier_BulkToSlab, Overlap_BulkToSlab
    use wan_orbitals,only: wannier_orbs_t
    use wan_utils,only: Batch_Diagonalize_t
+   use pes_scatt_input,only: scatt_input_t
    use pes_radialwf,only: radialwf_t
    use pes_scattwf,only: scattwf_t
    use pes_radialintegral,only: radialinteg_t
@@ -31,6 +32,7 @@ module Marpes_calc_mpi
    type :: arpes_calc_t
       logical     :: lambda_mode=.false.,slab_mode=.false.,dipole_approx=.true.
       logical     :: orthogonal_basis=.true.
+      logical     :: scatt_from_input=.false.
       integer     :: nbnd,norb
       integer     :: nlayer=0
       integer     :: gauge
@@ -44,6 +46,7 @@ module Marpes_calc_mpi
       integer,allocatable,dimension(:)    :: excluded_layers
       real(dp),allocatable,dimension(:)   :: Epe
       real(dp),allocatable,dimension(:,:) :: kpts,kpts_loc,spect
+      type(scatt_input_t)  :: scatt_input
       type(wann90_tb_t)    :: ham
       type(wann90_ovlp_t)  :: ovlp
       type(wannier_orbs_t) :: orbs
@@ -61,7 +64,7 @@ module Marpes_calc_mpi
 !--------------------------------------------------------------------------------------
    character(len=*),parameter :: fmt_info='(" Info: ",a)'                             
    integer,parameter :: gauge_len=0, gauge_mom=1
-   integer,parameter :: scatt_pw=0, scatt_coul=1
+   integer,parameter :: scattwf_pw=0, scattwf_coul=1, scattwf_inp=2
    ! .. parallelization ..
    integer,parameter  :: master=0,from_master=1,from_worker=2
    integer :: ntasks,taskid,ierr
@@ -174,6 +177,17 @@ contains
       me%dipole_approx = par_pes%dipole_approximation
       if(.not. me%dipole_approx) me%qphot=par_pes%qmom_phot
 
+      me%scatt_from_input = len_trim(par_pes%file_scatt) > 0 &
+         .and. par_pes%scatt_type == scattwf_inp
+
+      if(me%scatt_from_input .and. me%lambda_mode) then
+         call stop_error("scattering input not implemented with imaginary part of wave-vector")
+      end if
+
+      if(me%scatt_from_input) then
+         call me%scatt_input%ReadFromFile(par_pes%file_scatt)
+      end if
+
       if(par_ham%exclude_orbitals) then
          do iorb=1,size(par_ham%orbs_excl, dim=1)
             me%orbs%weight(par_ham%orbs_excl(iorb)) = 0.0_dp
@@ -191,9 +205,16 @@ contains
       end if
 
       allocate(me%chis(me%norb))
-      do iorb=1,me%norb
-         call me%chis(iorb)%Init(par_pes%scatt_type,me%orbs%Zscatt(iorb))
-      end do
+      if(me%scatt_from_input) then
+         do iorb=1,me%norb
+            call me%chis(iorb)%Init(scattwf_inp,scatt_input=me%scatt_input,&
+               scatt_iorb=iorb)
+         end do
+      else
+         do iorb=1,me%norb
+            call me%chis(iorb)%Init(par_pes%scatt_type,me%orbs%Zscatt(iorb))
+         end do
+      end if
     
       me%Nk = kp%Nk
       allocate(me%kpts(me%Nk,2))
@@ -224,10 +245,12 @@ contains
          end select
 
          select case(par_pes%scatt_type)
-         case(scatt_pw)
+         case(scattwf_pw)
             write(output_unit,fmt_info) "final states: plane waves"
-         case(scatt_coul)
+         case(scattwf_coul)
             write(output_unit,fmt_info) "final states: Coulomb waves"         
+         case(scattwf_inp)
+            write(output_unit,fmt_info) "radial integrals & phase shifts from input" 
          end select      
       end if
 
@@ -259,12 +282,19 @@ contains
 
       allocate(me%radints(me%norb))
 
-      do iorb=1,me%norb
-         call WannOrb_to_RadialWF(me%orbs,iorb,rwf)
-         call me%radints(iorb)%Init(me%orbs%L_indx(iorb),kmin,kmax,me%chis(iorb),rwf,&
-            nk=me%radint_nk,gauge=me%gauge)
-         call rwf%Clean()
-      end do
+      if(me%scatt_from_input) then
+         do iorb=1,me%norb
+            call me%radints(iorb)%SetFromInput(me%orbs%L_indx(iorb),me%scatt_input,iorb,&
+               gauge=me%gauge)
+         end do
+      else
+         do iorb=1,me%norb
+            call WannOrb_to_RadialWF(me%orbs,iorb,rwf)
+            call me%radints(iorb)%Init(me%orbs%L_indx(iorb),kmin,kmax,me%chis(iorb),rwf,&
+               nk=me%radint_nk,gauge=me%gauge)
+            call rwf%Clean()
+         end do
+      end if
 
    end subroutine CalcIntegrals_radial
 !--------------------------------------------------------------------------------------
