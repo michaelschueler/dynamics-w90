@@ -247,7 +247,7 @@ contains
          return
       end if
 
-      print*, "[Eval_len]", allocated(me%len_spl_m1), allocated(me%len_spl_p1)
+      print*, "[Eval_len]", me%len_spl_m1%nx, me%len_spl_p1%nx
 
       inbvx = 1
       rint(1) = me%len_spl_m1%Eval(k,0,iflag,inbvx)
