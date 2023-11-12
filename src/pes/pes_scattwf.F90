@@ -100,6 +100,7 @@ contains
          phase = one
          if(me%phase_from_input) then
             Ek = 0.5_dp * k**2
+            print*, "[Phase]", Ek, me%phase_spl%xlim(1), me%phase_spl%xlim(2)
             phase_l(:) = me%phase_spl%Eval(Ek)
             if(l <= me%lmax) phase = phase_l(l-1)
          end if
