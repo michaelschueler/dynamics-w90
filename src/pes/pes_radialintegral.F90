@@ -212,6 +212,8 @@ contains
       allocate(ks(scatt_input%nE))
       allocate(rzero(scatt_input%nE)); rzero = 0.0_dp
       ks(:) = sqrt(2.0_dp * scatt_input%Ex)
+      me%kmin = minval(ks)
+      me%kmax = maxval(ks)
 
       select case(gauge_)
       case(gauge_len)
@@ -241,6 +243,7 @@ contains
 
       ! print*, k, me%kmin, me%kmax
       if(k < me%kmin .or. k > me%kmax) then
+         print*, "[Eval_len]", k, me%kmin, me%kmax
          write(output_unit,fmt700) "Eval_len: out of bounds"
          rint = 0.0_dp
          return
