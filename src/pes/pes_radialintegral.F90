@@ -241,13 +241,13 @@ contains
       real(dp),intent(out)        :: rint(2)
       integer :: iflag,inbvx
 
-      ! print*, k, me%kmin, me%kmax
       if(k < me%kmin .or. k > me%kmax) then
-         print*, "[Eval_len]", k, me%kmin, me%kmax
          write(output_unit,fmt700) "Eval_len: out of bounds"
          rint = 0.0_dp
          return
       end if
+
+      print*, "[Eval_len]", allocated(me%len_spl_m1), allocated(me%len_spl_p1)
 
       inbvx = 1
       rint(1) = me%len_spl_m1%Eval(k,0,iflag,inbvx)
