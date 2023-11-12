@@ -233,6 +233,9 @@ contains
          call stop_error("radial integral input not compatible with chosen gauge")
       end select
 
+      deallocate(ks)
+      deallocate(rzero)
+
    end subroutine radialinteg_SetFromInput
 !--------------------------------------------------------------------------------------
    subroutine radialinteg_Eval_len(me,k,rint)
@@ -246,8 +249,6 @@ contains
          rint = 0.0_dp
          return
       end if
-
-      print*, "[Eval_len]", me%len_spl_m1%nx, me%len_spl_p1%nx
 
       inbvx = 1
       rint(1) = me%len_spl_m1%Eval(k,0,iflag,inbvx)

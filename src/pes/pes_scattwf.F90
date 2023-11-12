@@ -34,6 +34,7 @@ contains
       real(dp),intent(in),optional :: Z
       type(scatt_input_t),intent(in),optional :: scatt_input
       integer,intent(in),optional :: scatt_iorb
+      real(dp),allocatable :: ks(:)
 
       me%wf_type = wf_type
 
@@ -41,12 +42,15 @@ contains
 
       if(me%wf_type == wf_input .and. present(scatt_input) .and. present(scatt_iorb)) then
 
-         call me%phase_spl%Init(scatt_input%Ex, scatt_input%phase(:,0:,scatt_iorb), &
+         allocate(ks(scatt_input%nE))
+         ks = sqrt(2.0_dp * scatt_input%Ex)
+         call me%phase_spl%Init(ks, scatt_input%phase(:,0:,scatt_iorb), &
             scatt_input%lmax+1)
 
          me%lmax = scatt_input%lmax
 
          me%phase_from_input = .true.
+         deallocate(ks)
       end if
 
    end subroutine Init
@@ -87,7 +91,7 @@ contains
       class(scattwf_t),intent(in) :: me  
       integer,intent(in)          :: l
       real(dp),intent(in)         :: k   
-      real(dp) :: eta,Ek
+      real(dp) :: eta
       real(dp) :: phase_l(me%lmax+1)
       complex(dp) :: zeta
 
@@ -99,9 +103,7 @@ contains
       case(wf_input) 
          phase = one
          if(me%phase_from_input) then
-            Ek = 0.5_dp * k**2
-            print*, "[Phase]", Ek, me%phase_spl%xlim(1), me%phase_spl%xlim(2)
-            phase_l(:) = me%phase_spl%Eval(Ek)
+            phase_l(:) = me%phase_spl%Eval(k)
             if(l <= me%lmax) phase = phase_l(l-1)
          end if
       case default
