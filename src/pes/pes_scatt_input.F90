@@ -50,8 +50,6 @@ contains
    subroutine ReadFromFile_hdf5(me,fname)
       class(scatt_input_t) :: me
       character(len=*),intent(in) :: fname
-      real(dp),allocatable :: En(:)
-      real(dp),allocatable :: radint(:,:,:),Phase(:,:,:)
       integer :: iorb
       integer(HID_t) :: file_id
 
@@ -61,13 +59,13 @@ contains
       call hdf_read_attribute(file_id,'','norb', me%norb)
       call hdf_read_attribute(file_id,'','lmax', me%lmax)
 
-      allocate(En(me%nE))
-      allocate(radint(me%nE,0:me%lmax,me%norb))
-      allocate(Phase(me%nE,0:me%lmax,me%norb))
+      allocate(me%Ex(me%nE))
+      allocate(me%radint(me%nE,0:me%lmax,me%norb))
+      allocate(me%Phase(me%nE,0:me%lmax,me%norb))
 
-      call hdf_read_dataset(file_id,'energy',En)
-      call hdf_read_dataset(file_id,'radint',radint)
-      call hdf_read_dataset(file_id,'phase',Phase)
+      call hdf_read_dataset(file_id,'energy',me%Ex)
+      call hdf_read_dataset(file_id,'radint',me%radint)
+      call hdf_read_dataset(file_id,'phase',me%Phase)
 
       call hdf_close_file(file_id) 
 
@@ -77,8 +75,6 @@ contains
    subroutine ReadFromFile_txt(me,fname)
       class(scatt_input_t) :: me
       character(len=*),intent(in) :: fname
-      real(dp),allocatable :: En(:)
-      real(dp),allocatable :: radint(:,:,:),Phase(:,:,:)
       integer :: iE, l, iorb
       integer :: unit_inp
 
@@ -86,21 +82,21 @@ contains
 
       read(unit_inp,*) me%nE, me%norb, me%lmax
 
-      allocate(En(me%nE))
-      allocate(radint(me%nE,0:me%lmax,me%norb))
-      allocate(Phase(me%nE,0:me%lmax,me%norb))      
+      allocate(me%Ex(me%nE))
+      allocate(me%radint(me%nE,0:me%lmax,me%norb))
+      allocate(me%Phase(me%nE,0:me%lmax,me%norb))      
 
       read(unit_inp, *) ! comment line: ## energy grid
 
       do iE=1,me%nE
-         read(unit_inp,*) En(iE)
+         read(unit_inp,*) me%Ex(iE)
       end do
 
       read(unit_inp, *) ! comment line: ## integrals + phase
 
       do iorb=1,me%norb
          do iE=1,me%nE
-            read(unit_inp,*) radint(iE,0:me%lmax,iorb), phase(iE,0:me%lmax,iorb)
+            read(unit_inp,*) me%radint(iE,0:me%lmax,iorb), me%phase(iE,0:me%lmax,iorb)
          end do
       end do
 
