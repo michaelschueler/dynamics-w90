@@ -92,7 +92,7 @@ contains
       integer,intent(in)          :: l
       real(dp),intent(in)         :: k   
       real(dp) :: eta
-      real(dp) :: phase_l(me%lmax+1)
+      real(dp) :: phi_l(me%lmax+1)
       complex(dp) :: zeta
 
       select case(me%wf_type)
@@ -103,8 +103,8 @@ contains
       case(wf_input) 
          phase = one
          if(me%phase_from_input) then
-            phase_l(:) = me%phase_spl%Eval(k)
-            if(l <= me%lmax) phase = phase_l(l-1)
+            phi_l(:) = me%phase_spl%Eval(k)
+            if(l <= me%lmax) phase = exp(iu*phi_l(l-1))
          end if
       case default
          phase = one
