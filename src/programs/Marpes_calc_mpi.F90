@@ -196,10 +196,6 @@ contains
 
       me%norb = me%orbs%norb
 
-      do iorb=1,me%norb
-         print*, iorb, me%orbs%atom_indx(iorb), me%orbs%L_indx(iorb), me%scatt_input%radint(1,0:,iorb)
-      end do
-
       allocate(me%Epe(me%Nepe))
       if(me%Nepe == 1) then
          allocate(me%Epe(1))
