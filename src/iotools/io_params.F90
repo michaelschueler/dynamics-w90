@@ -72,7 +72,7 @@ module io_params
       logical            :: apply_field=.false. !! Option to include a static electric field in
                                                 !! a non-periodic direction (e.g. out of plane)
       logical            :: slab_mode=.false. !! Option to construct a slab in z direction from
-                                              !! a bulk Wannier Hamiltonian
+                                              !! a bulk Wannier Hamiltonian                                       
       logical            :: exclude_orbitals=.false. !! if `.true.`, selected orbitals can be excluded
                                                      !! from the calculation
       logical            :: exclude_layers=.false. !! if `.true.`, selected layers can be excluded
@@ -119,6 +119,7 @@ module io_params
                                                         !! photons is taken into account.
       logical            :: lambda_orbital_term=.false. !! triggers the calculation of atomic matrix
                                                         !! elements with complex wave-vector
+      logical            :: bulk_mode=.false. !! Option to compute ARPES from a 3D bulk Hamiltonian 
       integer            :: gauge=gauge_len !! Gauge for dipole operator \(\hat{\Delta}\).
                                             !! 0: dipole gauge \(\hat{\Delta} = \mathbf{r}\), 
                                             !! 1: velocity gauge \(\hat{\Delta} = \mathbf{p}\).
@@ -130,6 +131,7 @@ module io_params
       integer            :: expansion_lmax=8 !! Angular momentum cutoff for expanding the expontential of
                                              !! the complex wave-vector in the atomic matrix elements.
                                              !! Only relevant for `lambda_orbital_term=.true.`
+      integer            :: bulk_numpoints_kz=400 !! number of points for integrating over kz for bulk mode
       real(dp)           :: wphot=1.0_dp !! The photon energy.
       real(dp)           :: Eshift=0.0_dp !! All band energies are shifted by 
                                           !! \(\varepsilon_i(\mathbf{k}) \rightarrow \varepsilon_i(\mathbf{k}) + \Delta E\),
@@ -317,12 +319,14 @@ contains
       logical            :: kpts_reduced=.true.
       logical            :: dipole_approximation=.true.
       logical            :: lambda_orbital_term=.false.
+      logical            :: bulk_mode=.false. 
       integer            :: gauge=gauge_len
       integer            :: scatt_type=wf_pw
       integer            :: Nepe=1
       integer            :: radint_numpoints_k=40
       integer            :: radint_numpoints_r=256
       integer            :: expansion_lmax=8
+      integer            :: bulk_numpoints_kz=400
       real(dp)           :: wphot=1.0_dp
       real(dp)           :: Eshift=0.0_dp
       real(dp)           :: Epe_min,Epe_max  
@@ -334,13 +338,14 @@ contains
       namelist/PESPARAMS/file_orbs,gauge,Nepe,wphot,Eshift,Epe_min,Epe_max,lambda_esc,&
          eta_smear,polvec_real,polvec_imag,kpts_reduced,scatt_type,radint_numpoints_k,&
          radint_numpoints_r,lambda_orbital_term,expansion_lmax,dipole_approximation,&
-         qmom_phot,angle_rot_z,file_scatt
+         qmom_phot,angle_rot_z,file_scatt,bulk_mode,bulk_numpoints_kz
       integer :: unit_inp
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
       read(unit_inp,nml=PESPARAMS)
       close(unit_inp)
 
+      me%bulk_mode = bulk_mode
       me%file_orbs = file_orbs
       me%file_scatt = file_scatt
       me%kpts_reduced = kpts_reduced

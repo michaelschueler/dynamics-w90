@@ -20,7 +20,7 @@ module pes_main
    include "../formats.h"
 !--------------------------------------------------------------------------------------
    private
-   public :: PES_MatrixElements, PES_Intensity
+   public :: PES_MatrixElements, PES_Intensity, PES_Bulk_Intensity
    public :: PES_AtomicIntegrals_lambda, PES_Intensity_besselinteg
    public :: PES_Slab_MatrixElements, PES_Slab_Intensity
 #ifdef MPI
@@ -38,6 +38,10 @@ module pes_main
    interface PES_Intensity
       module procedure PES_Intensity_precomp, PES_Intensity_besselinteg
    end interface PES_Intensity   
+
+   interface PES_Bulk_Intensity
+      module procedure PES_Bulk_Intensity_precomp, PES_Bulk_Intensity_besselinteg
+   end interface PES_Bulk_Intensity 
 
    interface PES_Slab_Intensity
       module procedure PES_Slab_Intensity_precomp, PES_Slab_Intensity_besselinteg
@@ -761,10 +765,7 @@ contains
 
       call PES_MatrixElements(orbs,wann,scwfs,radints,kvec,vectk,lam,matel,gauge=gauge_,phi=phi_)
 
-      matel_pol = zero
-      do idir=1,3
-         matel_pol(:) = matel_pol(:) + pol(idir) * matel(:,idir)
-      end do
+      matel_pol = matmul(matel, pol)
 
       inten = 0.0_dp
       do ibnd=1,nbnd
@@ -776,6 +777,93 @@ contains
 
 
    end function PES_Intensity_precomp
+!--------------------------------------------------------------------------------------
+   function PES_Bulk_Intensity_precomp(orbs,wann,scwfs,radints,kpar,wphot,pol,Epe,epsk,vectk,&
+      mu,lam,kz_red,eta,gauge,qphot,phi) result(inten)
+      type(wannier_orbs_t),intent(in)   :: orbs
+      type(wann90_tb_t),intent(in)      :: wann
+      type(scattwf_t),intent(in)        :: scwfs(:)
+      type(radialinteg_t),intent(in)    :: radints(:)      
+      real(dp),intent(in)               :: kpar(2)
+      real(dp),intent(in)               :: wphot    
+      complex(dp),intent(in)            :: pol(3)  
+      real(dp),intent(in)               :: Epe
+      real(dp),intent(in)               :: epsk(:,:)   
+      complex(dp),intent(in)            :: vectk(:,:,:)        
+      real(dp),intent(in)               :: mu      
+      real(dp),intent(in)               :: lam     
+      real(dp),intent(in)               :: kz_red(:) 
+      real(dp),intent(in)               :: eta           
+      integer,intent(in),optional       :: gauge
+      real(dp),intent(in),optional      :: qphot(3)
+      real(dp),intent(in),optional      :: phi
+      real(dp)                          :: inten
+      integer :: gauge_    
+      real(dp) :: phi_
+      integer :: idir,nbnd,ibnd,nkz,ikz
+      real(dp) :: Ez,qz,kvec(3)
+      real(dp) :: escape_fac
+      complex(dp),allocatable :: matel(:,:),matel_pol(:)
+
+      gauge_ = gauge_len
+      if(present(gauge)) gauge_ = gauge
+
+      phi_ = 0.0_dp
+      if(present(phi)) phi_ = phi
+
+      nbnd = wann%num_wann
+      nkz = size(kz_red, dim=1)
+      call assert(orbs%norb == nbnd, "PES_Bulk_Intensity: orbs%norb == nbnd")
+      call assert_shape(epsk,[nbnd,nkz],"PES_Bulk_Intensity","epsk")
+      call assert_shape(vectk,[nbnd,nbnd,nkz],"PES_Bulk_Intensity","vectk")
+
+      Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2)
+      if(Ez < 1.0e-5_dp) then
+         inten = 0.0_dp
+         return
+      end if
+
+      kvec(1:2) = kpar
+      kvec(3) = sqrt(2.0_dp * Ez)
+      if(present(qphot)) then
+         kvec = kvec - qphot
+      end if
+      if(kvec(3) < 1.0e-5_dp) then
+         inten = 0.0_dp
+         return
+      end if     
+
+      if(all(abs(epsk + wphot - Epe) > 6 * eta)) then
+         inten = 0.0_dp
+         return
+      end if
+
+      allocate(matel(nbnd,3),matel_pol(nbnd))
+
+
+      inten = 0.0_dp
+      do ikz=1,nkz
+
+         qz = wann%recip_lattice(3,3) * kz_red(ikz) - kvec(3)
+
+         escape_fac = EscapeLengthKernel(lam,wann%real_lattice(3,3),qz)
+
+         call PES_MatrixElements(orbs,wann,scwfs,radints,kvec,vectk(:,:,ikz),lam,matel,&
+            gauge=gauge_,phi=phi_)
+
+         matel_pol = matmul(matel, pol)
+
+         do ibnd=1,nbnd
+            if(epsk(ibnd,ikz) > mu) cycle
+
+            inten = inten + escape_fac * abs(matel_pol(ibnd))**2 &
+               * gauss(eta, epsk(ibnd,ikz) + wphot - Epe)
+         end do
+      end do
+
+      deallocate(matel,matel_pol)
+   
+   end function PES_Bulk_Intensity_precomp
 !--------------------------------------------------------------------------------------
    function PES_Slab_Intensity_precomp(orbs,wann,nlayer,scwfs,radints,kpar,wphot,pol,Epe,&
       epsk,vectk,mu,lam,eta,gauge,qphot,phi,excluded_layers) result(inten)
@@ -931,6 +1019,85 @@ contains
 
    end function PES_Intensity_besselinteg
 !--------------------------------------------------------------------------------------
+   function PES_Bulk_Intensity_besselinteg(wann,scwfs,lmax,bessel_integ,kpar,wphot,pol,Epe,epsk,&
+      vectk,mu,lam,kz_red,eta,qphot,phi) result(inten)
+      type(wann90_tb_t),intent(in)           :: wann
+      type(scattwf_t),intent(in)             :: scwfs(:)
+      integer,intent(in)                     :: lmax
+      type(cplx_matrix_spline_t),intent(in)  :: bessel_integ(:)   
+      real(dp),intent(in)                    :: kpar(2)
+      real(dp),intent(in)                    :: wphot    
+      complex(dp),intent(in)                 :: pol(3)  
+      real(dp),intent(in)                    :: Epe
+      real(dp),intent(in)                    :: epsk(:,:)   
+      complex(dp),intent(in)                 :: vectk(:,:,:)        
+      real(dp),intent(in)                    :: mu      
+      real(dp),intent(in)                    :: lam    
+      real(dp),intent(in)                    :: kz_red(:)
+      real(dp),intent(in)                    :: eta  
+      real(dp),intent(in),optional           :: qphot(3)  
+      real(dp),intent(in),optional           :: phi      
+      real(dp)                               :: inten
+      real(dp) :: phi_
+      integer :: idir,nbnd,ibnd,nkz,ikz
+      real(dp) :: Ez,qz,kvec(3)
+      real(dp) :: escape_fac
+      complex(dp),allocatable :: matel(:,:),matel_pol(:)
+
+      phi_ = 0.0_dp
+      if(present(phi)) phi_ = phi
+
+      nbnd = wann%num_wann
+      nkz = size(kz_red, dim=1)
+      call assert_shape(epsk,[nbnd,nkz],"PES_Bulk_Intensity","epsk")
+      call assert_shape(vectk,[nbnd,nbnd,nkz],"PES_Bulk_Intensity","vectk")
+
+      Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2)
+      if(Ez < 1.0e-5_dp) then
+         inten = 0.0_dp
+         return
+      end if
+
+      kvec(1:2) = kpar
+      kvec(3) = sqrt(2.0_dp * Ez)
+      if(present(qphot)) kvec = kvec - qphot
+      if(kvec(3) < 1.0e-5_dp) then
+         inten = 0.0_dp
+         return
+      end if     
+
+      if(all(abs(epsk + wphot - Epe) > 6 * eta)) then
+         inten = 0.0_dp
+         return
+      end if
+
+      allocate(matel(nbnd,3),matel_pol(nbnd))
+
+      inten = 0.0_dp
+
+      do ikz=1,nkz
+
+         qz = wann%recip_lattice(3,3) * kz_red(ikz) - kvec(3)
+
+         escape_fac = EscapeLengthKernel(lam,wann%real_lattice(3,3),qz)
+
+         call PES_MatrixElements(wann,scwfs,lmax,bessel_integ,kvec,vectk(:,:,ikz),lam,Matel,phi=phi_)
+
+         matel_pol = matmul(matel, pol)
+
+         do ibnd=1,nbnd
+            if(epsk(ibnd,ikz) > mu) cycle
+            
+            inten = inten + escape_fac * abs(matel_pol(ibnd))**2 &
+               * gauss(eta, epsk(ibnd,ikz) + wphot - Epe)
+         end do
+      end do
+
+      deallocate(matel,matel_pol)
+
+
+   end function PES_Bulk_Intensity_besselinteg
+!--------------------------------------------------------------------------------------
    function PES_Slab_Intensity_besselinteg(wann,nlayer,scwfs,lmax,bessel_integ,kpar,wphot,pol,Epe,epsk,&
       vectk,mu,lam,eta,qphot,phi,excluded_layers) result(inten)
       type(wann90_tb_t),intent(in)           :: wann
@@ -991,10 +1158,7 @@ contains
          call PES_Slab_MatrixElements(wann,nlayer,scwfs,lmax,bessel_integ,kvec,vectk,lam,Matel)
       end if
 
-      matel_pol = zero
-      do idir=1,3
-         matel_pol(:) = matel_pol(:) + pol(idir) * matel(:,idir)
-      end do
+      matel_pol = matmul(matel, pol)
 
       inten = 0.0_dp
       do ibnd=1,nbnd
@@ -1032,6 +1196,18 @@ contains
       end do
 
    end subroutine VectorPhase
+!--------------------------------------------------------------------------------------
+   function EscapeLengthKernel(lam,c,q) result(Flam)
+      real(dp),intent(in) :: lam
+      real(dp),intent(in) :: c
+      real(dp),intent(in) :: q
+      real(dp) :: Flam
+      complex(dp) :: xlam
+
+      xlam = exp(iu*q*c) * exp(-lam*c)
+      Flam = 1.0_dp / abs(one - xlam)**2
+
+   end function EscapeLengthKernel
 !--------------------------------------------------------------------------------------
 
 !======================================================================================
