@@ -706,7 +706,7 @@ contains
 
 !--------------------------------------------------------------------------------------
    function PES_Intensity_precomp(orbs,wann,scwfs,radints,kpar,wphot,pol,Epe,epsk,vectk,&
-      mu,lam,eta,gauge,qphot,phi) result(inten)
+      mu,Vin,lam,eta,gauge,qphot,phi) result(inten)
       type(wannier_orbs_t),intent(in)   :: orbs
       type(wann90_tb_t),intent(in)      :: wann
       type(scattwf_t),intent(in)        :: scwfs(:)
@@ -717,7 +717,8 @@ contains
       real(dp),intent(in)               :: Epe
       real(dp),intent(in)               :: epsk(:)   
       complex(dp),intent(in)            :: vectk(:,:)        
-      real(dp),intent(in)               :: mu      
+      real(dp),intent(in)               :: mu     
+      real(dp),intent(in)               :: Vin
       real(dp),intent(in)               :: lam       
       real(dp),intent(in)               :: eta           
       integer,intent(in),optional       :: gauge
@@ -740,7 +741,7 @@ contains
       call assert(orbs%norb == nbnd, "PES_Intensity: orbs%norb == nbnd")
       call assert_shape(vectk,[nbnd,nbnd],"PES_Intensity","vectk")
 
-      Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2)
+      Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2) - Vin
       if(Ez < 1.0e-5_dp) then
          inten = 0.0_dp
          return
@@ -779,7 +780,7 @@ contains
    end function PES_Intensity_precomp
 !--------------------------------------------------------------------------------------
    function PES_Bulk_Intensity_precomp(orbs,wann,scwfs,radints,kpar,wphot,pol,Epe,epsk,vectk,&
-      mu,lam,kz_red,eta,gauge,qphot,phi) result(inten)
+      mu,Vin,lam,kz_red,eta,gauge,qphot,phi) result(inten)
       type(wannier_orbs_t),intent(in)   :: orbs
       type(wann90_tb_t),intent(in)      :: wann
       type(scattwf_t),intent(in)        :: scwfs(:)
@@ -790,7 +791,8 @@ contains
       real(dp),intent(in)               :: Epe
       real(dp),intent(in)               :: epsk(:,:)   
       complex(dp),intent(in)            :: vectk(:,:,:)        
-      real(dp),intent(in)               :: mu      
+      real(dp),intent(in)               :: mu
+      real(dp),intent(in)               :: Vin      
       real(dp),intent(in)               :: lam     
       real(dp),intent(in)               :: kz_red(:) 
       real(dp),intent(in)               :: eta           
@@ -817,7 +819,7 @@ contains
       call assert_shape(epsk,[nbnd,nkz],"PES_Bulk_Intensity","epsk")
       call assert_shape(vectk,[nbnd,nbnd,nkz],"PES_Bulk_Intensity","vectk")
 
-      Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2)
+      Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2) - Vin
       if(Ez < 1.0e-5_dp) then
          inten = 0.0_dp
          return
@@ -839,7 +841,6 @@ contains
       end if
 
       allocate(matel(nbnd,3),matel_pol(nbnd))
-
 
       inten = 0.0_dp
       do ikz=1,nkz
@@ -866,7 +867,7 @@ contains
    end function PES_Bulk_Intensity_precomp
 !--------------------------------------------------------------------------------------
    function PES_Slab_Intensity_precomp(orbs,wann,nlayer,scwfs,radints,kpar,wphot,pol,Epe,&
-      epsk,vectk,mu,lam,eta,gauge,qphot,phi,excluded_layers) result(inten)
+      epsk,vectk,mu,Vin,lam,eta,gauge,qphot,phi,excluded_layers) result(inten)
       type(wannier_orbs_t),intent(in)   :: orbs
       type(wann90_tb_t),intent(in)      :: wann
       integer,intent(in)                :: nlayer
@@ -878,7 +879,8 @@ contains
       real(dp),intent(in)               :: Epe
       real(dp),intent(in)               :: epsk(:)   
       complex(dp),intent(in)            :: vectk(:,:)        
-      real(dp),intent(in)               :: mu      
+      real(dp),intent(in)               :: mu
+      real(dp),intent(in)               :: Vin      
       real(dp),intent(in)               :: lam       
       real(dp),intent(in)               :: eta           
       integer,intent(in),optional       :: gauge
@@ -906,7 +908,7 @@ contains
       end if
       call assert_shape(vectk,[nbnd,nbnd],"PES_Slab_Intensity_precomp","vectk")
 
-      Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2)
+      Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2) - Vin 
       if(Ez < 1.0e-5_dp) then
          inten = 0.0_dp
          return
@@ -952,7 +954,7 @@ contains
    end function PES_Slab_Intensity_precomp
 !--------------------------------------------------------------------------------------
    function PES_Intensity_besselinteg(wann,scwfs,lmax,bessel_integ,kpar,wphot,pol,Epe,epsk,&
-      vectk,mu,lam,eta,qphot,phi) result(inten)
+      vectk,mu,Vin,lam,eta,qphot,phi) result(inten)
       type(wann90_tb_t),intent(in)           :: wann
       type(scattwf_t),intent(in)             :: scwfs(:)
       integer,intent(in)                     :: lmax
@@ -963,7 +965,8 @@ contains
       real(dp),intent(in)                    :: Epe
       real(dp),intent(in)                    :: epsk(:)   
       complex(dp),intent(in)                 :: vectk(:,:)        
-      real(dp),intent(in)                    :: mu      
+      real(dp),intent(in)                    :: mu
+      real(dp),intent(in)                    :: Vin      
       real(dp),intent(in)                    :: lam       
       real(dp),intent(in)                    :: eta  
       real(dp),intent(in),optional           :: qphot(3)  
@@ -980,7 +983,7 @@ contains
       nbnd = wann%num_wann
       call assert_shape(vectk,[nbnd,nbnd],"PES_Intensity_besselinteg","vectk")
 
-      Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2)
+      Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2) - Vin
       if(Ez < 1.0e-5_dp) then
          inten = 0.0_dp
          return
@@ -1020,7 +1023,7 @@ contains
    end function PES_Intensity_besselinteg
 !--------------------------------------------------------------------------------------
    function PES_Bulk_Intensity_besselinteg(wann,scwfs,lmax,bessel_integ,kpar,wphot,pol,Epe,epsk,&
-      vectk,mu,lam,kz_red,eta,qphot,phi) result(inten)
+      vectk,mu,Vin,lam,kz_red,eta,qphot,phi) result(inten)
       type(wann90_tb_t),intent(in)           :: wann
       type(scattwf_t),intent(in)             :: scwfs(:)
       integer,intent(in)                     :: lmax
@@ -1031,7 +1034,8 @@ contains
       real(dp),intent(in)                    :: Epe
       real(dp),intent(in)                    :: epsk(:,:)   
       complex(dp),intent(in)                 :: vectk(:,:,:)        
-      real(dp),intent(in)                    :: mu      
+      real(dp),intent(in)                    :: mu
+      real(dp),intent(in)                    :: Vin      
       real(dp),intent(in)                    :: lam    
       real(dp),intent(in)                    :: kz_red(:)
       real(dp),intent(in)                    :: eta  
@@ -1052,7 +1056,7 @@ contains
       call assert_shape(epsk,[nbnd,nkz],"PES_Bulk_Intensity","epsk")
       call assert_shape(vectk,[nbnd,nbnd,nkz],"PES_Bulk_Intensity","vectk")
 
-      Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2)
+      Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2) - Vin
       if(Ez < 1.0e-5_dp) then
          inten = 0.0_dp
          return
@@ -1099,7 +1103,7 @@ contains
    end function PES_Bulk_Intensity_besselinteg
 !--------------------------------------------------------------------------------------
    function PES_Slab_Intensity_besselinteg(wann,nlayer,scwfs,lmax,bessel_integ,kpar,wphot,pol,Epe,epsk,&
-      vectk,mu,lam,eta,qphot,phi,excluded_layers) result(inten)
+      vectk,mu,Vin,lam,eta,qphot,phi,excluded_layers) result(inten)
       type(wann90_tb_t),intent(in)           :: wann
       integer,intent(in)                     :: nlayer
       type(scattwf_t),intent(in)             :: scwfs(:)
@@ -1111,7 +1115,8 @@ contains
       real(dp),intent(in)                    :: Epe
       real(dp),intent(in)                    :: epsk(:)   
       complex(dp),intent(in)                 :: vectk(:,:)        
-      real(dp),intent(in)                    :: mu      
+      real(dp),intent(in)                    :: mu
+      real(dp),intent(in)                    :: Vin      
       real(dp),intent(in)                    :: lam       
       real(dp),intent(in)                    :: eta      
       real(dp),intent(in),optional           :: qphot(3) 
@@ -1130,7 +1135,7 @@ contains
       nbnd = wann%num_wann
       call assert_shape(vectk,[nbnd,nbnd],"PES_Slab_Intensity_besselinteg","vectk")
 
-      Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2)
+      Ez = Epe - 0.5_dp * (kpar(1)**2 + kpar(2)**2) - Vin
       if(Ez < 1.0e-5_dp) then
          inten = 0.0_dp
          return
@@ -1204,8 +1209,8 @@ contains
       real(dp) :: Flam
       complex(dp) :: xlam
 
-      xlam = exp(iu*q*c) * exp(-lam*c)
-      Flam = 1.0_dp / abs(one - xlam)**2
+      xlam = one / ( one - exp( (iu*q - lam) * c ) )
+      Flam = abs(xlam)**2
 
    end function EscapeLengthKernel
 !--------------------------------------------------------------------------------------

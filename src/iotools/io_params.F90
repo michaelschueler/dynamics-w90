@@ -136,6 +136,7 @@ module io_params
       real(dp)           :: Eshift=0.0_dp !! All band energies are shifted by 
                                           !! \(\varepsilon_i(\mathbf{k}) \rightarrow \varepsilon_i(\mathbf{k}) + \Delta E\),
                                           !! where \(\Delta E\) is given by `Eshift`. 
+      real(dp)           :: Vinner=0.0_dp !! inner potential, used for computing the out-of-plane momentum
       real(dp)           :: Epe_min,Epe_max  !! Interval of final state energies.
       real(dp)           :: angle_rot_z=0.0_dp !! angle of rotation of the system around the z axis 
       real(dp)           :: lambda_esc=0.0_dp  !! Escape depth. For `lambda_orbital_term=.true.` this also determines
@@ -329,6 +330,7 @@ contains
       integer            :: bulk_numpoints_kz=400
       real(dp)           :: wphot=1.0_dp
       real(dp)           :: Eshift=0.0_dp
+      real(dp)           :: Vinner=0.0_dp
       real(dp)           :: Epe_min,Epe_max  
       real(dp)           :: angle_rot_z=0.0_dp
       real(dp)           :: lambda_esc=0.0_dp      
@@ -338,7 +340,7 @@ contains
       namelist/PESPARAMS/file_orbs,gauge,Nepe,wphot,Eshift,Epe_min,Epe_max,lambda_esc,&
          eta_smear,polvec_real,polvec_imag,kpts_reduced,scatt_type,radint_numpoints_k,&
          radint_numpoints_r,lambda_orbital_term,expansion_lmax,dipole_approximation,&
-         qmom_phot,angle_rot_z,file_scatt,bulk_mode,bulk_numpoints_kz
+         qmom_phot,angle_rot_z,file_scatt,bulk_mode,bulk_numpoints_kz,Vinner
       integer :: unit_inp
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
@@ -358,6 +360,7 @@ contains
       me%expansion_lmax = expansion_lmax
       me%wphot = wphot
       me%Eshift = Eshift
+      me%Vinner = Vinner
       me%Epe_min = Epe_min
       me%Epe_max = Epe_max
       me%angle_rot_z = angle_rot_z
