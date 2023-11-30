@@ -390,8 +390,7 @@ contains
             else
                call batch_diag%DiagonalizeGen(Hk, Sk, epsk(:, ikz), vectk(:, :, ikz))
             end if
-            epsk = epsk + me%Eshift
-
+            epsk(:,ikz) = epsk(:,ikz) + me%Eshift
          end do
 
          if (me%lambda_mode) then
