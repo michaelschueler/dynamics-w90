@@ -373,7 +373,7 @@ contains
       do ik = 1, me%Nk_loc
          kpar(1:2) = me%kpts_loc(ik, 1:2)
 
-         if (me%dipole_approx) then
+         if(.not. me%dipole_approx) then
             kqpar(1:2) = kpar(1:2) - me%qphot(1:2)
             kpt(1:2) = me%ham%get_kreduced(kqpar(1:2))
          else
@@ -474,7 +474,7 @@ contains
       do ik = 1, me%Nk_loc
          kpar(1:2) = me%kpts_loc(ik, 1:2)
 
-         if (me%dipole_approx) then
+         if(.not. me%dipole_approx) then
             kqpar(1:2) = kpar(1:2) - me%qphot(1:2)
             kqpt(1:2) = me%ham%get_kreduced(kqpar(1:2))
             Hk = me%ham%get_ham(kqpt)
@@ -570,7 +570,7 @@ contains
       do ik = 1, me%Nk_loc
          kpar(1:2) = me%kpts_loc(ik, 1:2)
 
-         if (me%dipole_approx) then
+         if(.not. me%dipole_approx) then
             kqpar(1:2) = kpar(1:2) - me%qphot(1:2)
             kqpt(1:2) = me%ham%get_kreduced(kqpar(1:2))
             Hk = me%ham%get_ham(kqpt)

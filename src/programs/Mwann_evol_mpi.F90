@@ -224,6 +224,8 @@ contains
 
       call Wann_GenHk(me%ham,me%Nk_loc,me%kcoord_loc,Hk)
       do ik=1,me%Nk_loc
+         kpt = me%kcoord_loc(ik,:)
+         Hk(:,:,ik) = me%ham%get_ham(kpt) 
          call batch_diag%Diagonalize(Hk(:,:,ik),epsk=Ek(:,ik),vectk=me%wan_rot(:,:,ik))
       end do
 

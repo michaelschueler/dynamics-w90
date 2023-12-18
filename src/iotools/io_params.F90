@@ -79,6 +79,7 @@ module io_params
                                                      !! from the calculation (only for slab mode)
       integer,allocatable,dimension(:) :: orbs_excl !! indices or excluded orbitals
       integer,allocatable,dimension(:) :: lays_excl !! indices or excluded layers
+      integer            :: scissor_index=0 !! index of band where the scissor operator is applied
       integer            :: norb_exc=0 !! number of excluded orbitals
       integer            :: nlay_exc=0 !! number of excluded layers
       integer            :: field_mode=field_mode_positions !! How to include the effects of the   
@@ -91,6 +92,7 @@ module io_params
       real(dp)           :: energy_thresh=0.0_dp !! Hopping amplitudes smaller than `energy_thresh` will 
                                                  !! be disregarded when compressing the Hamiltonian
       real(dp)           :: ovlp_thresh=0.0_dp !! overlap amplitudes smaller than `ovlp_thresh` will 
+      real(dp)           :: scissor_energy=0.0_dp !! energy shift of scissor operator
                                                  !! be disregarded when compressing the overlaps
       real(dp)           :: Efield(3)=[0.0_dp,0.0_dp,0.0_dp] !! static electric field
       logical            :: use_degen_pert=.false. !! [Expert] triggers the use of degenerate 
@@ -243,6 +245,7 @@ contains
       logical            :: apply_field=.false.
       logical            :: slab_mode=.false.
       integer            :: norb_exc=0 
+      integer            :: scissor_index=0
       integer            :: field_mode=field_mode_positions
       real(dp)           :: Beta=1000.0_dp 
       real(dp)           :: filling=1.0_dp 
@@ -250,6 +253,7 @@ contains
       logical            :: FixMuChem=.true. 
       real(dp)           :: Efield(3)=[0.0_dp,0.0_dp,0.0_dp]
       real(dp)           :: energy_thresh=0.0_dp
+      real(dp)           :: scissor_energy=0.0_dp
       logical            :: use_degen_pert=.false.
       logical            :: force_herm=.true.
       logical            :: force_antiherm=.true.
@@ -258,7 +262,8 @@ contains
       character(len=1000) :: exclude_orbitals="",exclude_layers=""
       namelist/HAMILTONIAN/file_ham,file_xyz,file_ovlp,file_lam,file_soc,file_elpot,slab_mode,w90_with_soc,&
          energy_thresh,use_degen_pert,force_herm,force_antiherm,degen_thresh,apply_field,&
-         field_mode,Efield,Beta,Filling,MuChem,FixMuChem,lm_gauge,exclude_orbitals,exclude_layers
+         field_mode,Efield,Beta,Filling,MuChem,FixMuChem,lm_gauge,exclude_orbitals,exclude_layers,&
+         scissor_index,scissor_energy
       integer :: slab_nlayer=0
       namelist/SLAB/slab_nlayer
 
@@ -289,6 +294,8 @@ contains
       me%force_antiherm = force_antiherm
       me%degen_thresh = degen_thresh
       me%lm_gauge = lm_gauge
+      me%scissor_index = scissor_index
+      me%scissor_energy = scissor_energy
 
       if(len_trim(exclude_orbitals) > 0) then
          call ReadList(exclude_orbitals, me%orbs_excl, "exclude_orbitals")

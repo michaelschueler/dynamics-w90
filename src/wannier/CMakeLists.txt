@@ -17,6 +17,7 @@ set(OBJECT_FILES
     wan_orbitals.F90
     wan_overlap.F90
     wan_prop_hybrid.F90
+    wan_scissor.F90
 )
 
 if(fftw)

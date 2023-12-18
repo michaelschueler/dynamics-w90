@@ -15,7 +15,8 @@ module wan_fourier
       fourier_R_to_k_deriv, &
       fourier_R_to_k_slab, &
       fourier_D2_R_to_k, &
-      fourier_R_to_k_truevec
+      fourier_R_to_k_truevec,&
+      fourier_k_to_R
 !--------------------------------------------------------------------------------------
    integer,parameter :: blocksize=32
 !--------------------------------------------------------------------------------------
@@ -283,6 +284,66 @@ contains
       end do
 
    end subroutine fourier_R_to_k_vec
+!--------------------------------------------------------------------------------------
+
+
+   subroutine fourier_k_to_R(kpts, irvec, ndegen, OO_k, OO_R)
+      !! Performs the Fourier transformation R -> k
+      !! For \(\alpha=0\): 
+      !! \(O_{ij}(R) \rightarrow O_{ij}(k) = \sum_R e^{i k \cdot R} O_{ij}(R)\)
+      !! For \(\alpha=1,2,3\):
+      !! \(i \sum_R R_\alpha e^{i k \cdot R} O_{ij}(R) \)
+      real(kind=dp)                                     :: kpts(:,:) !! k-point grid (reduced coordinates)
+      integer,intent(in)                                :: irvec(3) !! hopping vectors
+      integer,intent(in)                                :: ndegen  !! degeneracy factors
+      complex(kind=dp), dimension(:, :, :), intent(in)  :: OO_k !! operator in k-space O(k)
+      complex(kind=dp), dimension(:, :), intent(inout)  :: OO_R !! operator in real space O(R)
+
+      integer          :: nkpts,nrpts,num_wann,nn,nk,m
+      complex(kind=dp) :: phase_fac(blocksize),degen_fac
+      integer :: numblock,imin,imax
+
+      nkpts = size(kpts, dim=1)
+      nrpts = size(irvec, dim=1)
+      num_wann = size(OO_k, dim=1)
+      call assert_shape(OO_R, [num_wann, num_wann], "fourier_k_to_R", "OO_R")
+      call assert_shape(OO_k, [num_wann, num_wann, nkpts], "fourier_k_to_R", "OO_k")
+
+      ! compute the number of chuncks
+      numblock  = (nkpts+blocksize-1)/blocksize
+      nn = num_wann**2
+
+      OO_R(:, :) = zero
+
+      do m = 1, numblock
+         imin = (m-1)*blocksize+1
+         imax = min(m * blocksize, nkpts)
+         nk = imax - imin + 1
+         call GetInvPhase(nk,irvec,kpts(imin:imax,:),phase_fac)
+
+         call ZGEMV("N",nn,nk,one,OO_k(1,1,imin),nn,phase_fac(1),1,one,OO_R(1,1),1)  
+      end do
+
+      degen_fac = one * ndegen / nkpts
+      call ZSCAL(nn, degen_fac, OO_R(1,1), 1)
+
+
+   end subroutine fourier_k_to_R
+!--------------------------------------------------------------------------------------
+   subroutine GetInvPhase(nk,irvec,kpts,exp_iphase) 
+      integer,intent(in)  :: nk
+      integer(dp),intent(in) :: irvec(3)
+      real(dp),intent(in)  :: kpts(:,:)
+      complex(dp),intent(inout) :: exp_iphase(:)
+      real(dp),dimension(blocksize) :: s,c,rdotk
+
+      rdotk(1:nk) = DPI*(kpts(1:nk,1) * irvec(1) + kpt(1:nk,2) * irvec(2) &
+         + kpt(1:nk,3) * irvec(3))
+      c(1:nk) = cos(rdotk(1:nk))
+      s(1:nk) = -sin(rdotk(1:nk))
+      exp_iphase(1:nk) = cmplx(c(1:nk), s(1:nk), kind=dp) 
+
+   end subroutine GetInvPhase
 !--------------------------------------------------------------------------------------
 
 !======================================================================================
