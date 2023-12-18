@@ -8,8 +8,9 @@ set( project_EXECUTABLES
      wann_evol.x
      wann_calc.x
      wann_prune.x
+     wann_scissor.x
      wann_soc.x
-     arpes.x
+     #arpes.x
 )
 
 # mpi excecutables
@@ -39,6 +40,7 @@ set( EXE_wann_evol.x_SOURCES Mwann_evol.F90 wann_evol.F90)
 set( EXE_wann_calc.x_SOURCES Mwannier_calc.F90 wann_calc.F90)
 set( EXE_wann_prune.x_SOURCES wann_prune.F90)
 set( EXE_wann_soc.x_SOURCES wann_soc.F90)
+set( EXE_wann_scissor.x_SOURCES wann_scissor.F90)
 set( EXE_arpes.x_SOURCES Marpes_calc.F90 arpes.F90)
 
 

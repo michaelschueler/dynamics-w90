@@ -33,6 +33,8 @@ contains
 
       call wann_sci%Set(wann)
 
+      if(scissor_index <= 0) return
+
       ix_bound(1) = minval(wann%irvec(:,1))
       ix_bound(2) = maxval(wann%irvec(:,1))
       iy_bound(1) = minval(wann%irvec(:,2))
@@ -73,7 +75,7 @@ contains
          Hk(:,:,ik) = util_rotate_cc(wann%num_wann, rotk, diagk, large_size=.true.)
 
       end do
-      !$OMP DO
+      !$OMP END DO
 
       deallocate(epsk)
       deallocate(rotk)

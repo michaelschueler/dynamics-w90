@@ -331,14 +331,14 @@ contains
    end subroutine fourier_k_to_R
 !--------------------------------------------------------------------------------------
    subroutine GetInvPhase(nk,irvec,kpts,exp_iphase) 
-      integer,intent(in)  :: nk
-      integer(dp),intent(in) :: irvec(3)
+      integer,intent(in)   :: nk
+      integer,intent(in)   :: irvec(3)
       real(dp),intent(in)  :: kpts(:,:)
       complex(dp),intent(inout) :: exp_iphase(:)
       real(dp),dimension(blocksize) :: s,c,rdotk
 
-      rdotk(1:nk) = DPI*(kpts(1:nk,1) * irvec(1) + kpt(1:nk,2) * irvec(2) &
-         + kpt(1:nk,3) * irvec(3))
+      rdotk(1:nk) = DPI*(kpts(1:nk,1) * irvec(1) + kpts(1:nk,2) * irvec(2) &
+         + kpts(1:nk,3) * irvec(3))
       c(1:nk) = cos(rdotk(1:nk))
       s(1:nk) = -sin(rdotk(1:nk))
       exp_iphase(1:nk) = cmplx(c(1:nk), s(1:nk), kind=dp) 
