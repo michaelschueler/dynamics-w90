@@ -10,7 +10,7 @@ set( project_EXECUTABLES
      wann_prune.x
      wann_scissor.x
      wann_soc.x
-     #arpes.x
+     arpes.x
 )
 
 # mpi excecutables
