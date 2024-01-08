@@ -148,8 +148,8 @@ contains
 ! complex Gamma function in double precision
 !
    function cdgamma(x)
-      implicit real*8 (a - h, o - z)
       complex(dp) cdgamma, x
+      real(dp),parameter :: 
       parameter (
      &    pi = 3.14159265358979324d+00, 
      &    pv = 7.31790632447016203d+00, 
@@ -168,8 +168,8 @@ contains
      &    q4 = 4.00000003016801681d+00, 
      &    q5 = 4.99999857982434025d+00, 
      &    q6 = 6.00009857740312429d+00)
-      xr = dreal(x)
-      xi = dimag(x)
+      xr = real(x, kind=dp)
+      xi = aimag(x)
       if (xr .lt. 0) then
           wr = 1.0d0 - xr
           wi = -xi
