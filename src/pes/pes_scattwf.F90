@@ -75,8 +75,11 @@ contains
          if(x < small) then
             Rr = Coulomb_smallx(x, eta, l)
          else
-            call COUL90(k*r, eta, 0.0_dp, l, FC, GC, FCP, GCP, 0, IFAIL)
+            call COUL90(x, eta, 0.0_dp, l, FC, GC, FCP, GCP, 0, IFAIL)
             Rr = FC(l)
+            if(IFAIL /= 0) then
+               print*, x, eta, FC
+            end if
          end if
 
          Rr = Rr / (r + small)
