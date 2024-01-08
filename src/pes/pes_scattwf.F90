@@ -181,15 +181,15 @@ contains
       real(dp),intent(in) :: eta
       integer,intent(in)  :: l
       real(dp) :: ceta
-      real(dp) :: agm,lnfac
+      real(dp) :: agm,lnfac,log10_fact
       complex(dp) :: zl,gm
 
       zl = cmplx(dble(l) + 1.0_dp, eta ,kind=dp)
       gm = lacz_gamma(zl)
       agm = abs(gm)
+      log10_fact = fac10(2*l+1) / log10(exp(1.0_dp))
 
-      lnfac = log(agm) + l * log(2.0_dp) - 0.5_dp*Pi*eta &
-         -(fac10(2*l+1) + (2*l+1)*log(10.0_dp))
+      lnfac = log(agm) + l * log(2.0_dp) - 0.5_dp*Pi*eta - log10_fact
 
       ceta = exp(lnfac)
 
