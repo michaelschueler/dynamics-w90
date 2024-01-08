@@ -75,7 +75,7 @@ contains
          x = k * r
          if(x < small) then
             Rr = Coulomb_smallx(x, k, eta, l)
-            print*, l, eta, x
+            print*, l, eta, x, Rr
          else
             call COUL90(x, eta, 0.0_dp, l, FC, GC, FCP, GCP, 0, IFAIL)
             Rr = FC(l)  / (r + eps)
