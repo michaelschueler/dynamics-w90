@@ -56,7 +56,7 @@ contains
    end subroutine Init
 !--------------------------------------------------------------------------------------
    function Eval(me,l,k,r) result(Rr)
-      real(dp),parameter :: small=5.0e-3_dp
+      real(dp),parameter :: small=5.0e-3_dp,eps=1.0e-8_dp
       class(scattwf_t),intent(in) :: me  
       integer,intent(in)          :: l
       real(dp),intent(in)         :: k     
@@ -74,16 +74,11 @@ contains
          eta = -me%Z / k
          x = k * r
          if(x < small) then
-            Rr = Coulomb_smallx(x, eta, l)
+            Rr = Coulomb_smallx(x, k, eta, l)
          else
             call COUL90(x, eta, 0.0_dp, l, FC, GC, FCP, GCP, 0, IFAIL)
-            Rr = FC(l)
-            if(IFAIL /= 0) then
-               print*, l, x, me%Z, k, eta, FC
-            end if
+            Rr = FC(l)  / (r + eps)
          end if
-
-         Rr = Rr / (r + small)
 
       case default
          Rr = 0.0_dp
@@ -149,8 +144,9 @@ contains
       end if
    end function lacz_gamma
 !--------------------------------------------------------------------------------------
-   function Coulomb_smallx(x,eta,l) result(Fl)
+   function Coulomb_smallx(x,k,eta,l) result(Fl)
       real(dp),intent(in) :: x
+      real(dp),intent(in) :: k
       real(dp),intent(in) :: eta
       integer,intent(in)  :: l  
       real(dp) :: Fl
@@ -158,7 +154,7 @@ contains
 
       Ceta = Coulomb_prefac(eta,l)
 
-      Fl = Ceta * x**(l+1)
+      Fl = Ceta * k * x**l
 
    end function Coulomb_smallx
 !------------------------------------------------------------------------
