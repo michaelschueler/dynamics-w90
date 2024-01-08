@@ -75,7 +75,7 @@ contains
          x = k * r
          if(x < small) then
             Rr = Coulomb_smallx(x, k, eta, l)
-            print*, l, eta, x, Rr
+            ! print*, l, eta, x, Rr
          else
             call COUL90(x, eta, 0.0_dp, l, FC, GC, FCP, GCP, 0, IFAIL)
             Rr = FC(l)  / (r + eps)
@@ -192,6 +192,8 @@ contains
       lnfac = log(agm) + l * log(2.0_dp) - 0.5_dp*Pi*eta - log10_fact
 
       ceta = exp(lnfac)
+
+      print*, eta, l, lnfac, ceta
 
    end function Coulomb_prefac
 !--------------------------------------------------------------------------------------
