@@ -78,7 +78,7 @@ contains
             call COUL90(x, eta, 0.0_dp, l, FC, GC, FCP, GCP, 0, IFAIL)
             Rr = FC(l)
             if(IFAIL /= 0) then
-               print*, x, eta, FC
+               print*, l, x, me%Z, k, eta, FC
             end if
          end if
 
