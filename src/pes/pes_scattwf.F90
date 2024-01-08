@@ -56,7 +56,7 @@ contains
    end subroutine Init
 !--------------------------------------------------------------------------------------
    function Eval(me,l,k,r) result(Rr)
-      real(dp),parameter :: small=1.0e-6_dp
+      real(dp),parameter :: small=5.0e-3_dp
       class(scattwf_t),intent(in) :: me  
       integer,intent(in)          :: l
       real(dp),intent(in)         :: k     
@@ -64,6 +64,7 @@ contains
       real(dp)                    :: Rr
       integer :: IFAIL
       real(dp) :: eta,x
+
       real(dp),dimension(0:l) :: FC,GC,FCP,GCP
 
       select case(me%wf_type)
