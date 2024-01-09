@@ -60,8 +60,8 @@ contains
       call hdf_read_attribute(file_id,'','lmax', me%lmax)
 
       allocate(me%Ex(me%nE))
-      allocate(me%radint(me%nE,0:me%lmax,me%norb))
-      allocate(me%Phase(me%nE,0:me%lmax,me%norb))
+      allocate(me%radint(me%nE,me%lmax+1,me%norb))
+      allocate(me%Phase(me%nE,me%lmax+1,me%norb))
 
       call hdf_read_dataset(file_id,'energy',me%Ex)
       call hdf_read_dataset(file_id,'radint',me%radint)
@@ -83,8 +83,8 @@ contains
       read(unit_inp,*) me%nE, me%norb, me%lmax
 
       allocate(me%Ex(me%nE))
-      allocate(me%radint(me%nE,0:me%lmax,me%norb))
-      allocate(me%Phase(me%nE,0:me%lmax,me%norb))      
+      allocate(me%radint(me%nE,me%lmax+1,me%norb))
+      allocate(me%Phase(me%nE,me%lmax+1,me%norb))      
 
       read(unit_inp, *) ! comment line: ## energy grid
 
@@ -96,7 +96,7 @@ contains
 
       do iorb=1,me%norb
          do iE=1,me%nE
-            read(unit_inp,*) me%radint(iE,0:me%lmax,iorb), me%phase(iE,0:me%lmax,iorb)
+            read(unit_inp,*) me%radint(iE,me%lmax+1,iorb), me%phase(iE,me%lmax+1,iorb)
          end do
       end do
 

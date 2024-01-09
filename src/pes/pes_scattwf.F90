@@ -45,7 +45,7 @@ contains
 
          allocate(ks(scatt_input%nE))
          ks = sqrt(2.0_dp * scatt_input%Ex)
-         call me%phase_spl%Init(ks, scatt_input%phase(:,0:,scatt_iorb), &
+         call me%phase_spl%Init(ks, scatt_input%phase(:,:,scatt_iorb), &
             scatt_input%lmax+1)
 
          me%lmax = scatt_input%lmax
@@ -78,11 +78,6 @@ contains
          x = k * r
          if(x < small) then
             Rr = Coulomb_smallx(x, eta, l)
-            ! print*, l, eta, x, Rr
-            do l1 = 0, 4
-               print*, l1, Coulomb_prefac(-1.0_dp,l1)
-            end do
-            stop
          else
             call COUL90(x, eta, 0.0_dp, l, FC, GC, FCP, GCP, 0, IFAIL)
             Rr = FC(l)  / (x + eps)
