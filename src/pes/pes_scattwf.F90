@@ -174,7 +174,7 @@ contains
 
       ceta = exp(lnfac)
 
-      print*, eta, l, agm, log10_fact, lnfac, ceta
+      ! print*, eta, l, agm, log10_fact, lnfac, ceta
 
    end function Coulomb_prefac
 !--------------------------------------------------------------------------------------
