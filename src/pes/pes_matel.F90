@@ -181,9 +181,9 @@ contains
 
       exphi = conjg(swf%Phase(l,knrm))
 
-      Mk(1) = Mk(1) + exphi * rint(1) * (gnt(-1) * Yq(-1) - gnt(1) * Yq(1)) / sqrt(2.0d0)
-      Mk(2) = Mk(2) + iu * exphi * rint(1) * (gnt(-1) * Yq(-1) + gnt(1) * Yq(1)) / sqrt(2.0d0)
-      Mk(3) = Mk(3) + exphi * rint(1) * gnt(0) * Yq(0)
+      Mk(1) = Mk(1) + exphi * rint(2) * (gnt(-1) * Yq(-1) - gnt(1) * Yq(1)) / sqrt(2.0d0)
+      Mk(2) = Mk(2) + iu * exphi * rint(2) * (gnt(-1) * Yq(-1) + gnt(1) * Yq(1)) / sqrt(2.0d0)
+      Mk(3) = Mk(3) + exphi * rint(2) * gnt(0) * Yq(0)
 
       Mk = QPI * sqrt(QPI/3.0d0) * Mk * rphase
 
