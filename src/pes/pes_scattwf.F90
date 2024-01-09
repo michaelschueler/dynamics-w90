@@ -157,22 +157,44 @@ contains
 
    end function fac10
 !--------------------------------------------------------------------------------------
-   function Coulomb_prefac(eta,l) result(ceta)
+   elemental function Coulomb_prefac(eta,l) result(ceta)
+      real(dp),parameter :: eps=1.0e-8_dp
       real(dp),intent(in) :: eta
       integer,intent(in)  :: l
       real(dp) :: ceta
-      real(dp) :: agm,lnfac,log10_fact
-      complex(dp) :: zl,gm
+      integer :: k
+      real(dp) :: prefac,afac,bfac,x
+      ! real(dp) :: agm,lnfac,log10_fact
+      ! complex(dp) :: zl,gm
 
-      zl = cmplx(l + 1.0_dp, eta ,kind=dp)
-      ! gm = lacz_gamma(zl)
-      gm = cdgamma(zl)
-      agm = abs(gm)
-      log10_fact = fac10(2*l+1) / log10(exp(1.0_dp))
+      prefac = l * log(2.0_dp)
+      do k = 1, 2*l+1
+         prefac = prefac - log(real(k, kind=dp))
+      end do
 
-      lnfac = log(agm) + l * log(2.0_dp) - 0.5_dp*Pi*eta - log10_fact
+      x = DPi * eta
+      if(abs(x) < eps) then
+         afac = 1.0_dp / (1.0_dp + 0.5_dp * x + x**2/6.0_dp)
+      else
+         afac = x / (exp(x) - 1.0_dp)
+      end if
 
-      ceta = exp(lnfac)
+      bfac = 1.0_dp
+      do k = 1, l
+         bfac = bfac * (eta**2 + k**2)
+      end do
+
+      ceta = exp(prefac) * sqrt(afac * bfac)
+
+      ! zl = cmplx(l + 1.0_dp, eta ,kind=dp)
+      ! ! gm = lacz_gamma(zl)
+      ! gm = cdgamma(zl)
+      ! agm = abs(gm)
+      ! log10_fact = fac10(2*l+1) / log10(exp(1.0_dp))
+
+      ! lnfac = log(agm) + l * log(2.0_dp) - 0.5_dp*Pi*eta - log10_fact
+
+      ! ceta = exp(lnfac)
 
       ! print*, eta, l, agm, log10_fact, lnfac, ceta
 
