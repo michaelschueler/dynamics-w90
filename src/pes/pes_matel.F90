@@ -145,10 +145,11 @@ contains
       real(dp),intent(in)               :: kvec(3)
       complex(dp)                       :: Mk(3)
       real(dp),intent(in),optional      :: phi
-      integer :: l
+      integer :: l,q
       real(dp) :: knrm,rint(2)
-      real(dp) :: gnt(3)
+      real(dp) :: gnt(-1:1)
       complex(dp) :: exphi,rphase
+      complex(dp) :: Yq(-1:1)
 
       Mk = zero
       knrm = norm2(kvec)
@@ -160,48 +161,29 @@ contains
 
       l = l0 - 1
       if(l >= 0) then
-         gnt(1) = minusone_n(-m0+1) * ThreeYlm(l,-m0+1,1,-1,l0,m0)  ! q = +1
-         gnt(2) = minusone_n(-m0-1) * ThreeYlm(l,-m0-1,1,1,l0,m0) ! q = -1
-         gnt(3) = minusone_n(-m0) * ThreeYlm(l,-m0,1,0,l0,m0) ! q = 0
+         do q = -1, 1 
+            gnt(q) = ThreeYlm(l,-m0-q,1,q,l0,m0)
+            Yq(q) = conjg(Ylm_cart(l,-m0-q,kvec))
+         end do
+
          exphi = conjg(swf%Phase(l,knrm))
 
-         Mk(1) = Mk(1) + exphi * rint(1) * (gnt(1) * Ylm_cart(l,-m0+1,kvec) &
-            - gnt(2) * Ylm_cart(l,-m0-1,kvec)) / sqrt(2.0d0)
-
-         Mk(2) = Mk(2) + iu * exphi * rint(1) * (gnt(1) * Ylm_cart(l,-m0+1,kvec) &
-            + gnt(2)* Ylm_cart(l,-m0-1,kvec)) / sqrt(2.0d0)
-
-         Mk(3) = Mk(3) + exphi * rint(1) * gnt(3) * Ylm_cart(l,-m0,kvec)
-
-         ! Mk(1) = Mk(1) + exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
-         !    - gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(1) / sqrt(2.0d0)
-         ! Mk(2) = Mk(2) + iu*exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
-         !    + gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(1) / sqrt(2.0d0)
-         ! Mk(3) = Mk(3) + exphi * gnt(3) * rint(1) * conjg(Ylm_cart(l,-m0,kvec))
+         Mk(1) = Mk(1) + exphi * rint(1) * (gnt(-1) * Yq(-1) - gnt(1) * Yq(1)) / sqrt(2.0d0)
+         Mk(2) = Mk(2) + iu * exphi * rint(1) * (gnt(-1) * Yq(-1) + gnt(1) * Yq(1)) / sqrt(2.0d0)
+         Mk(3) = Mk(3) + exphi * rint(1) * gnt(0) * Yq(0)
       end if
 
       l = l0 + 1
-      ! gnt(1) = ThreeYlm(l,-m0+1,1,-1,l0,m0)
-      ! gnt(2) = ThreeYlm(l,-m0-1,1,1,l0,m0)
-      ! gnt(3) = ThreeYlm(l,-m0,1,0,l0,m0)
-      gnt(1) = minusone_n(-m0+1) * ThreeYlm(l,-m0+1,1,-1,l0,m0)  
-      gnt(2) = minusone_n(-m0-1) * ThreeYlm(l,-m0-1,1,1,l0,m0)
-      gnt(3) = minusone_n(-m0) * ThreeYlm(l,-m0,1,0,l0,m0)
+      do q = -1, 1 
+         gnt(q) = ThreeYlm(l,-m0-q,1,q,l0,m0)
+         Yq(q) = conjg(Ylm_cart(l,-m0-q,kvec))
+      end do
+
       exphi = conjg(swf%Phase(l,knrm))
 
-      ! Mk(1) = Mk(1) + exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
-      !    - gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(2) / sqrt(2.0d0)
-      ! Mk(2) = Mk(2) + iu*exphi * (gnt(1)*conjg(Ylm_cart(l,-m0+1,kvec)) &
-      !    + gnt(2)*conjg(Ylm_cart(l,-m0-1,kvec))) * rint(2) / sqrt(2.0d0)
-      ! Mk(3) = Mk(3) + exphi * gnt(3) * rint(2) * conjg(Ylm_cart(l,-m0,kvec))              
-
-      Mk(1) = Mk(1) + exphi * rint(2) * (gnt(1) * Ylm_cart(l,-m0+1,kvec) &
-         - gnt(2) * Ylm_cart(l,-m0-1,kvec)) / sqrt(2.0d0)
-
-      Mk(2) = Mk(2) + iu * exphi * rint(2) * (gnt(1) * Ylm_cart(l,-m0+1,kvec) &
-         + gnt(2) * Ylm_cart(l,-m0-1,kvec)) / sqrt(2.0d0)
-
-      Mk(3) = Mk(3) + exphi * rint(2) * gnt(3) * Ylm_cart(l,-m0,kvec)
+      Mk(1) = Mk(1) + exphi * rint(1) * (gnt(-1) * Yq(-1) - gnt(1) * Yq(1)) / sqrt(2.0d0)
+      Mk(2) = Mk(2) + iu * exphi * rint(1) * (gnt(-1) * Yq(-1) + gnt(1) * Yq(1)) / sqrt(2.0d0)
+      Mk(3) = Mk(3) + exphi * rint(1) * gnt(0) * Yq(0)
 
       Mk = QPI * sqrt(QPI/3.0d0) * Mk * rphase
 
