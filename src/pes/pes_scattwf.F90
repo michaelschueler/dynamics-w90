@@ -113,7 +113,7 @@ contains
          phase = one
          if(me%phase_from_input) then
             phi_l(:) = me%phase_spl%Eval(k)
-            if(l <= me%lmax) phase = exp(iu*phi_l(l-1))
+            if(l <= me%lmax) phase = exp(iu*phi_l(l+1))
          end if
       case default
          phase = one
@@ -164,8 +164,6 @@ contains
       real(dp) :: ceta
       integer :: k
       real(dp) :: prefac,afac,bfac,x
-      ! real(dp) :: agm,lnfac,log10_fact
-      ! complex(dp) :: zl,gm
 
       prefac = l * log(2.0_dp)
       do k = 1, 2*l+1
@@ -185,18 +183,6 @@ contains
       end do
 
       ceta = exp(prefac) * sqrt(afac * bfac)
-
-      ! zl = cmplx(l + 1.0_dp, eta ,kind=dp)
-      ! ! gm = lacz_gamma(zl)
-      ! gm = cdgamma(zl)
-      ! agm = abs(gm)
-      ! log10_fact = fac10(2*l+1) / log10(exp(1.0_dp))
-
-      ! lnfac = log(agm) + l * log(2.0_dp) - 0.5_dp*Pi*eta - log10_fact
-
-      ! ceta = exp(lnfac)
-
-      ! print*, eta, l, agm, log10_fact, lnfac, ceta
 
    end function Coulomb_prefac
 !--------------------------------------------------------------------------------------
