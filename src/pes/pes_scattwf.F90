@@ -80,7 +80,7 @@ contains
             Rr = Coulomb_smallx(x, eta, l)
             ! print*, l, eta, x, Rr
             do l1 = 0, 4
-               print*, l, Coulomb_prefac(-1.0_dp,l1)
+               print*, l1, Coulomb_prefac(-1.0_dp,l1)
             end do
             stop
          else
