@@ -109,6 +109,7 @@ contains
          if(me%phase_from_input) then
             phi_l(:) = me%phase_spl%Eval(k)
             if(l <= me%lmax) phase = exp(iu*phi_l(l+1))
+            print*, l, k, phase
          end if
       case default
          phase = one
