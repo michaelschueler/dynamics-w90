@@ -220,7 +220,7 @@ contains
          l = l0 - 1
          if(l >= 0) then
             iflag = 0
-            call me%len_spl_m1%Init(ks,scatt_input%radint(:,l,iorb),kx,iflag)
+            call me%len_spl_m1%Init(ks,scatt_input%radint(:,l+1,iorb),kx,iflag)
          else
             iflag = 0
             call me%len_spl_m1%Init(ks,rzero,kx,iflag)
@@ -228,7 +228,7 @@ contains
 
          l = l0 + 1
          iflag = 0
-         call me%len_spl_p1%Init(ks,scatt_input%radint(:,l,iorb),kx,iflag)
+         call me%len_spl_p1%Init(ks,scatt_input%radint(:,l+1,iorb),kx,iflag)
       case default
          call stop_error("radial integral input not compatible with chosen gauge")
       end select
