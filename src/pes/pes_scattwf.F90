@@ -66,6 +66,8 @@ contains
       integer :: IFAIL
       real(dp) :: eta,x
 
+      integer :: l1
+
       real(dp),dimension(0:l) :: FC,GC,FCP,GCP
 
       select case(me%wf_type)
@@ -77,6 +79,10 @@ contains
          if(x < small) then
             Rr = Coulomb_smallx(x, eta, l)
             ! print*, l, eta, x, Rr
+            do l1 = 0, 4
+               print*, l, Coulomb_prefac(-1.0_dp,l1)
+            end do
+            stop
          else
             call COUL90(x, eta, 0.0_dp, l, FC, GC, FCP, GCP, 0, IFAIL)
             Rr = FC(l)  / (x + eps)
@@ -94,12 +100,14 @@ contains
       real(dp),intent(in)         :: k   
       real(dp) :: eta
       real(dp) :: phi_l(me%lmax+1)
-      complex(dp) :: zeta
+      complex(dp) :: zl,zeta
 
       select case(me%wf_type)
       case(wf_coul)
          eta = -me%Z / k
-         zeta = lacz_gamma(l + 1.0_dp + iu*eta)
+         ! zeta = lacz_gamma(l + 1.0_dp + iu*eta)
+         zl = cmplx(l + 1.0_dp, eta, kind=dp)
+         zeta = cdgamma(zl)
          phase = zeta/abs(zeta)
       case(wf_input) 
          phase = one
