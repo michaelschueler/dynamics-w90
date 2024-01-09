@@ -4,6 +4,7 @@ include_directories(
 
 set(OBJECT_FILES
 	COUL90.f
+	gamma_function.f90
 	pes_angcoeff.F90
 	pes_atomic.F90
 	pes_matel.F90

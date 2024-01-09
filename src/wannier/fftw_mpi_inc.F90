@@ -72,8 +72,8 @@
 
          allocate(me%work_r(me%nkx*me%nky),me%work_k(me%nkx*me%nky))
 
-         call DFFTW_PLAN_DFT_2D(me%plan_fw,me%nkx,me%nky,me%work_k,me%work_r,FFTW_FORWARD,FFTW_MEASURE)
-         call DFFTW_PLAN_DFT_2D(me%plan_bw,me%nkx,me%nky,me%work_r,me%work_k,FFTW_BACKWARD,FFTW_MEASURE)
+         call DFFTW_PLAN_DFT_2D(me%plan_fw,me%nky,me%nkx,me%work_k,me%work_r,FFTW_FORWARD,FFTW_MEASURE)
+         call DFFTW_PLAN_DFT_2D(me%plan_bw,me%nky,me%nkx,me%work_r,me%work_k,FFTW_BACKWARD,FFTW_MEASURE)
       case(3)
          me%nx = ix_bound(2) - ix_bound(1) + 1
          me%ny = iy_bound(2) - iy_bound(1) + 1
@@ -94,8 +94,8 @@
          end if
 
          allocate(me%work_r(me%nkx*me%nky*me%nkz),me%work_k(me%nkx*me%nky*me%nkz))
-         call DFFTW_PLAN_DFT_3D(me%plan_fw,me%nkx,me%nky,me%nkz,me%work_k,me%work_r,FFTW_FORWARD,FFTW_MEASURE)
-         call DFFTW_PLAN_DFT_3D(me%plan_bw,me%nkx,me%nky,me%nkz,me%work_r,me%work_k,FFTW_BACKWARD,FFTW_MEASURE)
+         call DFFTW_PLAN_DFT_3D(me%plan_fw,me%nkz,me%nky,me%nkx,me%work_k,me%work_r,FFTW_FORWARD,FFTW_MEASURE)
+         call DFFTW_PLAN_DFT_3D(me%plan_bw,me%nkz,me%nky,me%nkx,me%work_r,me%work_k,FFTW_BACKWARD,FFTW_MEASURE)
 
       end select
 
