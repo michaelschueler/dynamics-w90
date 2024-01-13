@@ -103,7 +103,7 @@ contains
          ! zeta = lacz_gamma(l + 1.0_dp + iu*eta)
          zl = cmplx(l + 1.0_dp, eta, kind=dp)
          zeta = cdgamma(zl)
-         phase = zeta/abs(zeta)
+         phase = conjg(zeta)/abs(zeta)
       case(wf_input) 
          phase = one
          if(me%phase_from_input) then
