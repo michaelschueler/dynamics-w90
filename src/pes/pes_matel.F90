@@ -138,15 +138,13 @@ contains
 
    end function ScattMatrixElement_Momentum
 !-------------------------------------------------------------------------------------- 
-   function ScattMatrixElement(swf,radialinteg,l0,m0,kvec,phi,gauge) result(Mk)
+   function ScattMatrixElement_length(swf,radialinteg,l0,m0,kvec,phi) result(Mk)
       type(scattwf_t),intent(in)        :: swf
       type(radialinteg_t),intent(in)    :: radialinteg
       integer,intent(in)                :: l0,m0
       real(dp),intent(in)               :: kvec(3)
       complex(dp)                       :: Mk(3)
       real(dp),intent(in),optional      :: phi
-      integer,intent(in),optional       :: gauge
-      integer :: gauge_
       integer :: l,q
       real(dp) :: knrm,rint(2)
       real(dp) :: gnt(-1:1)
@@ -159,19 +157,7 @@ contains
       rphase = one
       if(present(phi)) rphase = exp(iu * m0 * phi)
 
-      gauge_ = 0 ! length gauge
-      if(present(gauge)) gauge_ = gauge
-
-      select case(gauge_)
-      case(0)
-         ! Length gauge
-         call radialinteg%Eval_len(knrm,rint)
-      case(1)
-         ! velocity gauge
-         call radialinteg%Eval_mom(knrm,rint)
-      case default
-         rint = zero
-      end select
+      call radialinteg%Eval_len(knrm,rint)
 
       l = l0 - 1
       if(l >= 0) then
@@ -200,7 +186,34 @@ contains
       Mk(3) = Mk(3) + exphi * rint(2) * gnt(0) * Yq(0)
 
       Mk = QPI * sqrt(QPI/3.0d0) * Mk * rphase
-      if(gauge_ == 1) Mk = -iu * Mk
+
+   end function ScattMatrixElement_length
+!-------------------------------------------------------------------------------------- 
+   function ScattMatrixElement(swf,radialinteg,l0,m0,kvec,phi,gauge) result(Mk)
+      type(scattwf_t),intent(in)        :: swf
+      type(radialinteg_t),intent(in)    :: radialinteg
+      integer,intent(in)                :: l0,m0
+      real(dp),intent(in)               :: kvec(3)
+      complex(dp)                       :: Mk(3)
+      real(dp),intent(in),optional      :: phi
+      integer,intent(in),optional       :: gauge
+      integer :: gauge_
+      real(dp) :: phi_
+
+      phi_ = 0.0_dp
+      if(present(phi)) phi_ = phi
+
+      gauge_ = 0 ! length gauge
+      if(present(gauge)) gauge_ = gauge      
+
+      select case(gauge_)
+      case(0)
+         ! Length gauge
+         Mk = ScattMatrixElement_length(swf,radialinteg,l0,m0,kvec,phi=phi_)
+      case(1)
+         ! velocity gauge
+         Mk = ScattMatrixElement_Momentum(swf,radialinteg,l0,m0,kvec,phi=phi_)
+      end select
 
    end function ScattMatrixElement
 !-------------------------------------------------------------------------------------- 
