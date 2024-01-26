@@ -174,6 +174,8 @@ contains
          rint = zero
       end select
 
+      print*, "ScattMatrixElement", l0, radialinteg%l0, rint
+
       l = l0 - 1
       if(l >= 0) then
          do q = -1, 1 
