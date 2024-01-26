@@ -279,7 +279,8 @@ contains
          inbvx = 1
          rint2 = me%mom2_spl_m1%Eval(k,0,iflag,inbvx)
 
-         rint(1) = rint1 + (0.5_dp* (me%l0*(me%l0+1) - l*(l+1)) + 1.0_dp) * rint2 
+         ! rint(1) = rint1 + (0.5_dp* (me%l0*(me%l0+1) - l*(l+1)) + 1.0_dp) * rint2 
+         rint(1) = rint1 + (0.5_dp* (me%l0*(me%l0+1) - l*(l+1))) * rint2 
       else
          rint(1) = 0.0_Dp
       end if 
@@ -289,7 +290,8 @@ contains
       rint1 = me%mom1_spl_p1%Eval(k,0,iflag,inbvx)
       inbvx = 1
       rint2 = me%mom2_spl_p1%Eval(k,0,iflag,inbvx)
-      rint(2) = rint1 + (0.5_dp* (me%l0*(me%l0+1) - l*(l+1)) + 1.0_dp) * rint2 
+      ! rint(2) = rint1 + (0.5_dp* (me%l0*(me%l0+1) - l*(l+1)) + 1.0_dp) * rint2 
+      rint(2) = rint1 + (0.5_dp* (me%l0*(me%l0+1) - l*(l+1))) * rint2 
 
    end subroutine radialinteg_Eval_mom
 !--------------------------------------------------------------------------------------

@@ -11,7 +11,7 @@ module pes_main
    use pes_radialwf, only: radialwf_t
    use pes_scattwf, only: scattwf_t
    use pes_radialintegral, only: radialinteg_t
-   use pes_matel, only: ScattMatrixElement_Momentum, ScattMatrixElement_Length, &
+   use pes_matel, only: ScattMatrixElement, &
                         ApplyDipoleOp, Dipole_lambda_projection, ScattMatrixElement_Lambda, &
                         dipole_lambda_BesselTransform
    use wan_orbitals, only: wannier_orbs_t
@@ -464,32 +464,19 @@ contains
       allocate (matomic(norb, 3)); matomic = zero
       do iorb = 1, norb
          if (orbs%weight(iorb) < 1.0e-5_dp) cycle
-         select case (gauge_)
-         case (gauge_len)
-            if (orbs%real_lm) then
-               mabs = abs(orbs%M_indx(iorb))
-               mat_m(1:3) = ScattMatrixElement_Length(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), mabs, kvec, phi=phi_)
-               mat_mm(1:3) = ScattMatrixElement_Length(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), -mabs, kvec, phi=phi_)
-               do idir = 1, 3
-                  Matomic(iorb, idir) = Transform_Y2X(orbs%M_indx(iorb), mat_m(idir), mat_mm(idir))
-               end do
-            else
-               matomic(iorb, 1:3) = ScattMatrixElement_Length(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), &
-                                                              orbs%M_indx(iorb), kvec, phi=phi_)
-            end if
-         case (gauge_mom)
-            if (orbs%real_lm) then
-               mabs = abs(orbs%M_indx(iorb))
-               mat_m(1:3) = ScattMatrixElement_Momentum(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), mabs, kvec, phi=phi_)
-               mat_mm(1:3) = ScattMatrixElement_Momentum(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), -mabs, kvec, phi=phi_)
-               do idir = 1, 3
-                  Matomic(iorb, idir) = Transform_Y2X(orbs%M_indx(iorb), mat_m(idir), mat_mm(idir))
-               end do
-            else
-               matomic(iorb, 1:3) = ScattMatrixElement_Momentum(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), &
-                                                                orbs%M_indx(iorb), kvec, phi=phi_)
-            end if
-         end select
+         if (orbs%real_lm) then
+            mabs = abs(orbs%M_indx(iorb))
+            mat_m(1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), mabs, kvec, &
+               phi=phi_, gauge=gauge_)
+            mat_mm(1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), -mabs, kvec, &
+               phi=phi_, gauge=gauge_)
+            do idir = 1, 3
+               Matomic(iorb, idir) = Transform_Y2X(orbs%M_indx(iorb), mat_m(idir), mat_mm(idir))
+            end do
+         else
+            matomic(iorb, 1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), &
+                                                           orbs%M_indx(iorb), kvec, phi=phi_, gauge=gauge_)
+         end if
 
          matomic(iorb, 1:3) = matomic(iorb, 1:3)*orbs%weight(iorb)
 
@@ -512,14 +499,14 @@ contains
       type(wann90_tb_t), intent(in)      :: wann
       integer, intent(in)                :: nlayer
       type(scattwf_t), intent(in)        :: scwfs(:)
-      type(radialinteg_t), intent(in) :: radints(:)
+      type(radialinteg_t), intent(in)    :: radints(:)
       real(dp), intent(in)               :: kvec(3)
       complex(dp), intent(in)            :: vectk(:, :)
       real(dp), intent(in)               :: lam
       complex(dp), intent(inout)         :: matel(:, :)
-      integer, intent(in), optional       :: gauge
-      real(dp), intent(in), optional      :: phi
-      integer, intent(in), optional       :: excluded_layers(:)
+      integer, intent(in), optional      :: gauge
+      real(dp), intent(in), optional     :: phi
+      integer, intent(in), optional      :: excluded_layers(:)
       integer :: gauge_
       real(dp) :: phi_
       logical :: large_size
@@ -549,32 +536,19 @@ contains
       allocate (matomic_layer(norb, 3)); matomic_layer = zero
       do iorb = 1, norb
          if (orbs%weight(iorb) < 1.0e-5_dp) cycle
-         select case (gauge_)
-         case (gauge_len)
-            if (orbs%real_lm) then
-               mabs = abs(orbs%M_indx(iorb))
-               mat_m(1:3) = ScattMatrixElement_Length(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), mabs, kvec, phi=phi_)
-               mat_mm(1:3) = ScattMatrixElement_Length(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), -mabs, kvec, phi=phi_)
-               do idir = 1, 3
-                  matomic_layer(iorb, idir) = Transform_Y2X(orbs%M_indx(iorb), mat_m(idir), mat_mm(idir))
-               end do
-            else
-               matomic_layer(iorb, 1:3) = ScattMatrixElement_Length(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), &
-                                                                    orbs%M_indx(iorb), kvec, phi=phi_)
-            end if
-         case (gauge_mom)
-            if (orbs%real_lm) then
-               mabs = abs(orbs%M_indx(iorb))
-               mat_m(1:3) = ScattMatrixElement_Momentum(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), mabs, kvec, phi=phi_)
-               mat_mm(1:3) = ScattMatrixElement_Momentum(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), -mabs, kvec, phi=phi_)
-               do idir = 1, 3
-                  matomic_layer(iorb, idir) = Transform_Y2X(orbs%M_indx(iorb), mat_m(idir), mat_mm(idir))
-               end do
-            else
-               matomic_layer(iorb, 1:3) = ScattMatrixElement_Momentum(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), &
-                                                                      orbs%M_indx(iorb), kvec, phi=phi_)
-            end if
-         end select
+         if (orbs%real_lm) then
+            mabs = abs(orbs%M_indx(iorb))
+            mat_m(1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), mabs, kvec, &
+               phi=phi_, gauge=gauge_)
+            mat_mm(1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), -mabs, kvec, &
+               phi=phi_, gauge=gauge_)
+            do idir = 1, 3
+               matomic_layer(iorb, idir) = Transform_Y2X(orbs%M_indx(iorb), mat_m(idir), mat_mm(idir))
+            end do
+         else
+            matomic_layer(iorb, 1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), &
+                                                                 orbs%M_indx(iorb), kvec, phi=phi_, gauge=gauge_)
+         end if
 
          matomic_layer(iorb, 1:3) = matomic_layer(iorb, 1:3)*orbs%weight(iorb)
       end do

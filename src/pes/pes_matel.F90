@@ -18,7 +18,7 @@ module pes_matel
    include "../formats.h"
 !--------------------------------------------------------------------------------------
    private
-   public :: ScattMatrixElement_Momentum, ScattMatrixElement_Length
+   public :: ScattMatrixElement_Momentum, ScattMatrixElement
    public :: ApplyDipoleOp, ApplyMomentumOp, ApplyLengthOp
    public :: dipole_lambda_projection, dipole_lambda_BesselTransform, ScattMatrixElement_Lambda
 #ifdef MPI
@@ -119,8 +119,8 @@ contains
       call radialinteg%Eval_mom(knrm,rint)
 
       l = l0 - 1
-      exphi = conjg(swf%Phase(l,knrm))
       if(l >= 0) then
+         exphi = conjg(swf%Phase(l,knrm))
          do m=-l,l
             mel_ang = rphase * AngularMatrixElement(l,m,l0,m0)
             Md(1:3) = Md(1:3) + exphi * mel_ang(1:3) * rint(1) * Ylm_cart(l,m,kvec)
@@ -138,13 +138,15 @@ contains
 
    end function ScattMatrixElement_Momentum
 !-------------------------------------------------------------------------------------- 
-   function ScattMatrixElement_Length(swf,radialinteg,l0,m0,kvec,phi) result(Mk)
+   function ScattMatrixElement(swf,radialinteg,l0,m0,kvec,phi,gauge) result(Mk)
       type(scattwf_t),intent(in)        :: swf
       type(radialinteg_t),intent(in)    :: radialinteg
       integer,intent(in)                :: l0,m0
       real(dp),intent(in)               :: kvec(3)
       complex(dp)                       :: Mk(3)
       real(dp),intent(in),optional      :: phi
+      integer,intent(in),optional       :: gauge
+      integer :: gauge_
       integer :: l,q
       real(dp) :: knrm,rint(2)
       real(dp) :: gnt(-1:1)
@@ -157,7 +159,20 @@ contains
       rphase = one
       if(present(phi)) rphase = exp(iu * m0 * phi)
 
-      call radialinteg%Eval_len(knrm,rint)
+      gauge_ = 0 ! length gauge
+      if(present(gauge)) gauge_ = gauge
+
+      select case(gauge_)
+      case(0)
+         ! Length gauge
+         call radialinteg%Eval_len(knrm,rint)
+      case(1)
+         ! velocity gauge
+         call radialinteg%Eval_mom(knrm,rint)
+         rint = -iu * rint
+      case default
+         rint = zero
+      end select
 
       l = l0 - 1
       if(l >= 0) then
@@ -187,7 +202,7 @@ contains
 
       Mk = QPI * sqrt(QPI/3.0d0) * Mk * rphase
 
-   end function ScattMatrixElement_Length
+   end function ScattMatrixElement
 !-------------------------------------------------------------------------------------- 
    subroutine ApplyDipoleOp(rwf,l0,m0,dipwf_m1,dipwf_p1,gauge,phi)
       integer,parameter :: gauge_len=0, gauge_mom=1
