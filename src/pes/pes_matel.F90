@@ -169,12 +169,9 @@ contains
       case(1)
          ! velocity gauge
          call radialinteg%Eval_mom(knrm,rint)
-         rint = -iu * rint
       case default
          rint = zero
       end select
-
-      print*, "ScattMatrixElement", l0, radialinteg%l0, rint
 
       l = l0 - 1
       if(l >= 0) then
@@ -203,6 +200,7 @@ contains
       Mk(3) = Mk(3) + exphi * rint(2) * gnt(0) * Yq(0)
 
       Mk = QPI * sqrt(QPI/3.0d0) * Mk * rphase
+      if(gauge_ == 1) Mk = -iu * Mk
 
    end function ScattMatrixElement
 !-------------------------------------------------------------------------------------- 
