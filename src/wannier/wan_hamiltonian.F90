@@ -24,9 +24,12 @@ module wan_hamiltonian
       !! Wannier Hamiltonian class. Reads/writes the Wannier Hamiltonian from/to file,
       !! calculates the Hamiltonian and Berry-phase properties
       logical                                    :: coords_present=.false.
+      logical                                    :: apply_scissor=.false.
       integer                                    :: num_wann,nrpts
+      integer                                    :: scissor_index=0
       integer,allocatable,dimension(:)           :: ndegen
       integer,allocatable,dimension(:,:)         :: irvec
+      real(dp)                                   :: scissor_energy=0.0_dp
       real(dp),dimension(3,3)                    :: real_lattice,recip_lattice
       real(dp),dimension(3,3)                    :: recip_reduced
       real(dp),allocatable,dimension(:,:)        :: coords
@@ -41,6 +44,7 @@ module wan_hamiltonian
       procedure,public  :: ReadFromW90
       procedure,public  :: SaveToW90
       procedure,public  :: SetExpertParams
+      procedure,public  :: SetScissorOperator
       procedure,public  :: Set
       procedure,public  :: RotateZ
       procedure,public  :: get_kcart
@@ -99,6 +103,18 @@ contains
       if(present(force_antiherm)) me%force_antiherm = force_antiherm
 
    end subroutine SetExpertParams
+!--------------------------------------------------------------------------------------
+   subroutine SetScissorOperator(me,scissor_index,scissor_energy)
+      class(wann90_tb_t)   :: me
+      integer,intent(in)   :: scissor_index
+      real(dp),intent(in)  :: scissor_energy
+
+      me%scissor_index = scissor_index
+      me%scissor_energy = me%scissor_energy
+
+      me%apply_scissor = (me%scissor_index > 0) .and. (me%scissor_index <= me%num_wann)
+
+   end subroutine SetScissorOperator
 !--------------------------------------------------------------------------------------
    subroutine Set(me,w90)
       class(wann90_tb_t) :: me
@@ -213,6 +229,10 @@ contains
       Hk = me%get_ham(kpt)
       call EigValsHE(Hk,Ek)
 
+      if(me%apply_scissor) then
+         Ek(me%scissor_index:) = Ek(me%scissor_index:) + me%scissor_energy
+      end if
+
    end function get_eig
 !--------------------------------------------------------------------------------------
    function get_ham_diag(me,kpt) result(Hk)
@@ -234,8 +254,29 @@ contains
       class(wann90_tb_t)  :: me
       real(dp),intent(in) :: kpt(3)
       complex(dp) :: Hk(me%num_wann,me%num_wann)
-   
+      logical :: large_size
+      integer :: j
+      real(dp) :: epsk(me%num_wann)
+      complex(dp),dimension(me%num_wann,me%num_wann) :: rotk, Sk_diag, Sk
+
       call fourier_R_to_k(kpt, me%irvec, me%ndegen, me%ham_r, Hk)
+
+      if(me%apply_scissor) then
+
+         call utility_diagonalize(Hk, me%num_wann, epsk, rotk)
+
+         Sk_diag = zero
+         do j = me%scissor_index, me%num_wann
+            Sk_diag(j,j) = me%scissor_energy
+         end do
+
+         large_size = get_large_size(me%num_wann)
+         Sk = util_rotate_cc(me%num_wann, rotk, Sk_diag, large_size=large_size)
+
+         call ZAXPY(me%num_wann*me%num_wann, one, Sk(1,1), 1, Hk(1,1), 1)
+
+      end if
+
 
    end function get_ham
 !--------------------------------------------------------------------------------------
@@ -436,8 +477,14 @@ contains
       allocate(D_h(me%num_wann, me%num_wann, 3))
       allocate(AA(me%num_wann, me%num_wann, 3))
 
-      call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
-         use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+      if(me%apply_scissor) then
+         call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+            use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh, &
+            scissor_index=me%scissor_index, scissor_energy=me%scissor_energy)
+      else
+         call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+            use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+      end if
 
       if(present(orbs_excl)) then
          call RemoveOrbitals(orbs_excl, UU)
@@ -507,8 +554,14 @@ contains
       allocate(AA(me%num_wann, me%num_wann, 3))
       allocate(AA_spin(me%num_wann, me%num_wann, 3, 3))
 
-      call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
-         use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+      if(me%apply_scissor) then
+         call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+            use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh, &
+            scissor_index=me%scissor_index, scissor_energy=me%scissor_energy)
+      else
+         call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+            use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+      end if
 
       if(present(orbs_excl)) then
          call RemoveOrbitals(orbs_excl, UU)
@@ -576,8 +629,14 @@ contains
       allocate(UU(me%num_wann, me%num_wann))
       allocate(D_h(me%num_wann, me%num_wann, 3))
 
-      call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
-         use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+      if(me%apply_scissor) then
+         call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+            use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh, &
+            scissor_index=me%scissor_index, scissor_energy=me%scissor_energy)
+      else
+         call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+            use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+      end if
 
       if(present(orbs_excl)) then
          call RemoveOrbitals(orbs_excl, UU)
@@ -683,8 +742,15 @@ contains
       allocate(AA_spin(me%num_wann, me%num_wann, 3, 3))
       allocate(Dh_spin(me%num_wann, me%num_wann, 3, 3))
 
-      call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
-         use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+      if(me%apply_scissor) then
+         call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+            use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh, &
+            scissor_index=me%scissor_index, scissor_energy=me%scissor_energy)
+
+      else
+         call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+            use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+      end if
 
       if(present(orbs_excl)) then
          call RemoveOrbitals(orbs_excl, UU)
@@ -970,8 +1036,14 @@ contains
       allocate(D_h(me%num_wann, me%num_wann, 3))
       allocate(AA(me%num_wann, me%num_wann, 3))
 
-      call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
-         use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+      if(me%apply_scissor) then
+         call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+            use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh, &
+            scissor_index=me%scissor_index, scissor_energy=me%scissor_energy)
+      else
+         call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+            use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+      end if
 
       if(present(orbs_excl)) then
          call RemoveOrbitals(orbs_excl, UU)
@@ -1085,8 +1157,14 @@ contains
       allocate(D_h(me%num_wann, me%num_wann, 3))
       allocate(AA(me%num_wann, me%num_wann, 3))
 
-      call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
-         use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+      if(me%apply_scissor) then
+         call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+            use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh, &
+            scissor_index=me%scissor_index, scissor_energy=me%scissor_energy)
+      else
+         call wham_get_eig_deleig(kpt, me, eig, del_eig, HH, delHH, UU, &
+            use_degen_pert=me%use_degen_pert, degen_thr=me%degen_thresh)
+      end if
 
       if(present(orbs_excl)) then
          call RemoveOrbitals(orbs_excl, UU)
@@ -1518,7 +1596,8 @@ contains
 
    end subroutine wham_get_D_h_spin
 !--------------------------------------------------------------------------------------
-   subroutine wham_get_eig_deleig(kpt, w90, eig, del_eig, HH, delHH, UU, use_degen_pert, degen_thr)
+   subroutine wham_get_eig_deleig(kpt, w90, eig, del_eig, HH, delHH, UU, use_degen_pert, degen_thr, &
+      scissor_index, scissor_energy)
       !! Given a k point, this function returns eigenvalues E and
       !! derivatives of the eigenvalues dE/dk_a, using wham_get_deleig_a
 
@@ -1538,8 +1617,11 @@ contains
       !! the rotation matrix that gives the eigenvectors of HH
       logical, intent(in), optional :: use_degen_pert
       real(dp),intent(in), optional :: degen_thr
+      integer, intent(in), optional :: scissor_index
+      real(dp),intent(in), optional :: scissor_energy
       logical :: use_degen_pert_
-      real(dp) :: degen_thr_
+      integer :: scissor_index_
+      real(dp) :: degen_thr_, scissor_energy_
 
       use_degen_pert_ = .false.
       if(present(use_degen_pert)) use_degen_pert_ = use_degen_pert
@@ -1547,8 +1629,20 @@ contains
       degen_thr_ = 1.0e-5_dp
       if(present(degen_thr)) degen_thr_ = degen_thr
 
+      scissor_index_ = 0
+      if(present(scissor_index)) scissor_index_ = scissor_index
+
+      scissor_energy_ = 0.0_dp
+      if(present(scissor_energy)) scissor_energy_ = scissor_energy      
+
       call fourier_R_to_k(kpt, w90%irvec, w90%ndegen, w90%ham_r, HH)
       call utility_diagonalize(HH, w90%num_wann, eig, UU)
+
+      if( scissor_index_ > 0 .and. scissor_index_ < w90%num_wann ) then
+         eig(scissor_index_ : ) = eig(scissor_index_ : ) + scissor_energy_
+      end if
+
+
       call fourier_R_to_k_deriv(kpt, w90%irvec, w90%crvec, w90%ndegen, w90%ham_r, delHH)
       ! call fourier_R_to_k(kpt, w90, w90%ham_r, delHH(:, :, 1), 1)
       ! call fourier_R_to_k(kpt, w90, w90%ham_r, delHH(:, :, 2), 2)
