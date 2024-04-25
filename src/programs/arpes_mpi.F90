@@ -92,8 +92,18 @@ program arpes_mpi
    toc = MPI_Wtime()
    if(on_root) call PrintTime('spectrum',toc-tic,FlUnt=output_unit)
 
+   if(par_pes%OutputMatrixElements) then
+      tic = MPI_Wtime()
+      call calc%CalcMatrixElements()
+      toc = MPI_Wtime()
+      if(on_root) call PrintTime('matrix elements',toc-tic,FlUnt=output_unit)
+   end if 
+
    ! .. output ...
-   if(PrintToFile) call calc%WriteSpectrum(FlOutPref)
+   if(PrintToFile) then
+      call calc%WriteSpectrum(FlOutPref)
+      if(par_pes%OutputMatrixElements) call calc%WriteMatrixElements(FlOutPref)
+   end if
 !--------------------------------------------------------------------------------------
    if(on_root) then
       write(output_unit,*)

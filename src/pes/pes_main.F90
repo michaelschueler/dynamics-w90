@@ -23,6 +23,7 @@ module pes_main
    public :: PES_MatrixElements, PES_Intensity, PES_Bulk_Intensity
    public :: PES_AtomicIntegrals_lambda, PES_Intensity_besselinteg
    public :: PES_Slab_MatrixElements, PES_Slab_Intensity
+   public :: PES_GetMatrixElements, PES_Slab_GetMatrixElements
 #ifdef MPI
    public :: PES_AtomicIntegrals_lambda_mpi
 #endif
@@ -46,6 +47,14 @@ module pes_main
    interface PES_Slab_Intensity
       module procedure PES_Slab_Intensity_precomp, PES_Slab_Intensity_besselinteg
    end interface PES_Slab_Intensity
+
+   interface PES_GetMatrixElements
+      module procedure PES_GetMatrixElements_precomp, PES_GetMatrixElements_besselinteg
+   end interface PES_GetMatrixElements
+
+   interface PES_Slab_GetMatrixElements
+      module procedure PES_Slab_GetMatrixElements_precomp, PES_Slab_GetMatrixElements_besselinteg
+   end interface PES_Slab_GetMatrixElements
 !--------------------------------------------------------------------------------------
    integer, parameter :: gauge_len = 0, gauge_mom = 1
    integer, parameter :: wf_slater = 0, wf_grid = 1
@@ -1145,6 +1154,226 @@ contains
       deallocate (matel, matel_pol)
 
    end function PES_Slab_Intensity_besselinteg
+!--------------------------------------------------------------------------------------
+
+
+
+
+
+!--------------------------------------------------------------------------------------
+   subroutine PES_GetMatrixElements_precomp(orbs, wann, scwfs, radints, kpar, wphot, Epe, vectk, &
+                                  Vin, lam, matel, gauge, qphot, phi)
+      type(wannier_orbs_t), intent(in)   :: orbs
+      type(wann90_tb_t), intent(in)      :: wann
+      type(scattwf_t), intent(in)        :: scwfs(:)
+      type(radialinteg_t), intent(in)    :: radints(:)
+      real(dp), intent(in)               :: kpar(2)
+      real(dp), intent(in)               :: wphot
+      real(dp), intent(in)               :: Epe
+      complex(dp), intent(in)            :: vectk(:, :)
+      real(dp), intent(in)               :: Vin
+      real(dp), intent(in)               :: lam
+      complex(dp), intent(inout)         :: matel(:,:)
+      integer, intent(in), optional       :: gauge
+      real(dp), intent(in), optional      :: qphot(3)
+      real(dp), intent(in), optional      :: phi
+      integer :: gauge_
+      real(dp) :: phi_
+      integer :: idir, nbnd, ibnd
+      real(dp) :: Ez, kvec(3)
+
+      gauge_ = gauge_len
+      if (present(gauge)) gauge_ = gauge
+
+      phi_ = 0.0_dp
+      if (present(phi)) phi_ = phi
+
+      nbnd = wann%num_wann
+      call assert(orbs%norb == nbnd, "PES_GetMatrixElements_precomp: orbs%norb == nbnd")
+      call assert_shape(vectk, [nbnd, nbnd], "PES_GetMatrixElements_precomp", "vectk")
+
+      Ez = Epe - 0.5_dp*(kpar(1)**2 + kpar(2)**2) - Vin
+      if (Ez < 1.0e-5_dp) then
+         matel = zero
+         return
+      end if
+
+      kvec(1:2) = kpar
+      kvec(3) = sqrt(2.0_dp*Ez)
+      if (present(qphot)) then
+         kvec = kvec - qphot
+      end if
+      if (kvec(3) < 1.0e-5_dp) then
+         matel = zero
+         return
+      end if
+
+      call PES_MatrixElements(orbs, wann, scwfs, radints, kvec, vectk, lam, matel, gauge=gauge_, phi=phi_)
+
+   end subroutine PES_GetMatrixElements_precomp
+!--------------------------------------------------------------------------------------
+   subroutine PES_Slab_GetMatrixElements_precomp(orbs, wann, nlayer, scwfs, radints, kpar, wphot, Epe, &
+                                       vectk, Vin, lam, matel, gauge, qphot, phi, excluded_layers)
+      type(wannier_orbs_t), intent(in)   :: orbs
+      type(wann90_tb_t), intent(in)      :: wann
+      integer, intent(in)                :: nlayer
+      type(scattwf_t), intent(in)        :: scwfs(:)
+      type(radialinteg_t), intent(in)    :: radints(:)
+      real(dp), intent(in)               :: kpar(2)
+      real(dp), intent(in)               :: wphot
+      real(dp), intent(in)               :: Epe
+      complex(dp), intent(in)            :: vectk(:, :)
+      real(dp), intent(in)               :: Vin
+      real(dp), intent(in)               :: lam
+      complex(dp), intent(inout)         :: matel(:,:)
+      integer, intent(in), optional       :: gauge
+      real(dp), intent(in), optional      :: qphot(3)
+      real(dp), intent(in), optional      :: phi
+      integer, intent(in), optional       :: excluded_layers(:)
+      integer :: gauge_
+      real(dp) :: phi_
+      integer :: idir, norb, nbnd, ibnd
+      real(dp) :: Ez, kvec(3)
+
+      gauge_ = gauge_len
+      if (present(gauge)) gauge_ = gauge
+
+      phi_ = 0.0_dp
+      if (present(phi)) phi_ = phi
+
+      norb = orbs%norb
+      nbnd = wann%num_wann
+
+      if (norb*nlayer /= nbnd) then
+         call stop_error("PES_Slab_GetMatrixElements: norb * nlayer /= nbnd")
+      end if
+      call assert_shape(vectk, [nbnd, nbnd], "PES_Slab_GetMatrixElements", "vectk")
+
+      Ez = Epe - 0.5_dp*(kpar(1)**2 + kpar(2)**2) - Vin
+      if (Ez < 1.0e-5_dp) then
+         matel = zero
+         return
+      end if
+
+      kvec(1:2) = kpar
+      kvec(3) = sqrt(2.0_dp*Ez)
+      if (present(qphot)) kvec = kvec - qphot
+      if (kvec(3) < 1.0e-5_dp) then
+         matel = zero
+         return
+      end if
+
+      if (present(excluded_layers)) then
+         call PES_Slab_MatrixElements(orbs, wann, nlayer, scwfs, radints, kvec, vectk, lam, matel, &
+                                      gauge=gauge_, phi=phi_, excluded_layers=excluded_layers)
+      else
+         call PES_Slab_MatrixElements(orbs, wann, nlayer, scwfs, radints, kvec, vectk, lam, matel, &
+                                      gauge=gauge_, phi=phi_)
+      end if
+
+   end subroutine PES_Slab_GetMatrixElements_precomp
+!--------------------------------------------------------------------------------------
+   subroutine PES_GetMatrixElements_besselinteg(wann, scwfs, lmax, bessel_integ, kpar, wphot, Epe, &
+                                      vectk, Vin, lam, matel, qphot, phi)
+      type(wann90_tb_t), intent(in)           :: wann
+      type(scattwf_t), intent(in)             :: scwfs(:)
+      integer, intent(in)                     :: lmax
+      type(cplx_matrix_spline_t), intent(in)  :: bessel_integ(:)
+      real(dp), intent(in)                    :: kpar(2)
+      real(dp), intent(in)                    :: wphot
+      real(dp), intent(in)                    :: Epe
+      complex(dp), intent(in)                 :: vectk(:, :)
+      real(dp), intent(in)                    :: Vin
+      real(dp), intent(in)                    :: lam
+      complex(dp), intent(inout)              :: matel(:,:)
+      real(dp), intent(in), optional          :: qphot(3)
+      real(dp), intent(in), optional          :: phi
+      real(dp) :: phi_
+      integer :: idir, nbnd, ibnd
+      real(dp) :: Ez, kvec(3)
+
+      phi_ = 0.0_dp
+      if (present(phi)) phi_ = phi
+
+      nbnd = wann%num_wann
+      call assert_shape(vectk, [nbnd, nbnd], "PES_GetMatrixElements_besselinteg", "vectk")
+
+      Ez = Epe - 0.5_dp*(kpar(1)**2 + kpar(2)**2) - Vin
+      if (Ez < 1.0e-5_dp) then
+         matel = zero
+         return
+      end if
+
+      kvec(1:2) = kpar
+      kvec(3) = sqrt(2.0_dp*Ez)
+      if (present(qphot)) kvec = kvec - qphot
+      if (kvec(3) < 1.0e-5_dp) then
+         matel = zero
+         return
+      end if
+
+      call PES_MatrixElements(wann, scwfs, lmax, bessel_integ, kvec, vectk, lam, Matel, phi=phi_)
+
+   end subroutine PES_GetMatrixElements_besselinteg
+!--------------------------------------------------------------------------------------
+   subroutine PES_Slab_GetMatrixElements_besselinteg(wann, nlayer, scwfs, lmax, bessel_integ, kpar, wphot, Epe, &
+                                           vectk, Vin, lam, matel, qphot, phi, excluded_layers)
+      type(wann90_tb_t), intent(in)           :: wann
+      integer, intent(in)                     :: nlayer
+      type(scattwf_t), intent(in)             :: scwfs(:)
+      integer, intent(in)                     :: lmax
+      type(cplx_matrix_spline_t), intent(in)  :: bessel_integ(:)
+      real(dp), intent(in)                    :: kpar(2)
+      real(dp), intent(in)                    :: wphot
+      real(dp), intent(in)                    :: Epe
+      complex(dp), intent(in)                 :: vectk(:, :)
+      real(dp), intent(in)                    :: Vin
+      real(dp), intent(in)                    :: lam
+      complex(dp), intent(inout)              :: matel(:,:)
+      real(dp), intent(in), optional           :: qphot(3)
+      real(dp), intent(in), optional           :: phi
+      integer, intent(in), optional            :: excluded_layers(:)
+      real(dp) :: phi_
+      integer :: idir, nbnd, ibnd, norb
+      real(dp) :: Ez, kvec(3)
+
+      phi_ = 0.0_dp
+      if (present(phi)) phi_ = phi
+
+      norb = size(bessel_integ, dim=1)
+      nbnd = wann%num_wann
+      call assert_shape(vectk, [nbnd, nbnd], "PES_Slab_GetMatrixElements_besselinteg", "vectk")
+
+      Ez = Epe - 0.5_dp*(kpar(1)**2 + kpar(2)**2) - Vin
+      if (Ez < 1.0e-5_dp) then
+         matel = zero
+         return
+      end if
+
+      kvec(1:2) = kpar
+      kvec(3) = sqrt(2.0_dp*Ez)
+      if (present(qphot)) kvec = kvec - qphot
+      if (kvec(3) < 1.0e-5_dp) then
+         matel = zero
+         return
+      end if
+
+      if (present(excluded_layers)) then
+         call PES_Slab_MatrixElements(wann, nlayer, scwfs, lmax, bessel_integ, kvec, vectk, lam, Matel, &
+                                      excluded_layers=excluded_layers)
+      else
+         call PES_Slab_MatrixElements(wann, nlayer, scwfs, lmax, bessel_integ, kvec, vectk, lam, Matel)
+      end if
+
+
+   end subroutine PES_Slab_GetMatrixElements_besselinteg
+!--------------------------------------------------------------------------------------
+
+
+
+
+
+
 !--------------------------------------------------------------------------------------
    subroutine VectorPhase(norb, coords, kvec, lam, vectk, vectk_phase)
       real(dp), parameter :: rthresh = -20.0_dp

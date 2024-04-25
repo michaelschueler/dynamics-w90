@@ -19,7 +19,8 @@ module Marpes_calc_mpi
    use pes_scattwf, only: scattwf_t
    use pes_radialintegral, only: radialinteg_t
    use pes_main, only: PES_Intensity, PES_Slab_Intensity, &
-                       PES_Bulk_Intensity, PES_AtomicIntegrals_lambda_mpi
+                       PES_Bulk_Intensity, PES_AtomicIntegrals_lambda_mpi,&
+                       PES_GetMatrixElements, PES_Slab_GetMatrixElements
    use io_params, only: HamiltonianParams_t, PESParams_t
    use io_hamiltonian, only: ReadHamiltonian, ReadOverlap
    use io_orbitals, only: ReadWannierOrbitals
@@ -48,6 +49,7 @@ module Marpes_calc_mpi
       integer, allocatable, dimension(:)    :: excluded_layers
       real(dp), allocatable, dimension(:)   :: Epe
       real(dp), allocatable, dimension(:, :) :: kpts, kpts_loc, spect
+      complex(dp), allocatable, dimension(:, :, :, :) :: mel
       type(scatt_input_t)  :: scatt_input
       type(wann90_tb_t)    :: ham
       type(wann90_ovlp_t)  :: ovlp
@@ -61,10 +63,14 @@ module Marpes_calc_mpi
       procedure, private :: CalcIntegrals_radial
       procedure, private :: CalcIntegrals_lambda
       procedure, public  :: CalcPES
+      procedure, public  :: CalcMatrixElements
       procedure, private :: CalcPES_2D
       procedure, private :: CalcPES_Bulk
       procedure, private :: CalcPES_Slab
+      procedure, private :: CalcMatrixElements_2D
+      procedure, private :: CalcMatrixElements_Slab
       procedure, public  :: WriteSpectrum
+      procedure, public  :: WriteMatrixElements
    end type arpes_calc_t
 !--------------------------------------------------------------------------------------
    character(len=*), parameter :: fmt_info = '(" Info: ",a)'
@@ -707,6 +713,188 @@ contains
 
    end subroutine CalcPES_Slab
 !--------------------------------------------------------------------------------------
+   subroutine CalcMatrixElements(me)
+      class(arpes_calc_t) :: me
+
+      if (.not. allocated(me%mel)) allocate (me%mel(me%nbnd, 3, me%Nepe, me%Nk_loc))
+
+      if (me%bulk_mode) then
+         call stop_error("matrix element output not implemented in bulk mode")
+      elseif (me%slab_mode) then
+         call me%CalcMatrixElements_Slab()
+      else
+         call me%CalcMatrixElements_2D()
+      end if
+
+   end subroutine CalcMatrixElements
+!--------------------------------------------------------------------------------------
+   subroutine CalcMatrixElements_Slab(me)
+      class(arpes_calc_t) :: me
+      integer :: ik, iepe
+      real(dp) :: kpar(2), kqpar(2), kpt(3), kqpt(3)
+      real(dp), allocatable, dimension(:)        :: epsk
+      complex(dp), allocatable, dimension(:, :)   :: Hk, Sk, vectk
+      type(Batch_Diagonalize_t) :: batch_diag
+
+      allocate (epsk(me%nbnd), Hk(me%nbnd, me%nbnd), vectk(me%nbnd, me%nbnd))
+
+      if (.not. me%orthogonal_basis) allocate (Sk(me%nbnd, me%nbnd))
+
+      call batch_diag%Init(me%nbnd)
+
+      kpt = 0.0_dp; kqpt = 0.0_dp
+      do ik = 1, me%Nk_loc
+         kpar(1:2) = me%kpts_loc(ik, 1:2)
+
+         if(.not. me%dipole_approx) then
+            kqpar(1:2) = kpar(1:2) - me%qphot(1:2)
+            kqpt(1:2) = me%ham%get_kreduced(kqpar(1:2))
+            Hk = me%ham%get_ham(kqpt)
+            if (.not. me%orthogonal_basis) Sk = me%ovlp%get_Smat(kqpt)
+         else
+            kpt(1:2) = me%ham%get_kreduced(kpar(1:2))
+            Hk = me%ham%get_ham(kpt)
+            if (.not. me%orthogonal_basis) Sk = me%ovlp%get_Smat(kpt)
+         end if
+
+         if (me%orthogonal_basis) then
+            call batch_diag%Diagonalize(Hk, epsk, vectk)
+         else
+            call batch_diag%DiagonalizeGen(Hk, Sk, epsk, vectk)
+         end if
+
+
+         if (me%lambda_mode) then
+            if (allocated(me%excluded_layers)) then
+               !$OMP PARALLEL
+               !$OMP DO
+               do iepe = 1, me%Nepe
+                  call PES_Slab_GetMatrixElements(me%ham, me%nlayer, me%chis, me%lmax, me%bessel_integ,&
+                     kpar, me%wphot, me%Epe(iepe), vectk, me%Vinner, me%lambda_esc, me%mel(:,:,iepe,ik), &
+                     qphot=me%qphot, phi=me%phi_rot, excluded_layers=me%excluded_layers)
+               end do
+               !$OMP END DO
+               !$OMP END PARALLEL
+            else
+               !$OMP PARALLEL
+               !$OMP DO
+               do iepe = 1, me%Nepe
+                  call PES_Slab_GetMatrixElements(me%ham, me%nlayer, me%chis, me%lmax, me%bessel_integ,&
+                     kpar, me%wphot, me%Epe(iepe), vectk, me%Vinner, me%lambda_esc, me%mel(:,:,iepe,ik), &
+                     qphot=me%qphot, phi=me%phi_rot)
+               end do
+               !$OMP END DO
+               !$OMP END PARALLEL
+            end if
+         else
+            if (allocated(me%excluded_layers)) then
+               !$OMP PARALLEL
+               !$OMP DO
+               do iepe = 1, me%Nepe
+
+                  call PES_Slab_GetMatrixElements(me%orbs, me%ham, me%nlayer, me%chis, me%radints, kpar,&
+                     me%wphot, me%Epe(iepe), vectk, me%Vinner, me%lambda_esc, me%mel(:,:,iepe,ik), &
+                     gauge=me%gauge, qphot=me%qphot, phi=me%phi_rot, excluded_layers=me%excluded_layers)
+
+               end do
+               !$OMP END DO
+               !$OMP END PARALLEL
+            else
+               !$OMP PARALLEL
+               !$OMP DO
+               do iepe = 1, me%Nepe
+
+                  call PES_Slab_GetMatrixElements(me%orbs, me%ham, me%nlayer, me%chis, me%radints, kpar,&
+                     me%wphot, me%Epe(iepe), vectk, me%Vinner, me%lambda_esc, me%mel(:,:,iepe,ik), &
+                     gauge=me%gauge, qphot=me%qphot, phi=me%phi_rot)
+
+               end do
+               !$OMP END DO
+               !$OMP END PARALLEL
+            end if
+         end if
+
+      end do
+
+      deallocate (epsk, Hk, vectk)
+      if (allocated(Sk)) deallocate (Sk)
+
+      call batch_diag%Clean()
+
+   end subroutine CalcMatrixElements_Slab
+!--------------------------------------------------------------------------------------
+   subroutine CalcMatrixElements_2D(me)
+      class(arpes_calc_t) :: me
+      integer :: ik, iepe
+      real(dp) :: kpar(2), kqpar(2), kpt(3), kqpt(3)
+      real(dp), allocatable, dimension(:)        :: epsk
+      complex(dp), allocatable, dimension(:, :)   :: Hk, Sk, vectk
+      type(Batch_Diagonalize_t) :: batch_diag
+
+      allocate (epsk(me%nbnd), Hk(me%nbnd, me%nbnd), vectk(me%nbnd, me%nbnd))
+
+      if (.not. me%orthogonal_basis) allocate (Sk(me%nbnd, me%nbnd))
+
+      call batch_diag%Init(me%nbnd)
+
+      kpt = 0.0_dp; kqpt = 0.0_dp
+      do ik = 1, me%Nk_loc
+         kpar(1:2) = me%kpts_loc(ik, 1:2)
+
+         if(.not. me%dipole_approx) then
+            kqpar(1:2) = kpar(1:2) - me%qphot(1:2)
+            kqpt(1:2) = me%ham%get_kreduced(kqpar(1:2))
+            Hk = me%ham%get_ham(kqpt)
+            if (.not. me%orthogonal_basis) Sk = me%ovlp%get_Smat(kqpt)
+         else
+            kpt(1:2) = me%ham%get_kreduced(kpar(1:2))
+            Hk = me%ham%get_ham(kpt)
+            if (.not. me%orthogonal_basis) Sk = me%ovlp%get_Smat(kpt)
+         end if
+
+         if (me%orthogonal_basis) then
+            call batch_diag%Diagonalize(Hk, epsk, vectk)
+         else
+            call batch_diag%DiagonalizeGen(Hk, Sk, epsk, vectk)
+         end if
+
+         if (me%lambda_mode) then
+            !$OMP PARALLEL
+            !$OMP DO
+            do iepe = 1, me%Nepe
+
+               call PES_GetMatrixElements(me%ham, me%chis, me%lmax, me%bessel_integ, kpar, &
+                  me%wphot, me%Epe(iepe), vectk, me%Vinner, me%lambda_esc, me%mel(:,:,iepe,ik), &
+                  qphot=me%qphot, phi=me%phi_rot)
+
+            end do
+            !$OMP END DO
+            !$OMP END PARALLEL
+         else
+            !$OMP PARALLEL
+            !$OMP DO
+            do iepe = 1, me%Nepe
+
+                call PES_GetMatrixElements(me%orbs, me%ham, me%chis, me%radints, kpar, &
+                  me%wphot, me%Epe(iepe), vectk, me%Vinner, me%lambda_esc, me%mel(:,:,iepe,ik), &
+                  gauge=me%gauge, qphot=me%qphot, phi=me%phi_rot)
+              
+            end do
+            !$OMP END DO
+            !$OMP END PARALLEL
+         end if
+
+      end do
+
+      deallocate (epsk, Hk, vectk)
+      if (allocated(Sk)) deallocate (Sk)
+
+      call batch_diag%Clean()
+
+   end subroutine CalcMatrixElements_2D
+!--------------------------------------------------------------------------------------
+
+!--------------------------------------------------------------------------------------
    subroutine WriteSpectrum(me, prefix)
       class(arpes_calc_t) :: me
       character(len=*), intent(in) :: prefix
@@ -758,6 +946,88 @@ contains
       call hdf_close_file(file_id)
 
    end subroutine WriteSpectrum_hdf5
+#endif
+!--------------------------------------------------------------------------------------
+   subroutine WriteMatrixElements(me, prefix)
+      class(arpes_calc_t) :: me
+      character(len=*), intent(in) :: prefix
+      integer :: nsize
+      integer, allocatable :: displ(:), size_loc(:)
+      complex(dp), allocatable :: mel(:, :, :, :)
+
+      allocate (displ(0:ntasks - 1), size_loc(0:ntasks - 1))
+      call GetDisplSize1D(kdist%N_loc, me%nbnd * 3 * me%Nepe, displ, nsize, size_loc)
+
+      if (on_root .or. debug_mode) allocate (mel(me%nbnd, 3, me%Nepe, me%Nk))
+      call MPI_Gatherv(me%mel, nsize, MPI_DOUBLE_COMPLEX, mel, size_loc, displ, &
+                       MPI_DOUBLE_COMPLEX, master, MPI_COMM_WORLD, ierr)
+
+      if (on_root) then
+#ifdef WITHHDF5
+         call WriteMatrixElements_hdf5(prefix, me%Epe, me%wphot, mel)
+#else
+         call WriteMatrixElements_binary(prefix, me%Epe, mel)
+#endif
+      end if
+
+      deallocate (displ, size_loc)
+      if (on_root) deallocate (mel)
+
+   end subroutine WriteMatrixElements
+!--------------------------------------------------------------------------------------
+   subroutine WriteMatrixElements_binary(prefix, Epe, mel)
+      character(len=*), intent(in) :: prefix
+      real(dp), intent(in) :: Epe(:)
+      complex(dp), intent(in) :: mel(:, :, :, :)
+      integer :: nbnd, Nepe, Nk
+      integer :: unit_out
+
+      nbnd = size(mel, dim=1)
+      Nepe = size(mel, dim=3)
+      Nk = size(mel, dim=4)
+
+      open(newunit=unit_out, file=trim(prefix)//'_matel.bin', STATUS='NEW', FORM='UNFORMATTED')
+
+      write(unit_out) nbnd, Nepe, Nk
+      write(unit_out) Epe
+      write(unit_out) mel
+
+      close(unit_out)
+
+   end subroutine WriteMatrixElements_binary
+!--------------------------------------------------------------------------------------
+#ifdef WITHHDF5
+   subroutine WriteMatrixElements_hdf5(prefix, Epe, wphot, mel)
+      use scitools_hdf5_utils
+      character(len=*), intent(in) :: prefix
+      real(dp), intent(in) :: Epe(:)
+      real(dp), intent(in) :: wphot
+      complex(dp), intent(in) :: mel(:, :, :, :)
+      integer :: nbnd, Nepe, Nk
+      real(dp), allocatable :: rdata(:, :, :, :)
+      integer(HID_t) :: file_id
+
+      nbnd = size(mel, dim=1)
+      Nepe = size(mel, dim=3)
+      Nk = size(mel, dim=4)
+
+      allocate(rdata(nbnd, 3, Nepe, Nk))
+
+      call hdf_open_file(file_id, trim(prefix)//'_matel.h5', STATUS='NEW')
+      call hdf_write_attribute(file_id, '', 'wphot', wphot)
+      call hdf_write_dataset(file_id, 'epe', Epe)
+
+      rdata = real(mel, kind=dp)
+      call hdf_write_dataset(file_id, 'real', rdata)
+
+      rdata = aimag(mel)
+      call hdf_write_dataset(file_id, 'imag', rdata)     
+
+      call hdf_close_file(file_id)
+
+      deallocate(rdata)
+
+   end subroutine WriteMatrixElements_hdf5
 #endif
 !--------------------------------------------------------------------------------------
 

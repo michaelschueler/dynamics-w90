@@ -122,6 +122,7 @@ module io_params
       logical            :: lambda_orbital_term=.false. !! triggers the calculation of atomic matrix
                                                         !! elements with complex wave-vector
       logical            :: bulk_mode=.false. !! Option to compute ARPES from a 3D bulk Hamiltonian 
+      logical            :: OutputMatrixElements=.false. !! Option to output complex matrix elements
       integer            :: gauge=gauge_len !! Gauge for dipole operator \(\hat{\Delta}\).
                                             !! 0: dipole gauge \(\hat{\Delta} = \mathbf{r}\), 
                                             !! 1: velocity gauge \(\hat{\Delta} = \mathbf{p}\).
