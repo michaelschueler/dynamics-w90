@@ -329,6 +329,7 @@ contains
       logical            :: dipole_approximation=.true.
       logical            :: lambda_orbital_term=.false.
       logical            :: bulk_mode=.false. 
+      logical            :: OutputMatrixElements=.false. 
       integer            :: gauge=gauge_len
       integer            :: scatt_type=wf_pw
       integer            :: Nepe=1
@@ -348,7 +349,8 @@ contains
       namelist/PESPARAMS/file_orbs,gauge,Nepe,wphot,Eshift,Epe_min,Epe_max,lambda_esc,&
          eta_smear,polvec_real,polvec_imag,kpts_reduced,scatt_type,radint_numpoints_k,&
          radint_numpoints_r,lambda_orbital_term,expansion_lmax,dipole_approximation,&
-         qmom_phot,angle_rot_z,file_scatt,bulk_mode,bulk_numpoints_kz,Vinner
+         qmom_phot,angle_rot_z,file_scatt,bulk_mode,bulk_numpoints_kz,Vinner,&
+         OutputMatrixElements
       integer :: unit_inp
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
@@ -378,6 +380,8 @@ contains
 
       me%dipole_approximation = dipole_approximation
       me%qmom_phot = qmom_phot
+
+      me%OutputMatrixElements = OutputMatrixElements
 
    end subroutine PES_ReadFromFile
 !--------------------------------------------------------------------------------------
