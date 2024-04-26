@@ -5,7 +5,7 @@ module io_hamiltonian
    use,intrinsic::iso_fortran_env,only: output_unit,error_unit
    use Mdebug
    use scitools_def,only: dp,iu,zero
-   use scitools_utils,only: get_file_ext, check_file_ext
+   use scitools_utils,only: get_file_ext, check_file_ext, stop_error
    use wan_hamiltonian,only: wann90_tb_t
    use wan_overlap,only: wann90_ovlp_t
    use wan_soc,only: ham_soc_t
@@ -28,6 +28,13 @@ contains
       character(len=*),intent(in)            :: file_wann !! file name for the Hamiltonian
       type(wann90_tb_t),intent(out)          :: wann !! Wannier class to be initialized from the input
       character(len=*),intent(in),optional   :: file_xyz !! file name for the coordinates
+      logical :: file_ok
+
+      inquire(file=trim(file_wann), exist=file_ok)
+
+      if(.not. file_ok) then 
+         call stop_error( "Hamiltonian file does not exist:"//trim(file_wann) )
+      end if
 
       if(check_file_ext(file_wann, "tb") .or. check_file_ext(file_wann, "dat")) then
          if(present(file_xyz)) then
@@ -39,12 +46,10 @@ contains
 #ifdef WITHHDF5
          call wann%ReadFromHDF5(file_wann)
 #else
-      write(error_unit,fmt900) "No HDF5 support. Can't read "//trim(file_wann)
-      stop         
+      call stop_error( "No HDF5 support. Can't read "//trim(file_wann) )    
 #endif
       else
-         write(error_unit,fmt900) "Unrecognized file extension: "//get_file_ext(file_wann)
-         stop
+         call stop_error( "Unrecognized file extension: "//get_file_ext(file_wann) )
       end if     
 
    end subroutine ReadHamiltonian
@@ -64,12 +69,11 @@ contains
 #ifdef WITHHDF5
          call wann%SaveToHDF5(file_wann)
 #else
-      write(error_unit,fmt900) "No HDF5 support. Can't save "//trim(file_wann)
+      call stop_error( "No HDF5 support. Can't save "//trim(file_wann)  )
       stop         
 #endif
       else
-         write(error_unit,fmt900) "Unrecognized file extension: "//get_file_ext(file_wann)
-         stop
+         call stop_error( "Unrecognized file extension: "//get_file_ext(file_wann) )
       end if         
 
    end subroutine WriteHamiltonian
@@ -81,6 +85,9 @@ contains
       !! build with hdf5 support.
       character(len=*),intent(in)              :: file_ovlp !! file name for the overlaps
       type(wann90_ovlp_t),intent(out)          :: ovlp !! Wannier class to be initialized from the input
+      logical :: file_ok
+
+      inquire(file=trim(file_ovlp), exist=file_ok)
 
       if(check_file_ext(file_ovlp, "tb") .or. check_file_ext(file_ovlp, "dat")) then
          call ovlp%ReadFromW90(file_ovlp)
@@ -88,12 +95,10 @@ contains
 #ifdef WITHHDF5
          call ovlp%ReadFromHDF5(file_ovlp)
 #else
-      write(error_unit,fmt900) "No HDF5 support. Can't read "//trim(file_ovlp)
-      stop         
+      call stop_error( "No HDF5 support. Can't read "//trim(file_ovlp) )      
 #endif
       else
-         write(error_unit,fmt900) "Unrecognized file extension: "//get_file_ext(file_ovlp)
-         stop
+         call stop_error( "Unrecognized file extension: "//get_file_ext(file_ovlp) )
       end if     
 
    end subroutine ReadOverlap
@@ -113,12 +118,10 @@ contains
 #ifdef WITHHDF5
          call ovlp%SaveToHDF5(file_ovlp)
 #else
-      write(error_unit,fmt900) "No HDF5 support. Can't save "//trim(file_ovlp)
-      stop         
+      call stop_error( "No HDF5 support. Can't save "//trim(file_ovlp) )       
 #endif
       else
-         write(error_unit,fmt900) "Unrecognized file extension: "//get_file_ext(file_ovlp)
-         stop
+         call stop_error( "Unrecognized file extension: "//get_file_ext(file_ovlp) )
       end if         
 
    end subroutine WriteOverlap
@@ -135,8 +138,7 @@ contains
 
       inquire(file=trim(fname),exist=file_ok)
       if(.not.file_ok) then
-         write(error_unit,fmt900) 'Input file does not exist: '//trim(fname)
-         stop
+         call stop_error( 'Input file does not exist: '//trim(fname) )
       end if
 
       open(newunit=iunit,file=trim(fname),status='OLD',action='READ')
