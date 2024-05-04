@@ -282,8 +282,8 @@
       type(wann_fft_t),intent(in) :: me
       complex(dp),intent(inout) :: Hk(:,:,:)
       integer :: i,j,ik
-      complex(dp),allocatable :: work_r(:,:),
-      complex,target,allocatable :: work_k(:,:)
+      complex(dp),allocatable :: work_r(:,:)
+      complex(dp),target,allocatable :: work_k(:,:)
       complex(dp),pointer :: work_1d(:)
       integer :: tid
 
