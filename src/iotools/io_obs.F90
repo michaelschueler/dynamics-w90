@@ -362,7 +362,7 @@ contains
          nbnd = size(me%evecs, dim=1)
          nk = size(me%evecs, dim=3)
          allocate(rdata(nbnd,nbnd,nk))
-         rdata = dble(me%evecs)
+         rdata = real(me%evecs, kind=dp)
          call hdf_write_dataset(file_id,'evecs-real',rdata)
          rdata = aimag(me%evecs)
          call hdf_write_dataset(file_id,'evecs-imag',rdata)
@@ -371,9 +371,9 @@ contains
 
       if(associated(me%velok)) then
          nbnd = size(me%velok, dim=1)
-         nk = size(me%velok, dim=3)
+         nk = size(me%velok, dim=4)
          allocate(rdata4(nbnd,nbnd,3,nk))
-         rdata4 = dble(me%velok)
+         rdata4 = real(me%velok, kind=dp)
          call hdf_write_dataset(file_id,'velok-real',rdata4)
          rdata4 = aimag(me%velok)
          call hdf_write_dataset(file_id,'velok-imag',rdata4)
