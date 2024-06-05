@@ -122,19 +122,17 @@ contains
       end do
       irpt0 = minloc(irpts_norm, dim=1)
 
-      print*, irpt0, slab_w90%irvec(irpt0, :)
-
       deallocate(irpts_norm)
 
-      ! do irpt=1,slab_w90%nrpts
-      !    do m1 = 1, slab_w90%num_wann
-      !       do i=1,nlayer
-      !          iml = (i-1)*nwan + m1
-      !          slab_w90%pos_r(iml, iml, 3, irpt0) = slab_w90%pos_r(iml, iml, 3, irpt0) - (i-1) * norm2(oop_vec)
-      !             ! slab_w90%pos_r((i-1)*nwan+1:i*nwan,(i-1)*nwan+1:i*nwan,3,irpt) - (i-1) * norm2(oop_vec)
-      !       end do
-      !    end do
-      ! end do
+      do irpt=1,slab_w90%nrpts
+         do m1 = 1, nwan
+            do i=1,nlayer
+               iml = (i-1)*nwan + m1
+               slab_w90%pos_r(iml, iml, 3, irpt0) = slab_w90%pos_r(iml, iml, 3, irpt0) - (i-1) * norm2(oop_vec)
+                  ! slab_w90%pos_r((i-1)*nwan+1:i*nwan,(i-1)*nwan+1:i*nwan,3,irpt) - (i-1) * norm2(oop_vec)
+            end do
+         end do
+      end do
 
       if(bulk_w90%coords_present) then
          slab_w90%coords_present = .true.
