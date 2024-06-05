@@ -122,6 +122,8 @@ contains
       end do
       irpt0 = minloc(irpts_norm, dim=1)
 
+      print*, irpt0, slab_w90%irvec(irpt0, :)
+
       deallocate(irpts_norm)
 
       ! do irpt=1,slab_w90%nrpts
