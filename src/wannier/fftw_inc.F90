@@ -282,17 +282,21 @@
       type(wann_fft_t),intent(in) :: me
       complex(dp),intent(inout) :: Hk(:,:,:)
       integer :: i,j,ik
-      complex(dp),allocatable :: work_r(:,:),work_k(:,:),work_1d(:)
+      complex(dp),allocatable :: work_r(:,:)
+      complex(dp),target,allocatable :: work_k(:,:)
+      complex(dp),pointer :: work_1d(:)
       integer :: tid
 
 
-      allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky),work_1d(me%nkpts))
+      allocate(work_r(me%nkx,me%nky),work_k(me%nkx,me%nky))
 
       do j=1,me%nwan
          do i=1,j
             call Smooth2Dense_2d(me%nx, me%ny, me%nkx, me%nky, me%ham_r(:,i,j), work_r)
             call dfftw_execute_dft(me%plan_bw,work_r,work_k)
-            work_1d = reshape(work_k, [me%nkpts])
+
+            call c_f_pointer( C_LOC(work_k), work_1d, [me%nkpts] )
+
             !$OMP PARALLEL DO
             do ik=1,me%nkpts
                Hk(i,j,ik) = work_1d(ik)
@@ -301,7 +305,7 @@
          end do
       end do
 
-      deallocate(work_r,work_k,work_1d)
+      deallocate(work_r,work_k)
 
    end subroutine GetHam_2d
 !--------------------------------------------------------------------------------------
