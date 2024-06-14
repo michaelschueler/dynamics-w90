@@ -7,9 +7,9 @@ class WannierEvolution():
     #========================================
     def __init__(self,PathExe,PathInp='./inp/',PathOut='./out/',PathLog='./log/',mpicmd=""):
         if len(mpicmd) > 0:
-            self.exe = PathExe + "/exe/wann_evol_mpi.x"
+            self.exe = PathExe + "/wann_evol_mpi.x"
         else:    
-            self.exe = PathExe + "/exe/wann_evol.x"
+            self.exe = PathExe + "/wann_evol.x"
         self.mpi = True
         self.mpicmd = mpicmd
         self.PathInp = PathInp
