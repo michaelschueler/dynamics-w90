@@ -28,12 +28,13 @@ class WannierEvolution():
             'Filling': Filling
         }
     #========================================
-    def SetTimeParams(self,Nt,Tmax,file_field="",output_step=1,\
+    def SetTimeParams(self,Nt,Tmax,file_field="",field_type=0,output_step=1,\
         propagator=0,T1_relax=None,T2_relax=None,file_dens="",restart_evolution=False):
         self.timeparams = {
             'Nt': Nt,
             'Tmax': Tmax,
             'file_field': file_field,
+            'field_type': field_type,
             'output_step': output_step,
             'propagator': propagator,
             'file_dens': file_dens,
