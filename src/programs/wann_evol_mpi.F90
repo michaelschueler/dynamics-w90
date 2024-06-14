@@ -331,9 +331,16 @@ program wann_evol_mpi
       call lattsys%GetOccupationKPTS(Occk(:,:,0))
    end if
 
-   pulse_tmin = pulse%Tmin
-   pulse_tmax = pulse%Tmax
-   if(.not. ApplyField) pulse_tmax = 0.0_dp
+   select case(par_time%field_type) 
+   case(field_from_txt)
+      pulse_tmin = pulse%Tmin
+      pulse_tmax = pulse%Tmax
+   case(field_gauss)
+      pulse_tmin = gauss_pulse%Tmin
+      pulse_tmax = gauss_pulse%Tmax    
+   case default
+      pulse_tmax = 0.0_dp
+   end select
 
    step = 0
    do tstp=0,par_time%Nt-1
