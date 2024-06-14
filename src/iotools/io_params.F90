@@ -210,13 +210,14 @@ contains
       character(len=256) :: file_dens=""
       logical  :: restart_evolution=.false.
       integer  :: propagator=0
+      integer  :: field_type=0
       integer  :: Nt=100 
       integer  :: output_step=1 
       real(dp) :: Tmax=1.0_dp 
       real(dp) :: T1_relax=1.0e10_dp  
       real(dp) :: T2_relax=1.0e10_dp  
       namelist/TIMEPARAMS/Nt,Tmax,output_step,propagator,T1_relax,T2_relax,&
-         file_field,file_dens,restart_evolution
+         file_field,field_type,file_dens,restart_evolution
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
       read(unit_inp,nml=TIMEPARAMS)
@@ -229,6 +230,7 @@ contains
       me%T1_relax = T1_relax
       me%T2_relax = T2_relax
       me%file_field = file_field
+      me%field_type = field_type
       me%file_dens = file_dens
       me%restart_evolution = restart_evolution
 

@@ -221,8 +221,10 @@ program wann_evol_mpi
       if(on_root) write(output_unit,fmt_input) 'External field from file: '//trim(par_time%file_field)
       select case(par_time%field_type)
       case(field_from_txt)
+         if(on_root) write(output_unit, fmt_info) "Field type: from text file"
          call pulse%Load_ElectricField(par_time%file_field)
       case(field_gauss)
+         if(on_root) write(output_unit, fmt_info) "Field type: Gaussian pulse"
          call gauss_pulse%ReadFromFile(par_time%file_field)
       case default
          call stop_error('Unrecognized field type',root_flag=on_root)
