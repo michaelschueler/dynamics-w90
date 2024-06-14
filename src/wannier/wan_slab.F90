@@ -33,9 +33,10 @@ contains
       type(wann90_tb_t),intent(out) :: slab_w90 !! The slab Wannier Hamiltonian with 
                                                 !! enlarged orbital space.
       integer :: ijmax
-      integer :: nwan,nrpts_2d,irpt,irpt2d
-      integer :: i1,i2,i3,i,j,idir
+      integer :: nwan,nrpts_2d,irpt,irpt2d,irpt0
+      integer :: i1,i2,i3,i,j,m1,m2,iml,idir
       real(dp) :: e3p(3),oop_vec(3),Ua(3,3),pos_r_slab(3)
+      integer,allocatable :: irpts_norm(:)
       complex(dp),allocatable :: Hij(:,:,:,:),pos_r(:,:,:,:)
       complex(dp),allocatable :: Dij(:,:,:,:,:)
 
@@ -115,10 +116,21 @@ contains
          end do
       end do
 
+      allocate(irpts_norm(slab_w90%nrpts))
+      do irpt = 1, slab_w90%nrpts
+         irpts_norm(irpt) = sum( abs(slab_w90%irvec(irpt, :)) )
+      end do
+      irpt0 = minloc(irpts_norm, dim=1)
+
+      deallocate(irpts_norm)
+
       do irpt=1,slab_w90%nrpts
-         do i=1,nlayer
-            slab_w90%pos_r((i-1)*nwan+1:i*nwan,(i-1)*nwan+1:i*nwan,3,irpt) = &
-               slab_w90%pos_r((i-1)*nwan+1:i*nwan,(i-1)*nwan+1:i*nwan,3,irpt) - (i-1) * norm2(oop_vec)
+         do m1 = 1, nwan
+            do i=1,nlayer
+               iml = (i-1)*nwan + m1
+               slab_w90%pos_r(iml, iml, 3, irpt0) = slab_w90%pos_r(iml, iml, 3, irpt0) - (i-1) * norm2(oop_vec)
+                  ! slab_w90%pos_r((i-1)*nwan+1:i*nwan,(i-1)*nwan+1:i*nwan,3,irpt) - (i-1) * norm2(oop_vec)
+            end do
          end do
       end do
 
