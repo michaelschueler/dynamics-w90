@@ -47,6 +47,7 @@ module io_params
       character(len=256) :: file_dens="" !! file for density matrix
       logical  :: restart_evolution=.false. !! if `.true.`, the density matrix is read from `file_dens` and the
                                             !! time evolution is restarted
+      integer  :: field_type=0 !! Options: 0 --> from text file, 1 --> Gaussian pulse
       integer  :: propagator=prop_unitary !! method for time evolution: 0 ... unitary, 1 ... RK4, 2 ... RK5
                                           !! for propagator=1,2, the equation with
                                           !! phenomenological damping `T1_relax` and decoherence `T2_relax` will be solved.

@@ -96,6 +96,7 @@ program wann_evol_mpi
    use scitools_utils,only: print_title, print_header, get_file_ext, check_file_ext,&
       stop_error
    use scitools_laserpulse,only: Laserpulse_3D_t
+   use scitools_gausspulse,only: GaussPulse_t
    use wan_hamiltonian,only: wann90_tb_t
    use wan_latt_kpts,only: Read_Kpoints,kpoints_t
    use io_params,only: HamiltonianParams_t, TimeParams_t
@@ -111,6 +112,7 @@ program wann_evol_mpi
    character(len=*),parameter :: fmt_input='(" Input: [",a,"]")'
    integer,parameter :: velocity_gauge=0,dipole_gauge=1,velo_emp_gauge=2,dip_emp_gauge=3
    integer,parameter :: prop_unitary=0, prop_rk4=1, prop_rk5=2, prop_hybrid=3
+   integer,parameter :: field_from_txt=0, field_gauss=1
    ! -- for reading i/o --
    logical :: PrintToFile = .false.
    integer :: Narg,unit_inp
@@ -132,6 +134,7 @@ program wann_evol_mpi
    real(dp),allocatable,dimension(:,:,:) :: Occk,Jspin
    complex(dp),allocatable,dimension(:,:,:) :: Rhok
    type(Laserpulse_3D_t)     :: pulse
+   type(GaussPulse_t)        :: gauss_pulse
    type(kpoints_t)           :: kp
    type(wann90_tb_t)         :: Ham
    type(wann_evol_t)         :: lattsys
@@ -216,7 +219,14 @@ program wann_evol_mpi
             root_flag=on_root)
       end if
       if(on_root) write(output_unit,fmt_input) 'External field from file: '//trim(par_time%file_field)
-      call pulse%Load_ElectricField(par_time%file_field)
+      select case(par_time%field_type)
+      case(field_from_txt)
+         call pulse%Load_ElectricField(par_time%file_field)
+      case(field_gauss)
+         call gauss_pulse%ReadFromFile(par_time%file_field)
+      case default
+         call stop_error('Unrecognized field type',root_flag=on_root)
+      end select
    end if
 
    toc = MPI_Wtime()
@@ -398,7 +408,15 @@ contains
       real(dp),intent(out) :: AF(3),EF(3)
 
       AF = 0.0_dp; EF = 0.0_dp
-      if(ApplyField) call pulse%GetField(t,AF,EF)
+      if(.not. ApplyField) return
+
+      select case(par_time%field_type)
+      case(field_from_txt)
+         call pulse%GetField(t,AF,EF)
+      case(field_gauss)
+         AF = gauss_pulse%Afield(t)
+         EF = gauss_pulse%Efield(t)
+      end select
 
    end subroutine external_field
 !--------------------------------------------------------------------------------------
