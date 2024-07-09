@@ -1063,9 +1063,9 @@ contains
       do i=1,me%num_wann
          do j=1,me%num_wann
             if(i == j) cycle
-            Lk(i,3) = Lk(i,3) + 2.0_dp * (eig(i) - eig(j))*aimag(AA(i,j,1)*AA(j,i,2))
-            Lk(i,1) = Lk(i,1) + 2.0_dp * (eig(i) - eig(j))*aimag(AA(i,j,2)*AA(j,i,3))
-            Lk(i,2) = Lk(i,2) + 2.0_dp * (eig(i) - eig(j))*aimag(AA(i,j,3)*AA(j,i,1))
+            Lk(i,3) = Lk(i,3) + 2.0_dp * (eig(j) - eig(i))*aimag(AA(i,j,1)*AA(j,i,2))
+            Lk(i,1) = Lk(i,1) + 2.0_dp * (eig(j) - eig(i))*aimag(AA(i,j,2)*AA(j,i,3))
+            Lk(i,2) = Lk(i,2) + 2.0_dp * (eig(j) - eig(i))*aimag(AA(i,j,3)*AA(j,i,1))
          end do
       end do
 
