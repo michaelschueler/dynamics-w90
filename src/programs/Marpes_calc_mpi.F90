@@ -7,6 +7,7 @@ module Marpes_calc_mpi
    use scitools_utils, only: str, linspace, savetxt, stop_error
    use scitools_vector_bsplines, only: cplx_matrix_spline_t
    use scitools_array1d_dist, only: dist_array1d_t, GetDisplSize1D
+   use scitools_laserpulse,only: scalarfunc_spline_t
    use wan_latt_kpts, only: kpoints_t
    use wan_hamiltonian, only: wann90_tb_t
    use wan_overlap, only: wann90_ovlp_t
@@ -35,6 +36,7 @@ module Marpes_calc_mpi
       logical     :: bulk_mode = .false.
       logical     :: orthogonal_basis = .true.
       logical     :: scatt_from_input = .false.
+      logical     :: static_potential = .false.
       integer     :: nbnd, norb
       integer     :: nlayer = 0
       integer     :: bulk_numpoints_kz
@@ -82,6 +84,8 @@ module Marpes_calc_mpi
    logical :: on_root
    integer :: status(MPI_STATUS_SIZE)
    type(dist_array1d_t), private :: kdist
+
+   type(scalarfunc_spline_t) :: elpot
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
@@ -140,6 +144,15 @@ contains
          end if
          call ovlp_tmp%Clean()
          me%orthogonal_basis = .false.
+      end if
+
+      me%static_potential = (len_trim(par_ham%file_elpot) > 0)
+
+      if(me%static_potential) then
+         call elpot%Load_function(par_ham%file_elpot)
+         if (on_root) then
+            write(output_unit,fmt_info) "including electrostatic potential in Hamiltonian"
+         end if
       end if
 
       if (par_ham%slab_mode .and. par_ham%slab_nlayer > 0 .and. .not. par_pes%bulk_mode) then
@@ -388,7 +401,11 @@ contains
 
          do ikz = 1, me%bulk_numpoints_kz
             kpt(3) = kz_red(ikz)
-            Hk = me%ham%get_ham(kpt)
+            if(me%static_potential) then
+               Hk = me%Ham%get_ham_elpot(kpt, elpot_func)
+            else
+               Hk = me%ham%get_ham(kpt)
+            end if
             if (.not. me%orthogonal_basis) Sk = me%ovlp%get_Smat(kpt)
 
             if (me%orthogonal_basis) then
@@ -483,11 +500,19 @@ contains
          if(.not. me%dipole_approx) then
             kqpar(1:2) = kpar(1:2) - me%qphot(1:2)
             kqpt(1:2) = me%ham%get_kreduced(kqpar(1:2))
-            Hk = me%ham%get_ham(kqpt)
+            if(me%static_potential) then
+               Hk = me%Ham%get_ham_elpot(kqpt, elpot_func)
+            else
+               Hk = me%ham%get_ham(kqpt)
+            end if
             if (.not. me%orthogonal_basis) Sk = me%ovlp%get_Smat(kqpt)
          else
             kpt(1:2) = me%ham%get_kreduced(kpar(1:2))
-            Hk = me%ham%get_ham(kpt)
+            if(me%static_potential) then
+               Hk = me%Ham%get_ham_elpot(kpt, elpot_func)
+            else
+               Hk = me%ham%get_ham(kpt)
+            end if
             if (.not. me%orthogonal_basis) Sk = me%ovlp%get_Smat(kpt)
          end if
 
@@ -579,11 +604,19 @@ contains
          if(.not. me%dipole_approx) then
             kqpar(1:2) = kpar(1:2) - me%qphot(1:2)
             kqpt(1:2) = me%ham%get_kreduced(kqpar(1:2))
-            Hk = me%ham%get_ham(kqpt)
+            if(me%static_potential) then
+               Hk = me%Ham%get_ham_elpot(kqpt, elpot_func)
+            else
+               Hk = me%ham%get_ham(kqpt)
+            end if
             if (.not. me%orthogonal_basis) Sk = me%ovlp%get_Smat(kqpt)
          else
             kpt(1:2) = me%ham%get_kreduced(kpar(1:2))
-            Hk = me%ham%get_ham(kpt)
+            if(me%static_potential) then
+               Hk = me%Ham%get_ham_elpot(kpt, elpot_func)
+            else
+               Hk = me%ham%get_ham(kpt)
+            end if
             if (.not. me%orthogonal_basis) Sk = me%ovlp%get_Smat(kpt)
          end if
 
@@ -1029,6 +1062,14 @@ contains
 
    end subroutine WriteMatrixElements_hdf5
 #endif
+!--------------------------------------------------------------------------------------
+   function elpot_func(z) result(v)
+      real(dp),intent(in) :: z
+      real(dp) :: v
+
+      v = elpot%fval(z)
+
+   end function elpot_func
 !--------------------------------------------------------------------------------------
 
 !======================================================================================

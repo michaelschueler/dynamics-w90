@@ -227,7 +227,7 @@ contains
             end do
             !$OMP END DO            
             deallocate(Sk)
-            else
+         else
             !$OMP DO
             do ik=1,me%Nk
                Hk = me%Ham%get_ham_elpot(me%kpts(ik,:),elpot_func)
