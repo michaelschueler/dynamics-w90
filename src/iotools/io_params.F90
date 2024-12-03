@@ -109,6 +109,7 @@ module io_params
       ! .. slab parameters ..
       integer            :: slab_nlayer=0 !! number of layers in a slab calculation, triggered by
                                           !! `slab_mode = .true.`
+      integer            :: slab_max_range=0 !! maximum hopping range for the Hamiltonian
    contains
       procedure, public :: ReadFromFile => Ham_ReadFromFile  
    end type HamiltonianParams_t
@@ -269,7 +270,8 @@ contains
          field_mode,Efield,Beta,Filling,MuChem,FixMuChem,lm_gauge,exclude_orbitals,exclude_layers,&
          scissor_index,scissor_energy
       integer :: slab_nlayer=0
-      namelist/SLAB/slab_nlayer
+      integer :: slab_max_range=0
+      namelist/SLAB/slab_nlayer,slab_max_range
 
       integer :: unit_inp
 
@@ -313,6 +315,7 @@ contains
          close(unit_inp)
 
          me%slab_nlayer = slab_nlayer
+         me%slab_max_range = slab_max_range
 
          if(len_trim(exclude_layers) > 0) then
             call ReadList(exclude_layers, me%lays_excl, "exclude_layers")

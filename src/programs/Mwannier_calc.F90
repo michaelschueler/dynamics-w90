@@ -119,7 +119,7 @@ contains
       if(par_ham%slab_mode .and. par_ham%slab_nlayer > 0) then
          write(output_unit,fmt_info) "building slab with "//str(par_ham%slab_nlayer)//" layers"
          call ham_tmp%Set(me%ham)
-         call Wannier_BulkToSlab(ham_tmp,par_ham%slab_nlayer,me%ham)
+         call Wannier_BulkToSlab(ham_tmp, par_ham%slab_nlayer, me%ham, max_hopping_range=par_ham%slab_max_range)
          call ham_tmp%Clean()
 
          if(.not.me%orthogonal_basis) then

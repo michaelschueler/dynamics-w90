@@ -14,7 +14,7 @@ module wan_slab
 !--------------------------------------------------------------------------------------
 contains
 !--------------------------------------------------------------------------------------
-   subroutine Wannier_BulkToSlab(bulk_w90,nlayer,slab_w90)
+   subroutine Wannier_BulkToSlab(bulk_w90, nlayer, slab_w90, max_hopping_range)
    !! Given a bulk Wannier Hamiltonian, constructs a slab Wannier Hamiltonian.
    !! .We assume the slab is constructed along the 
    !! \(\mathbf{c} = \mathbf{a}\_1\times \mathbf{a}\_2\) direction, where 
@@ -32,6 +32,7 @@ contains
       integer,intent(in)            :: nlayer !! number of layers
       type(wann90_tb_t),intent(out) :: slab_w90 !! The slab Wannier Hamiltonian with 
                                                 !! enlarged orbital space.
+      integer,intent(in),optional   :: max_hopping_range !! maximum hopping range to consider
       integer :: ijmax
       integer :: nwan,nrpts_2d,irpt,irpt2d,irpt0
       integer :: i1,i2,i3,i,j,m1,m2,iml,idir
@@ -41,6 +42,9 @@ contains
       complex(dp),allocatable :: Dij(:,:,:,:,:)
 
       ijmax = ceiling(nlayer/2.0_dp) + 1
+      if(present(max_hopping_range)) then
+         if(max_hopping_range > 0) ijmax = max_hopping_range
+      end if
 
       nwan = bulk_w90%num_wann
       slab_w90%real_lattice = bulk_w90%real_lattice
