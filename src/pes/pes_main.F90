@@ -438,7 +438,8 @@ contains
 !--------------------------------------------------------------------------------------
 
 !--------------------------------------------------------------------------------------
-   subroutine PES_MatrixElements_precomp(orbs, wann, scwfs, radints, kvec, vectk, lam, Matel, gauge, phi)
+   subroutine PES_MatrixElements_precomp(orbs, wann, scwfs, radints, kvec, vectk, lam, Matel, &
+      gauge, phi, unfolding_mode)
       type(wannier_orbs_t), intent(in)   :: orbs
       type(wann90_tb_t), intent(in)      :: wann
       type(scattwf_t), intent(in)        :: scwfs(:)
@@ -449,8 +450,10 @@ contains
       complex(dp), intent(inout)         :: matel(:, :)
       integer, intent(in), optional       :: gauge
       real(dp), intent(in), optional      :: phi
+      logical, intent(in), optional      :: unfolding_mode
       integer :: gauge_
       real(dp) :: phi_
+      logical :: unfolding_mode_
       logical :: large_size
       integer :: norb, nbnd, ibnd, iorb, mabs, idir
       complex(dp) :: mat_m(3), mat_mm(3)
@@ -463,6 +466,9 @@ contains
       phi_ = 0.0_dp
       if (present(phi)) phi_ = phi
 
+      unfolding_mode_ = .false.
+      if (present(unfolding_mode)) unfolding_mode_ = unfolding_mode
+
       norb = wann%num_wann
       large_size = get_large_size(norb)
 
@@ -473,21 +479,29 @@ contains
       allocate (matomic(norb, 3)); matomic = zero
       do iorb = 1, norb
          if (orbs%weight(iorb) < 1.0e-5_dp) cycle
-         if (orbs%real_lm) then
-            mabs = abs(orbs%M_indx(iorb))
-            mat_m(1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), mabs, kvec, &
-               phi=phi_, gauge=gauge_)
-            mat_mm(1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), -mabs, kvec, &
-               phi=phi_, gauge=gauge_)
-            do idir = 1, 3
-               Matomic(iorb, idir) = Transform_Y2X(orbs%M_indx(iorb), mat_m(idir), mat_mm(idir))
-            end do
-         else
-            matomic(iorb, 1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), &
-                                                           orbs%M_indx(iorb), kvec, phi=phi_, gauge=gauge_)
-         end if
 
-         matomic(iorb, 1:3) = matomic(iorb, 1:3)*orbs%weight(iorb)
+         if (unfolding_mode_) then
+            matomic(iorb, 1:3) = orbs%weight(iorb)
+         
+         else
+
+            if (orbs%real_lm) then
+               mabs = abs(orbs%M_indx(iorb))
+               mat_m(1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), mabs, kvec, &
+                  phi=phi_, gauge=gauge_)
+               mat_mm(1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), -mabs, kvec, &
+                  phi=phi_, gauge=gauge_)
+               do idir = 1, 3
+                  Matomic(iorb, idir) = Transform_Y2X(orbs%M_indx(iorb), mat_m(idir), mat_mm(idir))
+               end do
+            else
+               matomic(iorb, 1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), &
+                                                            orbs%M_indx(iorb), kvec, phi=phi_, gauge=gauge_)
+            end if
+
+            matomic(iorb, 1:3) = matomic(iorb, 1:3)*orbs%weight(iorb)
+
+         end if
 
       end do
 
@@ -502,7 +516,7 @@ contains
    end subroutine PES_MatrixElements_precomp
 !--------------------------------------------------------------------------------------
    subroutine PES_Slab_MatrixElements_precomp(orbs, wann, nlayer, scwfs, radints, kvec, vectk, &
-                                              lam, Matel, gauge, phi, excluded_layers)
+                                              lam, Matel, gauge, phi, excluded_layers, unfolding_mode)
       real(dp) :: rthresh = -20.0_dp
       type(wannier_orbs_t), intent(in)   :: orbs
       type(wann90_tb_t), intent(in)      :: wann
@@ -516,7 +530,9 @@ contains
       integer, intent(in), optional      :: gauge
       real(dp), intent(in), optional     :: phi
       integer, intent(in), optional      :: excluded_layers(:)
+      logical, intent(in), optional      :: unfolding_mode
       integer :: gauge_
+      logical :: unfolding_mode_
       real(dp) :: phi_
       logical :: large_size
       integer :: norb, nbnd, ibnd, iorb, mabs, idir, ilay, j, ipos
@@ -529,6 +545,9 @@ contains
 
       phi_ = 0.0_dp
       if (present(phi)) phi_ = phi
+
+      unfolding_mode_ = .false.
+      if (present(unfolding_mode)) unfolding_mode_ = unfolding_mode
 
       norb = orbs%norb
       large_size = get_large_size(norb)
@@ -545,21 +564,28 @@ contains
       allocate (matomic_layer(norb, 3)); matomic_layer = zero
       do iorb = 1, norb
          if (orbs%weight(iorb) < 1.0e-5_dp) cycle
-         if (orbs%real_lm) then
-            mabs = abs(orbs%M_indx(iorb))
-            mat_m(1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), mabs, kvec, &
-               phi=phi_, gauge=gauge_)
-            mat_mm(1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), -mabs, kvec, &
-               phi=phi_, gauge=gauge_)
-            do idir = 1, 3
-               matomic_layer(iorb, idir) = Transform_Y2X(orbs%M_indx(iorb), mat_m(idir), mat_mm(idir))
-            end do
-         else
-            matomic_layer(iorb, 1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), &
-                                                                 orbs%M_indx(iorb), kvec, phi=phi_, gauge=gauge_)
-         end if
 
-         matomic_layer(iorb, 1:3) = matomic_layer(iorb, 1:3)*orbs%weight(iorb)
+         if (unfolding_mode_) then
+            matomic_layer(iorb, 1:3) = orbs%weight(iorb)
+         else
+
+            if (orbs%real_lm) then
+               mabs = abs(orbs%M_indx(iorb))
+               mat_m(1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), mabs, kvec, &
+                  phi=phi_, gauge=gauge_)
+               mat_mm(1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), -mabs, kvec, &
+                  phi=phi_, gauge=gauge_)
+               do idir = 1, 3
+                  matomic_layer(iorb, idir) = Transform_Y2X(orbs%M_indx(iorb), mat_m(idir), mat_mm(idir))
+               end do
+            else
+               matomic_layer(iorb, 1:3) = ScattMatrixElement(scwfs(iorb), radints(iorb), orbs%L_indx(iorb), &
+                                                                  orbs%M_indx(iorb), kvec, phi=phi_, gauge=gauge_)
+            end if
+
+            matomic_layer(iorb, 1:3) = matomic_layer(iorb, 1:3)*orbs%weight(iorb)
+
+         end if
       end do
 
       allocate (matomic(nbnd, 3)); matomic = zero
@@ -687,7 +713,7 @@ contains
 
 !--------------------------------------------------------------------------------------
    function PES_Intensity_precomp(orbs, wann, scwfs, radints, kpar, wphot, pol, Epe, epsk, vectk, &
-                                  mu, Vin, lam, eta, gauge, qphot, phi) result(inten)
+                                  mu, Vin, lam, eta, gauge, qphot, phi, unfolding_mode) result(inten)
       type(wannier_orbs_t), intent(in)   :: orbs
       type(wann90_tb_t), intent(in)      :: wann
       type(scattwf_t), intent(in)        :: scwfs(:)
@@ -705,9 +731,11 @@ contains
       integer, intent(in), optional       :: gauge
       real(dp), intent(in), optional      :: qphot(3)
       real(dp), intent(in), optional      :: phi
+      logical, intent(in), optional      :: unfolding_mode
       real(dp)                          :: inten
       integer :: gauge_
       real(dp) :: phi_
+      logical :: unfolding_mode_
       integer :: idir, nbnd, ibnd
       real(dp) :: Ez, kvec(3)
       complex(dp), allocatable :: matel(:, :), matel_pol(:)
@@ -717,6 +745,9 @@ contains
 
       phi_ = 0.0_dp
       if (present(phi)) phi_ = phi
+
+      unfolding_mode_ = .false.
+      if (present(unfolding_mode)) unfolding_mode_ = unfolding_mode
 
       nbnd = wann%num_wann
       call assert(orbs%norb == nbnd, "PES_Intensity: orbs%norb == nbnd")
@@ -745,7 +776,8 @@ contains
 
       allocate (matel(nbnd, 3), matel_pol(nbnd))
 
-      call PES_MatrixElements(orbs, wann, scwfs, radints, kvec, vectk, lam, matel, gauge=gauge_, phi=phi_)
+      call PES_MatrixElements(orbs, wann, scwfs, radints, kvec, vectk, lam, matel, &
+         gauge=gauge_, phi=phi_, unfolding_mode=unfolding_mode_)
 
       matel_pol = matmul(matel, pol)
 
@@ -850,7 +882,8 @@ contains
    end function PES_Bulk_Intensity_precomp
 !--------------------------------------------------------------------------------------
    function PES_Slab_Intensity_precomp(orbs, wann, nlayer, scwfs, radints, kpar, wphot, pol, Epe, &
-                                       epsk, vectk, mu, Vin, lam, eta, gauge, qphot, phi, excluded_layers) result(inten)
+                                       epsk, vectk, mu, Vin, lam, eta, gauge, qphot, phi, &
+                                       excluded_layers, unfolding_mode) result(inten)
       type(wannier_orbs_t), intent(in)   :: orbs
       type(wann90_tb_t), intent(in)      :: wann
       integer, intent(in)                :: nlayer
@@ -870,9 +903,11 @@ contains
       real(dp), intent(in), optional      :: qphot(3)
       real(dp), intent(in), optional      :: phi
       integer, intent(in), optional       :: excluded_layers(:)
+      logical, intent(in), optional       :: unfolding_mode
       real(dp)                          :: inten
       integer :: gauge_
       real(dp) :: phi_
+      logical :: unfolding_mode_
       integer :: idir, norb, nbnd, ibnd
       real(dp) :: Ez, kvec(3)
       complex(dp), allocatable :: matel(:, :), matel_pol(:)
@@ -882,6 +917,9 @@ contains
 
       phi_ = 0.0_dp
       if (present(phi)) phi_ = phi
+
+      unfolding_mode_ = .false.
+      if (present(unfolding_mode)) unfolding_mode_ = unfolding_mode
 
       norb = orbs%norb
       nbnd = wann%num_wann
@@ -914,10 +952,11 @@ contains
 
       if (present(excluded_layers)) then
          call PES_Slab_MatrixElements(orbs, wann, nlayer, scwfs, radints, kvec, vectk, lam, matel, &
-                                      gauge=gauge_, phi=phi_, excluded_layers=excluded_layers)
+                                      gauge=gauge_, phi=phi_, excluded_layers=excluded_layers, &
+                                      unfolding_mode=unfolding_mode_)
       else
          call PES_Slab_MatrixElements(orbs, wann, nlayer, scwfs, radints, kvec, vectk, lam, matel, &
-                                      gauge=gauge_, phi=phi_)
+                                      gauge=gauge_, phi=phi_, unfolding_mode=unfolding_mode_)
       end if
 
       matel_pol = zero

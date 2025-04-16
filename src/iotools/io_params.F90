@@ -124,6 +124,8 @@ module io_params
       logical            :: lambda_orbital_term=.false. !! triggers the calculation of atomic matrix
                                                         !! elements with complex wave-vector
       logical            :: bulk_mode=.false. !! Option to compute ARPES from a 3D bulk Hamiltonian 
+      logical            :: unfolding_mode=.false. !! Option to compute ARPES from a 3D bulk Hamiltonian
+                                                   !! with unfolding of the Brillouin zone
       logical            :: OutputMatrixElements=.false. !! Option to output complex matrix elements
       integer            :: gauge=gauge_len !! Gauge for dipole operator \(\hat{\Delta}\).
                                             !! 0: dipole gauge \(\hat{\Delta} = \mathbf{r}\), 
@@ -336,6 +338,7 @@ contains
       logical            :: lambda_orbital_term=.false.
       logical            :: bulk_mode=.false. 
       logical            :: OutputMatrixElements=.false. 
+      logical            :: unfolding_mode=.false.
       integer            :: gauge=gauge_len
       integer            :: scatt_type=wf_pw
       integer            :: Nepe=1
@@ -356,7 +359,7 @@ contains
          eta_smear,polvec_real,polvec_imag,kpts_reduced,scatt_type,radint_numpoints_k,&
          radint_numpoints_r,lambda_orbital_term,expansion_lmax,dipole_approximation,&
          qmom_phot,angle_rot_z,file_scatt,bulk_mode,bulk_numpoints_kz,Vinner,&
-         OutputMatrixElements
+         OutputMatrixElements, unfolding_mode
       integer :: unit_inp
 
       open(newunit=unit_inp,file=trim(fname),status='OLD',action='READ')
@@ -364,6 +367,7 @@ contains
       close(unit_inp)
 
       me%bulk_mode = bulk_mode
+      me%unfolding_mode = unfolding_mode
       me%file_orbs = file_orbs
       me%file_scatt = file_scatt
       me%kpts_reduced = kpts_reduced

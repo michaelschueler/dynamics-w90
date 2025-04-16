@@ -33,7 +33,7 @@ module Marpes_calc_mpi
 !--------------------------------------------------------------------------------------
    type :: arpes_calc_t
       logical     :: lambda_mode = .false., slab_mode = .false., dipole_approx = .true.
-      logical     :: bulk_mode = .false.
+      logical     :: bulk_mode = .false., unfolding_mode = .false.
       logical     :: orthogonal_basis = .true.
       logical     :: scatt_from_input = .false.
       logical     :: static_potential = .false.
@@ -190,6 +190,8 @@ contains
          me%phi_rot = par_pes%angle_rot_z
       end if
 
+      me%unfolding_mode = par_pes%unfolding_mode
+
       me%nbnd = me%ham%num_wann
       me%MuChem = par_ham%MuChem
 
@@ -291,6 +293,9 @@ contains
 !--------------------------------------------------------------------------------------
    subroutine CalcIntegrals(me)
       class(arpes_calc_t) :: me
+
+      ! We don't need to calculate the integrals if we are in unfolding mode
+      if(me%unfolding_mode) return
 
       if (me%lambda_mode) then
          call me%CalcIntegrals_lambda()
@@ -568,7 +573,8 @@ contains
                                     me%eta_smear, &
                                     me%gauge, &
                                     qphot=me%qphot, &
-                                    phi=me%phi_rot)
+                                    phi=me%phi_rot, &
+                                    unfolding_mode=me%unfolding_mode)
             end do
             !$OMP END DO
             !$OMP END PARALLEL
@@ -649,8 +655,7 @@ contains
                                        me%lambda_esc, &
                                        me%eta_smear, &
                                        qphot=me%qphot, &
-                                       phi=me%phi_rot, &
-                                       excluded_layers=me%excluded_layers)
+                                       phi=me%phi_rot)
                end do
                !$OMP END DO
                !$OMP END PARALLEL
@@ -704,7 +709,8 @@ contains
                                        me%gauge, &
                                        qphot=me%qphot, &
                                        phi=me%phi_rot, &
-                                       excluded_layers=me%excluded_layers)
+                                       excluded_layers=me%excluded_layers, &
+                                       unfolding_mode=me%unfolding_mode)
                end do
                !$OMP END DO
                !$OMP END PARALLEL
@@ -730,7 +736,8 @@ contains
                                        me%eta_smear, &
                                        me%gauge, &
                                        qphot=me%qphot, &
-                                       phi=me%phi_rot)
+                                       phi=me%phi_rot, &
+                                       unfolding_mode=me%unfolding_mode)
                end do
                !$OMP END DO
                !$OMP END PARALLEL

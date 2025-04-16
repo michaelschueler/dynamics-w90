@@ -72,7 +72,7 @@ program arpes_mpi
       if(on_root) write(output_unit,fmt_info) 'No output prefix given. No output will be produced.'
    end if
 
-   call calc%Init(par_ham,par_pes,kp)
+   call calc%Init(par_ham, par_pes, kp)
 
    toc = MPI_Wtime()
    if(on_root) then
