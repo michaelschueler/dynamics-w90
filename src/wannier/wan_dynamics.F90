@@ -865,7 +865,7 @@ contains
 
       Ared = Cart_to_red(w90,Avec)
 
-      Jcurr = 0.0_dp
+      ! Jcurr = 0.0_dp
 
       if(present(rot_mat)) then
          !$OMP PARALLEL PRIVATE(ik,kAred,grad_Hk,Dk,DRhok_dt,Jk)
@@ -1132,7 +1132,7 @@ contains
       complex(dp),dimension(w90%num_wann,w90%num_wann)   :: Hk
       complex(dp),dimension(w90%num_wann,w90%num_wann,3) :: vk
 
-      Etot = 0.0_dp
+      ! Etot = 0.0_dp
       !$OMP PARALLEL PRIVATE(ik,Ek,Hk,vk)
       !$OMP DO REDUCTION(+:Etot)
       do ik=1,Nk
@@ -1168,7 +1168,7 @@ contains
       integer :: ik
       real(dp) :: Ek
 
-      Etot = 0.0_dp
+      ! Etot = 0.0_dp
       !$OMP PARALLEL PRIVATE(ik,Ek)
       !$OMP DO REDUCTION(+:Etot)
       do ik=1,Nk
@@ -1200,7 +1200,7 @@ contains
 
       if(present(band_basis)) bands_ = band_basis
 
-      Ekin = 0.0_dp
+      ! Ekin = 0.0_dp
 
       if(bands_) then
          !$OMP PARALLEL PRIVATE(ik,Ek,Hk)
@@ -1238,7 +1238,7 @@ contains
       integer :: ik
       real(dp) :: Ek
 
-      Ekin = 0.0_dp
+      ! Ekin = 0.0_dp
       !$OMP PARALLEL PRIVATE(ik,Ek)
       !$OMP DO REDUCTION(+:Ekin)
       do ik=1,Nk
@@ -1268,7 +1268,7 @@ contains
 
       Ared = Cart_to_red(w90,Avec)
 
-      Etot = 0.0_dp
+      ! Etot = 0.0_dp
 
       !$OMP PARALLEL PRIVATE(ik,kAred,Hk,Dk,Ek)
       !$OMP DO REDUCTION(+:Etot)
