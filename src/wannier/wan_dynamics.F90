@@ -769,7 +769,7 @@ contains
       integer :: ik
       real(dp) :: Dipk(3)
  
-      dipole = 0.0_dp
+      ! dipole = 0.0_dp
 
       !$OMP PARALLEL PRIVATE(ik,Dipk)
       !$OMP DO REDUCTION(+:dipole)
