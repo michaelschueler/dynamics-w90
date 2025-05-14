@@ -20,7 +20,7 @@ module pes_scattwf
       integer  :: wf_type = wf_pw
       integer  :: lmax
       real(dp) :: Z=0.0_dp
-      type(real_vector_spline_t) :: phase_spl
+      type(real_vector_spline_t) :: cos_phase_spl, sin_phase_spl
    contains
       procedure,public :: Init
       procedure,public :: Eval
@@ -36,6 +36,7 @@ contains
       type(scatt_input_t),intent(in),optional :: scatt_input
       integer,intent(in),optional :: scatt_iorb
       real(dp),allocatable :: ks(:)
+      real(dp),allocatable :: cos_phase(:, :), sin_phase(:, :)
 
       me%wf_type = wf_type
 
@@ -45,13 +46,22 @@ contains
 
          allocate(ks(scatt_input%nE))
          ks = sqrt(2.0_dp * scatt_input%Ex)
-         call me%phase_spl%Init(ks, scatt_input%phase(:,:,scatt_iorb), &
-            scatt_input%lmax+1)
+
+         allocate(cos_phase(scatt_input%nE, scatt_input%lmax+1))
+         allocate(sin_phase(scatt_input%nE, scatt_input%lmax+1))
+
+         cos_phase(:, :) = cos(scatt_input%phase(:,:,scatt_iorb))
+         sin_phase(:, :) = sin(scatt_input%phase(:,:,scatt_iorb))
+
+         call me%cos_phase_spl%Init(ks, cos_phase, scatt_input%lmax+1)
+         call me%sin_phase_spl%Init(ks, sin_phase, scatt_input%lmax+1)
 
          me%lmax = scatt_input%lmax
 
          me%phase_from_input = .true.
          deallocate(ks)
+         deallocate(cos_phase)
+         deallocate(sin_phase)
       end if
 
    end subroutine Init
@@ -94,7 +104,7 @@ contains
       integer,intent(in)          :: l
       real(dp),intent(in)         :: k   
       real(dp) :: eta
-      real(dp) :: phi_l(me%lmax+1)
+      real(dp) :: cos_phi_l(me%lmax+1), sin_phi_l(me%lmax+1)
       complex(dp) :: zl,zeta
 
       select case(me%wf_type)
@@ -107,8 +117,10 @@ contains
       case(wf_input) 
          phase = one
          if(me%phase_from_input) then
-            phi_l(:) = me%phase_spl%Eval(k)
-            if(l <= me%lmax) phase = exp(iu*phi_l(l+1))
+            cos_phi_l(:) = me%cos_phase_spl%Eval(k)
+            sin_phi_l(:) = me%sin_phase_spl%Eval(k)
+            if(l <= me%lmax) phase = cmplx(cos_phi_l(l+1), sin_phi_l(l+1), kind=dp)
+            ! if(l <= me%lmax) phase = exp(iu*phi_l(l+1))
             ! print*, l, k, phi_l
          end if
       case default
