@@ -113,7 +113,7 @@ contains
          ! zeta = lacz_gamma(l + 1.0_dp + iu*eta)
          zl = cmplx(l + 1.0_dp, eta, kind=dp)
          zeta = cdgamma(zl)
-         phase = conjg(zeta)/abs(zeta)
+         phase = zeta/abs(zeta)
       case(wf_input) 
          phase = one
          if(me%phase_from_input) then
@@ -127,7 +127,7 @@ contains
          phase = one
       end select
 
-      phase = iu**l * phase
+      phase = (-iu)**l * phase
 
    end function Phase
 

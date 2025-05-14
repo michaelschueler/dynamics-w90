@@ -120,7 +120,7 @@ contains
 
       l = l0 - 1
       if(l >= 0) then
-         exphi = conjg(swf%Phase(l,knrm))
+         exphi = swf%Phase(l,knrm)
          do m=-l,l
             mel_ang = rphase * AngularMatrixElement(l,m,l0,m0)
             Md(1:3) = Md(1:3) + exphi * mel_ang(1:3) * rint(1) * Ylm_cart(l,m,kvec)
@@ -128,7 +128,7 @@ contains
       end if
 
       l = l0 + 1
-      exphi = conjg(swf%Phase(l,knrm))
+      exphi = swf%Phase(l,knrm)
       do m=-l,l
          mel_ang = rphase * AngularMatrixElement(l,m,l0,m0)
          Md(1:3) = Md(1:3) + exphi * mel_ang(1:3) * rint(2) * Ylm_cart(l,m,kvec)
@@ -166,7 +166,7 @@ contains
             Yq(q) = conjg(Ylm_cart(l,-m0-q,kvec))
          end do
 
-         exphi = conjg(swf%Phase(l,knrm))
+         exphi = swf%Phase(l,knrm)
 
          Mk(1) = Mk(1) + exphi * rint(1) * (gnt(-1) * Yq(-1) - gnt(1) * Yq(1)) / sqrt(2.0d0)
          Mk(2) = Mk(2) + iu * exphi * rint(1) * (gnt(-1) * Yq(-1) + gnt(1) * Yq(1)) / sqrt(2.0d0)
@@ -179,7 +179,7 @@ contains
          Yq(q) = conjg(Ylm_cart(l,-m0-q,kvec))
       end do
 
-      exphi = conjg(swf%Phase(l,knrm))
+      exphi = swf%Phase(l,knrm)
 
       Mk(1) = Mk(1) + exphi * rint(2) * (gnt(-1) * Yq(-1) - gnt(1) * Yq(1)) / sqrt(2.0d0)
       Mk(2) = Mk(2) + iu * exphi * rint(2) * (gnt(-1) * Yq(-1) + gnt(1) * Yq(1)) / sqrt(2.0d0)
@@ -498,7 +498,7 @@ contains
 
       icmp = 0
       do l=0,lmax
-         exphi = conjg(swf%Phase(l,knrm))
+         exphi = swf%Phase(l,knrm)
          do m=-l,l
             icmp = icmp + 1      
 
