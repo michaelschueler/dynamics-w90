@@ -47,7 +47,12 @@ set(COMMON_LIBS "")
 
 # ~~ OpenMP + SIMD ~~
 find_package(OpenMP REQUIRED)
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
+
+if(OpenMP_Fortran_FOUND)
+    list(APPEND COMMON_LIBS OpenMP::OpenMP_Fortran)
+endif()
+
+# set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
 option(simd "Build with OpenMP SIMD support" OFF)
 if (simd)
    message(STATUS "Building with SIMD support")
