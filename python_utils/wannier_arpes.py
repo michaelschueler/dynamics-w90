@@ -129,4 +129,4 @@ class WannierARPES():
             subprocess.run(cmd, check=True)
         else:
             with open(file_log, 'w') as log_file:
-            subprocess.run(cmd, stdout=log_file, stderr=subprocess.STDOUT, check=True)
+                subprocess.run(cmd, stdout=log_file, stderr=subprocess.STDOUT, check=True)
