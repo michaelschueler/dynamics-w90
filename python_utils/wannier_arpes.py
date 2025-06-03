@@ -39,10 +39,12 @@ class WannierARPES():
         file_scatt = params.get('file_scatt', "")
         kpts_reduced = params.get('kpts_reduced', False)
         lambda_orbital_term = params.get('lambda_orbital_term', False)
-        gauge = params.get('gauge', 'length').strip().lower()
-        if gauge not in ['length', 'velocity']:
+        gauge_tag = params.get('gauge', 'length').strip().lower()
+        gauge_options = ['length', 'velocity']
+        if gauge_tag not in ['length', 'velocity']:
             print("[Error] gauge must be 'length' or 'velocity'.")
             sys.exit(1)
+        gauge = gauge_options.index(gauge_tag)
 
         scatt_flag = params.get('scatt_type', 'pw').strip().lower()
         if scatt_flag == 'pw':
@@ -55,10 +57,10 @@ class WannierARPES():
             print("[Error] scatt_type must be 'pw', 'coulomb', or 'input'.")
             sys.exit(1)
 
-        Eshift = params.get('Eshift', 0.0)
         radint_numpoints_k = params.get('radint_numpoints_k', 40)
         radint_numpoints_r = params.get('radint_numpoints_r', 128)
 
+        Eshift = photon.get('Eshift', 0.0)
         Nepe = photon.get('Nepe', 100)
         wphot = photon.get('wphot', 1.0)
         Epe_min = photon.get('Epe_min', -1.0)
