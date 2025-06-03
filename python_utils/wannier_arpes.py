@@ -47,9 +47,9 @@ class WannierARPES():
         scatt_flag = params.get('scatt_type', 'pw').strip().lower()
         if scatt_flag == 'pw':
             scatt_type = 0
-        elif scatt_type == 'coulomb':
+        elif scatt_flag == 'coulomb':
             scatt_type = 1
-        elif scatt_type == 'input':
+        elif scatt_flag == 'input':
             scatt_type = 2
         else:
             print("[Error] scatt_type must be 'pw', 'coulomb', or 'input'.")
