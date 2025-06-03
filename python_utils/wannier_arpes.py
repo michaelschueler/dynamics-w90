@@ -117,13 +117,13 @@ class WannierARPES():
         file_log = os.path.join(self.PathLog, prefix + '.log')
 
         self.__WriteInput(file_inp)
-        
-        if len(self.mpicmd) > 0:
-            cmd = [self.mpicmd, self.exe, file_inp, file_out]
-        else:
-            cmd = [self.exe, file_inp, file_out]
 
-        print(f"Running command: {' '.join(cmd)}")
+    
+        if len(self.mpicmd) > 0:
+            self.exe = self.mpicmd + ' ' + self.exe
+
+        cmd = [self.exe, file_inp, file_out]
+        # print(f"Running command: {' '.join(cmd)}")
 
         if debug_mode:
             subprocess.run(cmd, check=True)
