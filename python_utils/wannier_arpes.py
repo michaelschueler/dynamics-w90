@@ -14,8 +14,10 @@ class WannierARPES():
         self.PathLog = PathLog
     #========================================
     def SetHamiltonian(self, file_ham:str, MuChem:float=0.0, file_ovlp:str="", 
-                       slab_mode:bool=False, slab_nlayers:int=1):
+                       slab_nlayers:int=1):
         
+        slab_mode = slab_nlayers > 1
+
         self.ham_param = {
             'file_ham': file_ham,
             'MuChem': MuChem,
