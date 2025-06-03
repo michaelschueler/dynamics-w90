@@ -14,9 +14,9 @@ class WannierARPES():
         self.PathLog = PathLog
     #========================================
     def SetHamiltonian(self, file_ham:str, MuChem:float=0.0, file_ovlp:str="", 
-                       slab_nlayers:int=1):
+                       slab_nlayer:int=1):
         
-        slab_mode = slab_nlayers > 1
+        slab_mode = slab_nlayer > 1
 
         self.ham_param = {
             'file_ham': file_ham,
@@ -27,7 +27,7 @@ class WannierARPES():
         
         self.slab_param = {}
         if slab_mode:
-            self.slab_param['slab_nlayers'] = slab_nlayers
+            self.slab_param['slab_nlayer'] = slab_nlayer
     #========================================
     def SetPESParams(self, params, photon):
         
@@ -118,17 +118,11 @@ class WannierARPES():
 
         self.__WriteInput(file_inp)
         
-        if len(self.mpicmd):
+        if len(self.mpicmd) > 0:
             cmd = [self.mpicmd, self.exe, file_inp, file_out]
         else:
             cmd = [self.exe, file_inp, file_out]
 
-        if debug_mode:
-            subprocess.run(cmd)
-        else:
-            with open(file_log, 'w') as log_file:
-                subprocess.run(cmd, stdout=log_file, stderr=subprocess.STERR)
-        
         if debug_mode:
             subprocess.run(cmd, check=True)
         else:
