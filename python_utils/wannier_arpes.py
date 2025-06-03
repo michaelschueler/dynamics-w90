@@ -123,6 +123,8 @@ class WannierARPES():
         else:
             cmd = [self.exe, file_inp, file_out]
 
+        print(f"Running command: {' '.join(cmd)}")
+
         if debug_mode:
             subprocess.run(cmd, check=True)
         else:
