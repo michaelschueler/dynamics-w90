@@ -7,7 +7,7 @@ import f90nml
 class WannierARPES():
     #========================================
     def __init__(self, PathExe, PathInp='./inp/', PathOut='./out/', PathLog='./log/', mpicmd=""):
-        self.exe = os.path.join(PathExe, "wann_arpes_mpi.x")
+        self.exe = os.path.join(PathExe, "arpes_mpi.x")
         self.mpicmd = mpicmd
         self.PathInp = PathInp
         self.PathOut = PathOut
