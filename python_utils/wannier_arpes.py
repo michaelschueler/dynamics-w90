@@ -31,6 +31,12 @@ class WannierARPES():
     #========================================
     def SetPESParams(self, params, photon):
         
+        bulk_mode = params.get('bulk_mode', False)
+
+        unfolding_mode = params.get('unfolding_mode', False)
+
+        OutputMatrixElements = params.get('OutputMatrixElements', False)
+
         file_orbs = params.get('file_orbs', "")
         if len(file_orbs) == 0:
             print("[Error] file_orbs is not set.")
@@ -71,6 +77,9 @@ class WannierARPES():
         polvec_imag = photon.get('polvec_imag', [0.0, 0.0, 0.0])
 
         self.pes_param = {
+            'bulk_mode': bulk_mode,
+            'unfolding_mode': unfolding_mode,
+            'OutputMatrixElements': OutputMatrixElements,
             'file_orbs': file_orbs,
             'file_scatt': file_scatt,
             'kpts_reduced': kpts_reduced,
@@ -87,7 +96,7 @@ class WannierARPES():
             'lambda_esc': lambda_esc,
             'eta_smear': eta_smear,
             'polvec_real': polvec_real,
-            'polvec_imag': polvec_imag
+            'polvec_imag': polvec_imag,
         }
     #========================================
     def SetKPTS(self, kpoints_type:str, file_kpts:str="", nk1:int=1, nk2:int=1):
