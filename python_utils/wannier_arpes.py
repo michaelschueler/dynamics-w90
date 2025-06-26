@@ -107,7 +107,7 @@ class WannierARPES():
             'nk2': nk2
         }
     #========================================
-    def __WriteInput(self, file_inp:str):
+    def WriteInput(self, file_inp:str):
 
         inp = {
             'HAMILTONIAN': self.ham_param,
@@ -125,7 +125,7 @@ class WannierARPES():
         file_out = os.path.join(self.PathOut, prefix)
         file_log = os.path.join(self.PathLog, prefix + '.log')
 
-        self.__WriteInput(file_inp)
+        self.WriteInput(file_inp)
 
     
         if len(self.mpicmd) > 0:
