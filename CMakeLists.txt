@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.10)
 project("DYNAMICS-W90" Fortran)
 enable_language (Fortran)
 
